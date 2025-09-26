@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>כניסה - מערכת הזמנות V6</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Assistant', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div id="app-container" class="max-w-md mx-auto bg-white min-h-screen shadow-lg p-6 flex flex-col justify-center">
+        <div class="text-center">
+            <img src="https://i.postimg.cc/CMsm57QV/image.png" alt="לוגו החברה" class="h-20 mx-auto mb-4 rounded-lg">
+            <h1 class="text-3xl font-bold text-gray-800">מערכת הזמנות V6</h1>
+            <p class="text-gray-500 mb-8">כניסה ללקוחות רשומים</p>
+        </div>
+        <input type="number" id="customer-id-input" class="w-full p-3 border border-gray-300 rounded-lg text-center text-lg tracking-widest mb-4" placeholder="הזן מספר לקוח">
+        <button id="login-btn" class="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition duration-300">כניסה</button>
+        <p id="login-error" class="text-red-500 text-center mt-4 h-6"></p>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyDy3k1AoEKeuCKjmFxefn9fapeqv2Le1_w",
+            authDomain: "hsaban94-cc777.firebaseapp.com",
+            databaseURL: "https://hsaban94-cc777.firebaseio.com",
+            projectId: "hsaban94-cc777",
+            storageBucket: "hsaban94-cc777.appspot.com",
+            messagingSenderId: "299206369469",
+            appId: "1:299206369469:web:50ca90c58f1981ec9457d4",
+            measurementId: "G-EJVHY5TTV8"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        document.getElementById('login-btn').addEventListener('click', async () => {
+            const customerId = document.getElementById('customer-id-input').value.trim();
+            const errorP = document.getElementById('login-error');
+            errorP.textContent = '';
+
+            if (!customerId) {
+                errorP.textContent = 'יש להזין מספר לקוח.';
+                return;
+            }
+
+            try {
+                const customerRef = db.collection('לקוחות').doc(customerId);
+                const doc = await customerRef.get();
+
+                if (doc.exists) {
+                    // Save user info to sessionStorage to be accessible across pages
+                    sessionStorage.setItem('loggedInUser', JSON.stringify({ id: doc.id, ...doc.data() }));
+                    // Redirect to the main dashboard
+                    window.location.href = `./dashboard.html?customerId=${customerId}`;
+                } else {
+                    errorP.textContent = 'מספר לקוח לא נמצא במערכת.';
+                }
+            } catch (error) {
+                console.error("Error logging in: ", error);
+                errorP.textContent = 'שגיאת תקשורת. נסה שוב.';
+            }
+        });
+    </script>
+</body>
+</html>
+
