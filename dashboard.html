@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>דשבורד ראשי</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <style>
+        body { font-family: 'Assistant', sans-serif; }
+        .dashboard-card { transition: transform 0.2s, box-shadow 0.2s; }
+        .dashboard-card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div id="app-container" class="max-w-md mx-auto bg-white min-h-screen">
+        <header class="bg-white shadow-md p-4">
+            <div class="flex justify-between items-center">
+                <div>
+                    <p class="text-sm text-gray-500">שלום,</p>
+                    <h1 id="user-name" class="text-xl font-bold text-gray-800">...טוען</h1>
+                </div>
+                <img src="https://i.postimg.cc/CMsm57QV/image.png" alt="לוגו" class="h-12 rounded-md">
+            </div>
+        </header>
+
+        <main class="p-4 space-y-6">
+            <section>
+                <h2 class="text-lg font-semibold text-gray-700 mb-2">מחלקות ראשיות</h2>
+                <div class="grid grid-cols-2 gap-4">
+                    <a id="materials-link" href="#" class="dashboard-card bg-blue-500 text-white rounded-lg p-4 text-center">
+                        <h3 class="font-bold text-lg">חומרי בניין</h3>
+                        <p class="text-sm opacity-90">הזמנת חומרים</p>
+                    </a>
+                    <a id="containers-link" href="#" class="dashboard-card bg-green-500 text-white rounded-lg p-4 text-center">
+                        <h3 class="font-bold text-lg">מכולות</h3>
+                        <p class="text-sm opacity-90">ניהול והזמנה</p>
+                    </a>
+                </div>
+            </section>
+
+            <section>
+                 <h2 class="text-lg font-semibold text-gray-700 mb-2">מיקום הזמנות פעילות</h2>
+                 <div id="map" class="h-48 w-full rounded-lg border shadow-sm"></div>
+            </section>
+
+            <section>
+                <h2 class="text-lg font-semibold text-gray-700 mb-2">הזמנות אחרונות</h2>
+                <div id="recent-orders-list" class="space-y-2">
+                    <p class="text-gray-500">טוען הזמנות...</p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+
+    <script>
+         const firebaseConfig = {
+            apiKey: "AIzaSyDy3k1AoEKeuCKjmFxefn9fapeqv2Le1_w",
+            authDomain: "hsaban94-cc777.firebaseapp.com",
+            databaseURL: "https://hsaban94-cc777.firebaseio.com",
+            projectId: "hsaban94-cc777",
+            storageBucket: "hsaban94-cc777.appspot.com",
+            messagingSenderId: "299206369469",
+            appId: "1:299206369469:web:50ca90c58f1981ec9457d4",
+            measurementId: "G-EJVHY5TTV8"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        let loggedInUser = null;
+
+        function initMap(orders) {
+            const map = L.map('map').setView([32.2217, 34.9535], 9);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+            
+            const containerIcon = L.divIcon({ html: '🗑️', className: 'text-2xl', iconSize: [30, 30] });
+            const materialIcon = L.divIcon({ html: '🏗️', className: 'text-2xl', iconSize: [30, 30] });
+
+            orders.forEach(order => {
+                 const lat = 32.0853 + (Math.random() - 0.5) * 0.1;
+                 const lon = 34.7818 + (Math.random() - 0.5) * 0.1;
+                 const icon = order.type === 'container' ? containerIcon : materialIcon;
+                 L.marker([lat, lon], { icon }).addTo(map)
+                    .bindPopup(`<b>${order.type === 'container' ? 'הזמנת מכולה' : 'הזמנת חומרים'}</b><br>${order.address}`);
+            });
+        }
+        
+        async function loadDashboardData() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const customerId = urlParams.get('customerId');
+            
+            loggedInUser = JSON.parse(sessionStorage.getItem('loggedInUser'));
+            if (!loggedInUser || loggedInUser.id !== customerId) {
+                window.location.href = './login.html';
+                return;
+            }
+
+            document.getElementById('user-name').textContent = loggedInUser['שם לקוח'];
+            document.getElementById('materials-link').href = `./materials.html?customerId=${customerId}`;
+            document.getElementById('containers-link').href = `./containers.html?customerId=${customerId}`;
+            
+            // Fetch orders
+            const materialsQuery = db.collection('הזמנות חומרי בניין').where('מספר לקוח', '==', customerId).orderBy('תאריך קליטה', 'desc').limit(5).get();
+            const containersQuery = db.collection('הזמנות מכולות').where('מספר לקוח', '==', customerId).orderBy('תאריך הזמנה', 'desc').limit(5).get();
+
+            const [materialsSnapshot, containersSnapshot] = await Promise.all([materialsQuery, containersQuery]);
+
+            const recentMaterials = materialsSnapshot.docs.map(doc => ({ ...doc.data(), type: 'material', date: doc.data()['תאריך קליטה'].toDate() }));
+            const recentContainers = containersSnapshot.docs.map(doc => ({ ...doc.data(), type: 'container', date: doc.data()['תאריך הזמנה'].toDate() }));
+
+            const allOrders = [...recentMaterials, ...recentContainers]
+                .sort((a, b) => b.date - a.date)
+                .slice(0, 5);
+
+            renderRecentOrders(allOrders);
+            initMap(allOrders.map(o => ({type: o.type, address: o['כתובת'] || o['פרטי אספקה']})));
+        }
+
+        function renderRecentOrders(orders) {
+            const listEl = document.getElementById('recent-orders-list');
+            if (orders.length === 0) {
+                listEl.innerHTML = '<p class="text-gray-500">אין הזמנות אחרונות.</p>';
+                return;
+            }
+            listEl.innerHTML = orders.map(order => {
+                const isContainer = order.type === 'container';
+                const title = isContainer ? `בקשת מכולה (${order['סוג פעולה']})` : 'הזמנת חומרי בניין';
+                const address = order['כתובת'] || order['פרטי אספקה'];
+                const date = order.date.toLocaleDateString('he-IL');
+                const statusColor = order['סטטוס'] === 'חדשה' ? 'text-blue-500' : 'text-green-500';
+
+                return `
+                <div class="bg-gray-50 p-3 rounded-lg border">
+                    <div class="flex justify-between items-center">
+                        <p class="font-bold text-gray-800">${title}</p>
+                        <p class="text-sm font-semibold ${statusColor}">${order['סטטוס']}</p>
+                    </div>
+                    <p class="text-sm text-gray-600">${address}</p>
+                    <p class="text-xs text-gray-400 text-left">${date}</p>
+                </div>`;
+            }).join('');
+        }
+
+        window.onload = loadDashboardData;
+    </script>
+</body>
+</html>
+
