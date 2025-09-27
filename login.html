@@ -1,11 +1,9 @@
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
-    <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#3b82f6">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>התחברות עם SMS</title>
+    <title>כניסה - מערכת הזמנות V6</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;700&display=swap" rel="stylesheet">
     <style>
@@ -14,40 +12,21 @@
 </head>
 <body class="bg-gray-100">
     <div id="app-container" class="max-w-md mx-auto bg-white min-h-screen shadow-lg p-6 flex flex-col justify-center">
-        
         <div class="text-center">
             <img src="https://i.postimg.cc/CMsm57QV/image.png" alt="לוגו החברה" class="h-20 mx-auto mb-4 rounded-lg">
-            <h1 class="text-3xl font-bold text-gray-800">אימות מספר טלפון</h1>
-            <p class="text-gray-500 mb-8">קוד אימות ישלח אליך ב-SMS</p>
+            <h1 class="text-3xl font-bold text-gray-800">מערכת הזמנות V6</h1>
+            <p class="text-gray-500 mb-8">כניסה ללקוחות רשומים</p>
         </div>
-
-        <!-- Phone Number Input Section -->
-        <div id="phone-section">
-            <input type="tel" id="phone-number-input" class="w-full p-3 border border-gray-300 rounded-lg text-center text-lg tracking-widest mb-4" placeholder="050-1234567">
-            <button id="send-code-btn" class="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition duration-300">שלח קוד</button>
-        </div>
-
-        <!-- Verification Code Input Section (Initially Hidden) -->
-        <div id="code-section" class="hidden">
-            <p class="text-center text-gray-600 mb-4">הזן את הקוד בן 6 הספרות שנשלח אליך</p>
-            <input type="number" id="verification-code-input" class="w-full p-3 border border-gray-300 rounded-lg text-center text-lg tracking-widest mb-4" placeholder="xxxxxx">
-            <button id="verify-code-btn" class="w-full bg-green-600 text-white font-bold py-3 rounded-lg hover:bg-green-700 transition duration-300">אמת והתחבר</button>
-        </div>
-
-        <p id="auth-error" class="text-red-500 text-center mt-4 h-6"></p>
-
-        <!-- reCAPTCHA container -->
-        <div id="recaptcha-container" class="mt-4 flex justify-center"></div>
-
+        <input type="number" id="customer-id-input" class="w-full p-3 border border-gray-300 rounded-lg text-center text-lg tracking-widest mb-4" placeholder="הזן מספר לקוח">
+        <button id="login-btn" class="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition duration-300">כניסה</button>
+        <p id="login-error" class="text-red-500 text-center mt-4 h-6"></p>
     </div>
 
-    <!-- Firebase SDKs -->
+    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 
     <script>
-        // Your web app's Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyDy3k1AoEKeuCKjmFxefn9fapeqv2Le1_w",
             authDomain: "hsaban94-cc777.firebaseapp.com",
@@ -61,91 +40,36 @@
 
         // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
         const db = firebase.firestore();
 
-        const phoneSection = document.getElementById('phone-section');
-        const codeSection = document.getElementById('code-section');
-        const sendCodeBtn = document.getElementById('send-code-btn');
-        const verifyCodeBtn = document.getElementById('verify-code-btn');
-        const phoneNumberInput = document.getElementById('phone-number-input');
-        const verificationCodeInput = document.getElementById('verification-code-input');
-        const errorP = document.getElementById('auth-error');
-
-        // --- Step 1: Set up reCAPTCHA ---
-        window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
-            'size': 'invisible',
-            'callback': (response) => {
-                // reCAPTCHA solved, allow signInWithPhoneNumber.
-                console.log("reCAPTCHA solved");
-            }
-        });
-
-        // --- Step 2: Send Verification Code ---
-        sendCodeBtn.addEventListener('click', () => {
-            const phoneNumberString = phoneNumberInput.value.trim();
-            const appVerifier = window.recaptchaVerifier;
+        document.getElementById('login-btn').addEventListener('click', async () => {
+            const customerId = document.getElementById('customer-id-input').value.trim();
+            const errorP = document.getElementById('login-error');
             errorP.textContent = '';
 
-            // Basic validation for Israeli phone number format
-            if (!/^(05\d{8})$/.test(phoneNumberString.replace(/-/g, ''))) {
-                 errorP.textContent = 'מספר טלפון לא תקין. יש להזין 10 ספרות (לדוגמה: 0501234567).';
-                 return;
-            }
-            const formattedPhoneNumber = `+972${phoneNumberString.substring(1)}`;
-
-            auth.signInWithPhoneNumber(formattedPhoneNumber, appVerifier)
-                .then((confirmationResult) => {
-                    // SMS sent. Save confirmationResult to use later.
-                    window.confirmationResult = confirmationResult;
-                    console.log("SMS sent successfully.");
-                    // Show code input field and hide phone input field
-                    phoneSection.classList.add('hidden');
-                    codeSection.classList.remove('hidden');
-                }).catch((error) => {
-                    // Error; SMS not sent
-                    console.error("Error sending SMS:", error);
-                    errorP.textContent = 'שגיאה בשליחת הקוד. נסה שוב.';
-                    // Reset reCAPTCHA
-                    window.recaptchaVerifier.render().then(widgetId => {
-                       grecaptcha.reset(widgetId);
-                    });
-                });
-        });
-
-        // --- Step 3: Verify Code and Login ---
-        verifyCodeBtn.addEventListener('click', () => {
-            const code = verificationCodeInput.value.trim();
-            errorP.textContent = '';
-
-            if (code.length !== 6) {
-                errorP.textContent = 'הקוד חייב להכיל 6 ספרות.';
+            if (!customerId) {
+                errorP.textContent = 'יש להזין מספר לקוח.';
                 return;
             }
 
-            window.confirmationResult.confirm(code).then(async (result) => {
-                // User signed in successfully.
-                const user = result.user;
-                console.log("User signed in successfully:", user);
-                
-                // Now, find the customer in Firestore using their phone number
-                const customerQuery = await db.collection('לקוחות').where('טלפון', '==', phoneNumberInput.value.trim()).get();
-                
-                if (!customerQuery.empty) {
-                    const customerDoc = customerQuery.docs[0];
-                    const customerId = customerDoc.id;
-                    // Redirect to dashboard with the customer ID
+            try {
+                const customerRef = db.collection('לקוחות').doc(customerId);
+                const doc = await customerRef.get();
+
+                if (doc.exists) {
+                    // Save user info to sessionStorage to be accessible across pages
+                    sessionStorage.setItem('loggedInUser', JSON.stringify({ id: doc.id, ...doc.data() }));
+                    // Redirect to the main dashboard
                     window.location.href = `./dashboard.html?customerId=${customerId}`;
                 } else {
-                     errorP.textContent = 'המשתמש אומת, אך לא נמצא כרטיס לקוח תואם.';
+                    errorP.textContent = 'מספר לקוח לא נמצא במערכת.';
                 }
-
-            }).catch((error) => {
-                // User couldn't sign in (bad verification code?)
-                console.error("Error verifying code:", error);
-                errorP.textContent = 'קוד אימות שגוי. נסה שוב.';
-            });
+            } catch (error) {
+                console.error("Error logging in: ", error);
+                errorP.textContent = 'שגיאת תקשורת. נסה שוב.';
+            }
         });
     </script>
 </body>
 </html>
+
