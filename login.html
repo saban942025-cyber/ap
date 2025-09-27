@@ -78,19 +78,23 @@
             }
         });
         // Render the reCAPTCHA as soon as the page loads
-        window.recaptchaVerifier.render();
+        window.recaptchaVerifier.render().then(widgetId => {
+            window.recaptchaWidgetId = widgetId;
+        });
 
         // --- Step 2: Send Verification Code ---
         sendCodeBtn.addEventListener('click', () => {
             const phoneNumberString = phoneNumberInput.value.trim();
             const appVerifier = window.recaptchaVerifier;
             errorP.textContent = '';
+            
+            const sanitizedPhoneNumber = phoneNumberString.replace(/[^0-9]/g, '');
 
-            if (!/^(05\d{8})$/.test(phoneNumberString.replace(/-/g, ''))) {
+            if (!/^(05\d{8})$/.test(sanitizedPhoneNumber)) {
                  errorP.textContent = 'מספר טלפון לא תקין. יש להזין 10 ספרות (לדוגמה: 0501234567).';
                  return;
             }
-            const formattedPhoneNumber = `+972${phoneNumberString.substring(1)}`;
+            const formattedPhoneNumber = `+972${sanitizedPhoneNumber.substring(1)}`;
 
             auth.signInWithPhoneNumber(formattedPhoneNumber, appVerifier)
                 .then((confirmationResult) => {
@@ -119,7 +123,10 @@
                 const user = result.user;
                 console.log("User authenticated via SMS:", user);
                 
-                const customerQuery = await db.collection('לקוחות').where('טלפון', '==', phoneNumberInput.value.trim()).get();
+                // **FIX:** Sanitize the phone number from the input before querying Firestore
+                const sanitizedPhoneNumber = phoneNumberInput.value.replace(/[^0-9]/g, '');
+
+                const customerQuery = await db.collection('לקוחות').where('טלפון', '==', sanitizedPhoneNumber).get();
                 
                 if (!customerQuery.empty) {
                     const customerDoc = customerQuery.docs[0];
