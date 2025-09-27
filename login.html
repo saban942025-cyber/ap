@@ -3,11 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>אימות טלפוני - V6 (עם בדיקה)</title>
+    <title>כניסה לפי מספר לקוח - V7</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Assistant', sans-serif; }
+        #loading-spinner.hidden { display: none; }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -15,37 +16,29 @@
         
         <div class="text-center">
             <img src="https://i.postimg.cc/CMsm57QV/image.png" alt="לוגו החברה" class="h-20 mx-auto mb-4 rounded-lg">
-            <h1 class="text-3xl font-bold text-gray-800">אימות מספר טלפון</h1>
-            <p class="text-gray-500 mb-8">קוד אימות ישלח אליך ב-SMS</p>
+            <h1 class="text-3xl font-bold text-gray-800">כניסת לקוחות</h1>
+            <p class="text-gray-500 mb-8">הזן מספר לקוח כדי להתחבר למערכת</p>
         </div>
 
-        <!-- Phone Number Input Section -->
-        <div id="phone-section">
-            <input type="tel" id="phone-number-input" class="w-full p-3 border border-gray-300 rounded-lg text-center text-lg tracking-widest mb-4" placeholder="050-1234567">
-            <button id="send-code-btn" class="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition duration-300">שלח קוד</button>
+        <!-- Customer ID Input Section -->
+        <div>
+            <input type="number" id="customer-id-input" class="w-full p-3 border border-gray-300 rounded-lg text-center text-lg tracking-widest mb-4" placeholder="הזן מספר לקוח...">
+            <button id="login-btn" class="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition duration-300">כניסה למערכת</button>
         </div>
 
-        <!-- Verification Code Input Section (Initially Hidden) -->
-        <div id="code-section" class="hidden">
-            <p class="text-center text-gray-600 mb-4">הזן את הקוד בן 6 הספרות שנשלח אליך</p>
-            <input type="number" id="verification-code-input" class="w-full p-3 border border-gray-300 rounded-lg text-center text-lg tracking-widest mb-4" placeholder="xxxxxx">
-            <button id="verify-code-btn" class="w-full bg-green-600 text-white font-bold py-3 rounded-lg hover:bg-green-700 transition duration-300">אמת והתחבר</button>
+        <p id="login-error" class="text-red-500 text-center mt-4 h-6"></p>
+
+        <!-- Global Loading Spinner -->
+        <div id="loading-spinner" class="hidden fixed inset-0 bg-white bg-opacity-75 items-center justify-center z-50">
+            <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-600"></div>
         </div>
-
-        <p id="auth-error" class="text-red-500 text-center mt-4 h-6"></p>
-
-        <!-- reCAPTCHA container -->
-        <div id="recaptcha-container" class="mt-4 flex justify-center"></div>
-
     </div>
 
-    <!-- Firebase SDKs -->
+    <!-- Firebase SDKs (We only need Firestore now) -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 
     <script>
-        console.log("--- DEBUG MODE: login.html loaded ---");
         // Your web app's Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyDy3k1AoEKeuCKjmFxefn9fapeqv2Le1_w",
@@ -60,108 +53,63 @@
 
         // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
         const db = firebase.firestore();
 
-        const phoneSection = document.getElementById('phone-section');
-        const codeSection = document.getElementById('code-section');
-        const sendCodeBtn = document.getElementById('send-code-btn');
-        const verifyCodeBtn = document.getElementById('verify-code-btn');
-        const phoneNumberInput = document.getElementById('phone-number-input');
-        const verificationCodeInput = document.getElementById('verification-code-input');
-        const errorP = document.getElementById('auth-error');
+        const loginBtn = document.getElementById('login-btn');
+        const customerIdInput = document.getElementById('customer-id-input');
+        const errorP = document.getElementById('login-error');
+        const loadingSpinner = document.getElementById('loading-spinner');
 
-        // --- Step 1: Set up reCAPTCHA ---
-        window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
-            'size': 'invisible',
-            'callback': (response) => {
-                console.log("DEBUG: reCAPTCHA solved successfully.");
-            }
-        });
-        
-        console.log("DEBUG: Rendering reCAPTCHA...");
-        window.recaptchaVerifier.render().then(widgetId => {
-            window.recaptchaWidgetId = widgetId;
-            console.log("DEBUG: reCAPTCHA rendered.");
-        });
-
-        // --- Step 2: Send Verification Code ---
-        sendCodeBtn.addEventListener('click', () => {
-            const phoneNumberString = phoneNumberInput.value.trim();
-            const appVerifier = window.recaptchaVerifier;
+        // Main login function
+        async function handleLogin() {
+            const customerId = customerIdInput.value.trim();
             errorP.textContent = '';
-            
-            console.log(`DEBUG: Step 2 started. User entered phone: "${phoneNumberString}"`);
-            
-            const sanitizedPhoneNumber = phoneNumberString.replace(/[^0-9]/g, '');
-            console.log(`DEBUG: Sanitized phone to: "${sanitizedPhoneNumber}"`);
 
-
-            if (!/^(05\d{8})$/.test(sanitizedPhoneNumber)) {
-                 errorP.textContent = 'מספר טלפון לא תקין. יש להזין 10 ספרות (לדוגמה: 0501234567).';
-                 console.error("DEBUG: Phone number is invalid.");
-                 return;
-            }
-            const formattedPhoneNumber = `+972${sanitizedPhoneNumber.substring(1)}`;
-            console.log(`DEBUG: Sending SMS to formatted number: "${formattedPhoneNumber}"`);
-
-
-            auth.signInWithPhoneNumber(formattedPhoneNumber, appVerifier)
-                .then((confirmationResult) => {
-                    window.confirmationResult = confirmationResult;
-                    console.log("DEBUG: SMS sent successfully by Firebase.");
-                    phoneSection.classList.add('hidden');
-                    codeSection.classList.remove('hidden');
-                }).catch((error) => {
-                    console.error("DEBUG: Error sending SMS from Firebase:", error);
-                    errorP.textContent = 'שגיאה בשליחת הקוד. ודא שהדומיין מורשה ב-Firebase.';
-                    grecaptcha.reset(window.recaptchaWidgetId);
-                });
-        });
-
-        // --- Step 3: Verify Code and Login ---
-        verifyCodeBtn.addEventListener('click', () => {
-            const code = verificationCodeInput.value.trim();
-            errorP.textContent = '';
-            console.log(`DEBUG: Step 3 started. User entered code: "${code}"`);
-
-            if (code.length !== 6) {
-                errorP.textContent = 'הקוד חייב להכיל 6 ספרות.';
-                console.error("DEBUG: Verification code is not 6 digits.");
+            if (!customerId) {
+                errorP.textContent = 'יש להזין מספר לקוח.';
                 return;
             }
 
-            window.confirmationResult.confirm(code).then(async (result) => {
-                const user = result.user;
-                console.log("DEBUG: User authenticated via SMS. User object:", user);
-                
-                const sanitizedPhoneNumber = phoneNumberInput.value.replace(/[^0-9]/g, '');
+            loadingSpinner.classList.remove('hidden');
 
-                console.log(`DEBUG: Now searching Firestore in 'לקוחות' collection for field 'טלפון' with value: "${sanitizedPhoneNumber}"`);
-                
-                const customerQuery = await db.collection('לקוחות').where('טלפון', '==', sanitizedPhoneNumber).get();
-                
-                console.log(`DEBUG: Firestore query finished. Found ${customerQuery.docs.length} matching documents.`);
+            try {
+                // The document ID in the 'customers' collection IS the customer number.
+                // We use .doc() to fetch a specific document directly.
+                const customerDoc = await db.collection("customers").doc(customerId).get();
 
-                if (!customerQuery.empty) {
-                    const customerDoc = customerQuery.docs[0];
-                    const customerData = customerDoc.data();
-                    const customerId = customerDoc.id; // Usually the customer number
-                    console.log("DEBUG: Customer found! ID:", customerId, "Data:", customerData);
+                if (customerDoc.exists) {
+                    // Customer found!
+                    const user = { id: customerDoc.id, ...customerDoc.data() };
                     
-                    sessionStorage.setItem('loggedInUser', JSON.stringify({ id: customerId, ...customerData }));
-                    console.log("DEBUG: User data saved to sessionStorage. Redirecting to dashboard...");
+                    // Save user data to the browser's session memory
+                    sessionStorage.setItem('loggedInUser', JSON.stringify(user));
+                    
+                    // Redirect to the main dashboard
                     window.location.href = `./dashboard.html?customerId=${customerId}`;
+
                 } else {
-                     console.warn("DEBUG: Customer NOT found in Firestore for this phone number.");
-                     errorP.textContent = 'הטלפון אומת, אך לא נמצא כרטיס לקוח תואם במערכת.';
+                    // Customer not found
+                    errorP.textContent = 'מספר לקוח לא נמצא במערכת.';
                 }
 
-            }).catch((error) => {
-                console.error("DEBUG: Error verifying code with Firebase:", error);
-                errorP.textContent = 'קוד אימות שגוי. נסה שוב.';
-            });
+            } catch (error) {
+                console.error("Error fetching customer from Firestore:", error);
+                errorP.textContent = 'שגיאת תקשורת. נסה שוב מאוחר יותר.';
+            } finally {
+                loadingSpinner.classList.add('hidden');
+            }
+        }
+        
+        // Listen for the button click
+        loginBtn.addEventListener('click', handleLogin);
+        
+        // Optional: Allow login by pressing Enter in the input field
+        customerIdInput.addEventListener('keyup', function(event) {
+            if (event.key === 'Enter') {
+                handleLogin();
+            }
         });
     </script>
 </body>
 </html>
+
