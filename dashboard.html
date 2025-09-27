@@ -54,41 +54,57 @@
         </main>
     </div>
 
-    <!-- We don't need Firebase here as data is passed from login -->
+    <!-- No Firebase or database SDKs are needed here. -->
     <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
 
     <script>
         let loggedInUser = null;
 
         function initMap(orders) {
-            // Map initialization logic can be added here if needed
+            // Map logic can be added later
         }
         
         function loadDashboardData() {
+            console.log("--- דשבורד: מתחיל בדיקת אימות ---");
+
             const urlParams = new URLSearchParams(window.location.search);
             const customerIdFromUrl = urlParams.get('customerId');
+            console.log("שלב 1: מספר לקוח מכתובת האתר:", customerIdFromUrl);
             
-            // --- THE FIX IS HERE ---
-            // 1. Get the user data that was saved in the browser's memory from the login page
-            loggedInUser = JSON.parse(sessionStorage.getItem('loggedInUser'));
+            const loggedInUserString = sessionStorage.getItem('loggedInUser');
+            console.log("שלב 2: מידע גולמי מזיכרון הדפדפן:", loggedInUserString);
 
-            // 2. Check if the user is authorized.
-            // We now check against 'מספר לקוח' instead of the non-existent 'id'.
-            if (!loggedInUser || String(loggedInUser['מספר לקוח']).trim() !== String(customerIdFromUrl).trim()) {
-                // If not logged in, or if the logged-in user doesn't match the URL, redirect to login.
-                console.error("Auth Error: User data in session does not match URL. Redirecting to login.");
+            if (!loggedInUserString) {
+                console.error("שגיאת אימות: לא נמצא מידע בזיכרון הדפדפן. מבצע הפניה לדף התחברות.");
                 window.location.href = './login.html';
                 return;
             }
-            // --- END OF FIX ---
+
+            loggedInUser = JSON.parse(loggedInUserString);
+            console.log("שלב 3: אובייקט המשתמש שפוענח:", loggedInUser);
+
+            const customerIdFromSession = loggedInUser['מספר לקוח'];
+            console.log("שלב 4: מספר לקוח שחולץ מאובייקט המשתמש:", customerIdFromSession);
+
+            const finalIdFromUrl = String(customerIdFromUrl || '').trim();
+            const finalIdFromSession = String(customerIdFromSession || '').trim();
+
+            console.log(`שלב 5: מבצע השוואה: האם "${finalIdFromUrl}" (מהכתובת) זהה ל-"${finalIdFromSession}" (מהזיכרון)?`);
+
+            if (finalIdFromUrl === '' || finalIdFromSession === '' || finalIdFromUrl !== finalIdFromSession) {
+                console.error("שגיאת אימות: מספרי הלקוח אינם זהים! מבצע הפניה לדף התחברות.");
+                window.location.href = './login.html';
+                return;
+            }
+
+            console.log("אימות עבר בהצלחה! טוען את הדשבורד.");
 
             // If we reached here, the user is authorized. Continue loading the page.
             document.getElementById('user-name').textContent = loggedInUser['שם לקוח'];
             document.getElementById('materials-link').href = `./Materials.html?customerId=${customerIdFromUrl}`;
             document.getElementById('containers-link').href = `./containers.html?customerId=${customerIdFromUrl}`;
             
-            // The rest of the function to load orders can be implemented here.
-            // For now, we'll show a placeholder.
+            // Placeholder for order loading
             renderRecentOrders([]); 
             initMap([]);
         }
@@ -106,3 +122,4 @@
     </script>
 </body>
 </html>
+
