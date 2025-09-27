@@ -88,10 +88,12 @@
             const appVerifier = window.recaptchaVerifier;
             errorP.textContent = '';
             
-            const sanitizedPhoneNumber = phoneNumberString.replace(/[^0-9]/g, '');
+             const sanitizedPhoneNumber = phoneNumberInput.value.replace(/[^0-9]/g, '');
 
-            if (!/^(05\d{8})$/.test(sanitizedPhoneNumber)) {
-                 errorP.textContent = 'מספר טלפון לא תקין. יש להזין 10 ספרות (לדוגמה: 0501234567).';
+                 // שורת הבדיקה החדשה
+         console.log("Searching for phone number in Firestore:", sanitizedPhoneNumber);
+
+           const customerQuery = await db.collection('לקוחות').where('טלפון', '==', sanitizedPhoneNumber).get();
                  return;
             }
             const formattedPhoneNumber = `+972${sanitizedPhoneNumber.substring(1)}`;
