@@ -123,11 +123,12 @@
                 const user = result.user;
                 console.log("User authenticated via SMS:", user);
                 
-                // **FIX:** Sanitize the phone number from the input before querying Firestore
-                const sanitizedPhoneNumber = phoneNumberInput.value.replace(/[^0-9]/g, '');
+               const sanitizedPhoneNumber = phoneNumberInput.value.replace(/[^0-9]/g, '');
 
-                const customerQuery = await db.collection('לקוחות').where('טלפון', '==', sanitizedPhoneNumber).get();
-                
+                       // שורת הבדיקה החדשה
+                     console.log("Searching for phone number in Firestore:", sanitizedPhoneNumber);
+
+                const customerQuery = await db.collection('לקוחות').where('טלפון', '==', sanitizedPhoneNumber).get();                
                 if (!customerQuery.empty) {
                     const customerDoc = customerQuery.docs[0];
                     const customerId = customerDoc.id;
