@@ -1,7 +1,165 @@
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
+    <meta charset="UTF-8"><!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>כניסה - מערכת הזמנות V6</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Assistant', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div id="app-container" class="max-w-md mx-auto bg-white min-h-screen shadow-lg p-6 flex flex-col justify-center">
+        
+        <div id="loader" class="text-center">
+            <p class="text-gray-600">טוען...</p>
+        </div>
+
+        <div id="login-form" class="hidden">
+            <div class="text-center">
+                <img src="https://i.postimg.cc/CMsm57QV/image.png" alt="לוגו החברה" class="h-20 mx-auto mb-4 rounded-lg">
+                <h1 class="text-3xl font-bold text-gray-800">אימות מספר טלפון</h1>
+                <p class="text-gray-500 mb-8">קוד אימות ישלח אליך ב-SMS</p>
+            </div>
+
+            <div id="phone-section">
+                <input type="tel" id="phone-number-input" class="w-full p-3 border border-gray-300 rounded-lg text-center text-lg tracking-widest mb-4" placeholder="050-1234567">
+                <button id="send-code-btn" class="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition duration-300">שלח קוד</button>
+            </div>
+
+            <div id="code-section" class="hidden">
+                <p class="text-center text-gray-600 mb-4">הזן את הקוד בן 6 הספרות שנשלח אליך</p>
+                <input type="number" id="verification-code-input" class="w-full p-3 border border-gray-300 rounded-lg text-center text-lg tracking-widest mb-4" placeholder="xxxxxx">
+                <button id="verify-code-btn" class="w-full bg-green-600 text-white font-bold py-3 rounded-lg hover:bg-green-700 transition duration-300">אמת והתחבר</button>
+            </div>
+
+            <p id="auth-error" class="text-red-500 text-center mt-4 h-6"></p>
+            <div id="recaptcha-container" class="mt-4 flex justify-center"></div>
+        </div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyDy3k1AoEKeuCKjmFxefn9fapeqv2Le1_w",
+            authDomain: "hsaban94-cc777.firebaseapp.com",
+            databaseURL: "https://hsaban94-cc777.firebaseio.com",
+            projectId: "hsaban94-cc777",
+            storageBucket: "hsaban94-cc777.appspot.com",
+            messagingSenderId: "299206369469",
+            appId: "1:299206369469:web:50ca90c58f1981ec9457d4",
+            measurementId: "G-EJVHY5TTV8"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+
+        const loader = document.getElementById('loader');
+        const loginForm = document.getElementById('login-form');
+        const phoneSection = document.getElementById('phone-section');
+        const codeSection = document.getElementById('code-section');
+        const sendCodeBtn = document.getElementById('send-code-btn');
+        const verifyCodeBtn = document.getElementById('verify-code-btn');
+        const phoneNumberInput = document.getElementById('phone-number-input');
+        const verificationCodeInput = document.getElementById('verification-code-input');
+        const errorP = document.getElementById('auth-error');
+
+        function showLoginForm() {
+            loader.classList.add('hidden');
+            loginForm.classList.remove('hidden');
+        }
+
+        async function findCustomerByPhone(phoneNumber) {
+            const sanitizedPhoneNumber = phoneNumber.replace(/[^0-9]/g, '');
+            const customerQuery = await db.collection('לקוחות').where('טלפון', '==', sanitizedPhoneNumber).get();
+            if (!customerQuery.empty) {
+                const customerDoc = customerQuery.docs[0];
+                return { id: customerDoc.id, ...customerDoc.data() };
+            }
+            return null;
+        }
+
+        window.onload = () => {
+            const loggedInUser = JSON.parse(sessionStorage.getItem('loggedInUser'));
+            if (loggedInUser && loggedInUser.id) {
+                // If user is already "remembered", go straight to dashboard
+                window.location.href = `./dashboard.html?customerId=${loggedInUser.id}`;
+            } else {
+                // Otherwise, show the login form
+                showLoginForm();
+                window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+                    'size': 'invisible',
+                    'callback': () => console.log("reCAPTCHA solved")
+                });
+                window.recaptchaVerifier.render().then(widgetId => window.recaptchaWidgetId = widgetId);
+            }
+        };
+
+        sendCodeBtn.addEventListener('click', () => {
+            const phoneNumberString = phoneNumberInput.value.trim();
+            const appVerifier = window.recaptchaVerifier;
+            errorP.textContent = '';
+            
+            const sanitizedPhoneNumber = phoneNumberString.replace(/[^0-9]/g, '');
+
+            if (!/^(05\d{8})$/.test(sanitizedPhoneNumber)) {
+                 errorP.textContent = 'מספר טלפון לא תקין.';
+                 return;
+            }
+            const formattedPhoneNumber = `+972${sanitizedPhoneNumber.substring(1)}`;
+
+            auth.signInWithPhoneNumber(formattedPhoneNumber, appVerifier)
+                .then(confirmationResult => {
+                    window.confirmationResult = confirmationResult;
+                    phoneSection.classList.add('hidden');
+                    codeSection.classList.remove('hidden');
+                }).catch(error => {
+                    console.error("Error sending SMS:", error);
+                    errorP.textContent = 'שגיאה בשליחת הקוד.';
+                    grecaptcha.reset(window.recaptchaWidgetId);
+                });
+        });
+
+        verifyCodeBtn.addEventListener('click', () => {
+            const code = verificationCodeInput.value.trim();
+            errorP.textContent = '';
+            if (code.length !== 6) {
+                errorP.textContent = 'הקוד חייב להכיל 6 ספרות.';
+                return;
+            }
+
+            window.confirmationResult.confirm(code).then(async (result) => {
+                const user = result.user;
+                console.log("User authenticated via SMS:", user);
+                
+                const customer = await findCustomerByPhone(phoneNumberInput.value);
+                
+                if (customer) {
+                    sessionStorage.setItem('loggedInUser', JSON.stringify(customer));
+                    window.location.href = `./dashboard.html?customerId=${customer.id}`;
+                } else {
+                     errorP.textContent = 'הטלפון אומת, אך לא נמצא כרטיס לקוח תואם במערכת.';
+                }
+            }).catch((error) => {
+                console.error("Error verifying code:", error);
+                errorP.textContent = 'קוד אימות שגוי.';
+            });
+        });
+    </script>
+</body>
+</html>
+
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>אימות טלפוני - V6</title>
     <script src="https://cdn.tailwindcss.com"></script>
