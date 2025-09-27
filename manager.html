@@ -1,26 +1,357 @@
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
-    <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#3b82f6">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CRM - ניהול הזמנות</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;700&display=swap" rel="stylesheet">
+    <title>CRM - לוח בקרה | ח.סבן</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: 'Assistant', sans-serif; }
-        .new-order-alert { animation: pulse 2s infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+        :root {
+            --primary: #1e3a8a; --secondary: #3b82f6; --accent: #f59e0b; 
+            --bg-main: #f1f5f9; --bg-sidebar: #0f172a; --card: #ffffff;
+            --text-light: #f8fafc; --text-dark: #1e293b; --text-muted: #64748b;
+            --border: #e2e8f0; --success: #22c55e; --warning: #f97316; --danger: #ef4444;
+            --radius: 12px; --shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);
+        }
+        body { margin: 0; font-family: 'Assistant', sans-serif; background-color: var(--bg-main); color: var(--text-dark); display: flex; overflow-x: hidden; }
+        .sidebar { width: 250px; background-color: var(--bg-sidebar); color: var(--text-light); display: flex; flex-direction: column; padding: 20px; height: 100vh; position: fixed; right: 0; top: 0; box-sizing: border-box; }
+        .logo { font-size: 24px; font-weight: 800; text-align: center; margin-bottom: 40px; color: var(--accent); }
+        .nav-menu { flex-grow: 1; }
+        .nav-menu a { display: flex; align-items: center; gap: 12px; color: #cbd5e1; text-decoration: none; padding: 12px 15px; border-radius: 8px; margin-bottom: 8px; font-weight: 600; transition: background-color 0.2s, color 0.2s; }
+        .nav-menu a:hover, .nav-menu a.active { background-color: rgba(59, 130, 246, 0.2); color: var(--text-light); }
+        .nav-menu a svg { width: 20px; height: 20px; }
+        .user-info { border-top: 1px solid #334155; padding-top: 15px; text-align: center; }
+        .main-content { margin-right: 250px; width: calc(100% - 250px); padding: 30px; }
+        .page { display: none; }
+        .page.active { display: block; animation: fadeIn 0.5s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { { opacity: 1; transform: translateY(0); } } }
+        .page-header { margin-bottom: 30px; }
+        .page-header h1 { margin: 0 0 5px 0; font-size: 28px; }
+        .page-header p { margin: 0; color: var(--text-muted); }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .stat-card { background-color: var(--card); padding: 20px; border-radius: var(--radius); box-shadow: var(--shadow); }
+        .stat-card .icon { font-size: 24px; margin-bottom: 10px; }
+        .stat-card .value { font-size: 32px; font-weight: 800; transition: color 0.3s; }
+        .stat-card .label { color: var(--text-muted); }
+        .charts-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+        .chart-container { background-color: var(--card); padding: 20px; border-radius: var(--radius); box-shadow: var(--shadow); position: relative; height: 350px; }
+        .main-board { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; align-items: start; }
+        .column { background-color: #eef2ff; border-radius: var(--radius); padding: 15px; display: flex; flex-direction: column; }
+        .column-title { font-size: 18px; font-weight: 700; margin-bottom: 15px; padding: 0 5px 10px; border-bottom: 2px solid var(--border); }
+        .cards-container { flex-grow: 1; min-height: 200px; padding-top: 10px; }
+        .card { background-color: var(--card); border-radius: 8px; box-shadow: var(--shadow); padding: 15px; margin-bottom: 10px; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
+        .card:hover { transform: translateY(-3px); box-shadow: 0 8px 15px -3px rgba(0,0,0,0.1); }
+        .card.dragging { opacity: 0.5; transform: rotate(3deg); }
+        .client-card, .card.no-drag { cursor: default; }
+        .client-card:hover { transform: none; box-shadow: var(--shadow); }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); display: none; justify-content: center; align-items: center; z-index: 1000; backdrop-filter: blur(5px); }
+        .modal-content { background-color: white; padding: 25px; border-radius: var(--radius); width: 90%; max-width: 600px; animation: modal-pop 0.3s ease-out; }
+        @keyframes modal-pop { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 15px; }
+        .modal-title { font-size: 20px; font-weight: 700; }
+        .modal-close { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-muted); }
+        .form-field { margin-bottom: 15px; }
+        .form-field label { display: block; font-weight: 600; margin-bottom: 5px; }
+        .form-field input { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; box-sizing: border-box; }
+        .btn { padding: 12px 20px; border: none; border-radius: 8px; font-weight: 700; cursor: pointer; transition: background-color .2s; }
+        .btn-primary { background-color: var(--primary); color: white; }
+        .btn-primary:hover { background-color: var(--secondary); }
+        .order-details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+        .order-details-grid h4, .order-details-list h4 { margin: 0 0 10px 0; color: var(--primary); border-bottom: 1px solid var(--border); padding-bottom: 5px; }
+        .order-details-grid ul, .order-details-list ul { list-style: none; padding: 0; margin: 0; }
+        .action-buttons { margin-top: 25px; border-top: 1px solid var(--border); padding-top: 20px; display: flex; gap: 10px; justify-content: flex-end; }
     </style>
 </head>
-<body class="bg-gray-900 text-white">
-    <!-- Full HTML and JS for the manager's CRM dashboard -->
-    <!-- This page will have real-time listeners, charts, and order management tools -->
-    <div class="p-4">
-        <h1 class="text-3xl font-bold text-yellow-400">לוח בקרה למנהל (בבנייה)</h1>
+<body>
+    <aside class="sidebar">
+        <div class="logo">ח.סבן CRM</div>
+        <nav class="nav-menu">
+            <a href="#" class="nav-link active" data-page="dashboard"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>לוח בקרה</a>
+            <a href="#" class="nav-link" data-page="orders"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>ניהול הזמנות</a>
+            <a href="#" class="nav-link" data-page="clients"><svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M15 21a6 6 0 00-9-5.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-3-5.197m0 0A4 4 0 1112 4.354m0 0a4 4 0 110 5.292"/></svg>ניהול לקוחות</a>
+        </nav>
+        <div class="user-info"><span id="manager-name"></span></div>
+    </aside>
+
+    <div class="main-content">
+        <!-- Dashboard Page -->
+        <div id="dashboard-page" class="page active">
+            <div class="page-header"><h1>לוח בקרה ראשי</h1><p>סקירה כללית על הפעילות במערכת בזמן אמת</p></div>
+            <div class="stats-grid">
+                <div class="stat-card"><div class="icon" style="color:var(--primary)">📥</div><div id="stat-total-orders" class="value">0</div><div class="label">סה"כ הזמנות</div></div>
+                <div class="stat-card"><div class="icon" style="color:var(--warning)">🔔</div><div id="stat-new-orders" class="value">0</div><div class="label">הזמנות חדשות</div></div>
+                <div class="stat-card"><div class="icon" style="color:var(--success)">👥</div><div id="stat-active-clients" class="value">0</div><div class="label">לקוחות במערכת</div></div>
+                <div class="stat-card"><div class="icon" style="color:var(--secondary)">🟢</div><div id="stat-online-clients" class="value">0</div><div class="label">לקוחות אונליין</div></div>
+            </div>
+            <div class="charts-grid">
+                <div class="chart-container"><h3>פעילות ב-7 הימים האחרונים</h3><canvas id="dailyActivityChart"></canvas></div>
+                <div class="chart-container"><h3>הזמנות לפי סטטוס</h3><canvas id="statusPieChart"></canvas></div>
+            </div>
+        </div>
+
+        <!-- Orders Page -->
+        <div id="orders-page" class="page">
+             <div class="page-header"><h1>ניהול הזמנות</h1></div>
+             <main class="main-board" id="orders-board-container">
+                <div class="column" id="new-requests" data-status="חדש"><h2 class="column-title">בקשות חדשות</h2><div class="cards-container"></div></div>
+                <div class="column" id="in-progress" data-status="בטיפול"><h2 class="column-title">בטיפול</h2><div class="cards-container"></div></div>
+                <div class="column" id="completed" data-status="בוצע"><h2 class="column-title">בוצע</h2><div class="cards-container"></div></div>
+            </main>
+        </div>
+
+        <!-- Clients Page -->
+        <div id="clients-page" class="page">
+            <div class="page-header"><h1>ניהול לקוחות</h1></div>
+            <button id="add-client-btn" class="btn btn-primary">הוסף לקוח חדש</button>
+            <div id="clients-list-container" style="margin-top: 20px;"></div>
+        </div>
     </div>
+    
+    <div id="order-details-modal" class="modal-overlay"></div>
+    <div id="add-client-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header"><h3 class="modal-title">הוספת לקוח חדש</h3><button class="modal-close">&times;</button></div>
+            <form id="add-client-form">
+                <div class="form-field"><label for="client-name">שם מלא</label><input type="text" id="client-name" required></div>
+                <div class="form-field"><label for="client-email">אימייל</label><input type="email" id="client-email" required></div>
+                <div class="form-field"><label for="client-phone">טלפון</label><input type="tel" id="client-phone" required></div>
+                <button type="submit" class="btn btn-primary" style="width:100%;">שמור לקוח</button>
+            </form>
+        </div>
+    </div>
+    <audio id="notification-sound" src="data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA"></audio>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot, doc, getDocs, addDoc, serverTimestamp, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDy3k1AoEKeuCKjmFxefn9fapeqv2Le1_w",
+            authDomain: "hsaban94-cc777.firebaseapp.com",
+            projectId: "hsaban94-cc777",
+            storageBucket: "hsaban94-cc777.appspot.com",
+            messagingSenderId: "299206369469",
+            appId: "1:299206369469:web:50ca90c58f1981ec9457d4"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let managerUser = null;
+        let dailyActivityChart, statusPieChart;
+        let allRequests = [], allClients = [], knownRequestIds = new Set();
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                managerUser = user;
+                document.getElementById('manager-name').textContent = user.isAnonymous ? 'מנהל' : (user.email || 'מנהל');
+                init();
+            } else {
+                signInAnonymously(auth).catch(error => {
+                    document.body.innerHTML = `<h1>שגיאת התחברות</h1><p>יש לוודא שכניסה אנונימית מופעלת במסוף Firebase.</p><p>${error.message}</p>`;
+                });
+            }
+        });
+
+        function init() {
+            setupNavigation();
+            listenToRequests();
+            listenToClients();
+            setupClientManagement();
+        }
+
+        function setupNavigation() {
+            const navLinks = document.querySelectorAll('.nav-link');
+            const pages = document.querySelectorAll('.page');
+            navLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    navLinks.forEach(l => l.classList.remove('active'));
+                    link.classList.add('active');
+                    const pageId = link.dataset.page + '-page';
+                    pages.forEach(p => p.classList.remove('active'));
+                    document.getElementById(pageId).classList.add('active');
+                });
+            });
+        }
+
+        function listenToClients() {
+            const clientsCol = collection(db, 'clients');
+            onSnapshot(clientsCol, (snapshot) => {
+                allClients = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}));
+                document.getElementById('stat-active-clients').textContent = allClients.length;
+                renderClients();
+            });
+        }
+        
+        function renderClients() {
+            const container = document.getElementById('clients-list-container');
+            if (!container) return;
+            const clientCards = allClients.map(c => `<div class="card client-card">${c.name} - ${c.email} - ${c.phone}</div>`).join('');
+            container.innerHTML = clientCards || '<p>לא נמצאו לקוחות.</p>';
+        }
+
+        function listenToRequests() {
+            const requestsCollection = collection(db, "clientRequests");
+            onSnapshot(requestsCollection, (snapshot) => {
+                snapshot.docChanges().forEach((change) => {
+                     if (change.type === "added" && !knownRequestIds.has(change.doc.id)) {
+                        const request = { id: change.doc.id, ...change.doc.data() };
+                        if(request.status === 'חדש') {
+                             document.getElementById('notification-sound').play().catch(e => {});
+                        }
+                        knownRequestIds.add(change.doc.id);
+                    }
+                });
+                allRequests = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}));
+                updateDashboard();
+                renderOrderBoard();
+            });
+        }
+        
+        function updateDashboard() {
+            const newOrders = allRequests.filter(r => r.status === 'חדש').length;
+            document.getElementById('stat-total-orders').textContent = allRequests.length;
+            document.getElementById('stat-new-orders').textContent = newOrders;
+            updateCharts();
+        }
+        
+        function updateCharts() {
+            const statusCounts = allRequests.reduce((acc, req) => {
+                acc[req.status] = (acc[req.status] || 0) + 1;
+                return acc;
+            }, { 'חדש': 0, 'בטיפול': 0, 'בוצע': 0 });
+
+            const last7Days = {};
+            for(let i=6; i>=0; i--) {
+                const d = new Date(); d.setDate(d.getDate() - i);
+                last7Days[d.toISOString().split('T')[0]] = 0;
+            }
+            allRequests.forEach(req => {
+                if (req.timestamp && req.timestamp.toDate) {
+                    const reqDate = req.timestamp.toDate().toISOString().split('T')[0];
+                    if(last7Days.hasOwnProperty(reqDate)) last7Days[reqDate]++;
+                }
+            });
+
+            const pieCtx = document.getElementById('statusPieChart')?.getContext('2d');
+            if (pieCtx) {
+                if (statusPieChart) statusPieChart.destroy();
+                statusPieChart = new Chart(pieCtx, {type: 'doughnut', data: {labels: Object.keys(statusCounts), datasets: [{ data: Object.values(statusCounts), backgroundColor: ['#f97316', '#3b82f6', '#22c55e']}]}, options: { responsive: true, maintainAspectRatio: false, animation: {animateScale: true, animateRotate: true} }});
+            }
+            
+            const lineCtx = document.getElementById('dailyActivityChart')?.getContext('2d');
+            if (lineCtx) {
+                 if (dailyActivityChart) dailyActivityChart.destroy();
+                 dailyActivityChart = new Chart(lineCtx, {type: 'line', data: {labels: Object.keys(last7Days).map(d => new Date(d).toLocaleDateString('he-IL', {day:'2-digit', month:'2-digit'})), datasets: [{ label: 'הזמנות חדשות', data: Object.values(last7Days), borderColor: '#1e3a8a', tension: 0.4, fill: true, backgroundColor: 'rgba(59, 130, 246, 0.1)'}]}, options: { responsive: true, maintainAspectRatio: false }});
+            }
+        }
+        
+        function renderOrderBoard() {
+            document.querySelectorAll('.cards-container').forEach(c => c.innerHTML = '');
+            allRequests.forEach(request => {
+                const card = createRequestCard(request);
+                const columnContainer = document.querySelector(`#${getColumnIdFromStatus(request.status)} .cards-container`);
+                if(columnContainer) columnContainer.appendChild(card);
+            });
+            setupDragAndDrop();
+        }
+
+        function createRequestCard(request) {
+            const card = document.createElement('div');
+            card.className = 'card'; card.id = request.id; card.draggable = true;
+            const itemsPreview = request.items ? `<li>${request.items[0].name} ${request.items.length > 1 ? `ועוד ${request.items.length - 1} פריטים...` : ''}</li>` : `<li>${request.requestType || 'בקשה כללית'}</li>`;
+            card.innerHTML = `<div class="card-header"><strong class="card-title">${request.clientName}</strong><span class="card-timestamp">${new Date(request.timestamp?.toDate()).toLocaleDateString('he-IL')}</span></div><div class="card-details"><ul>${itemsPreview}</ul></div>`;
+            card.addEventListener('click', () => openOrderDetailsModal(request.id));
+            return card;
+        }
+
+        function openOrderDetailsModal(requestId) {
+            const request = allRequests.find(r => r.id === requestId);
+            if (!request) return;
+
+            const modal = document.getElementById('order-details-modal');
+            const itemsHtml = request.items ? request.items.map(item => `<li><strong>${item.name}</strong> - כמות: ${item.quantity}</li>`).join('') : '<li>אין פירוט פריטים</li>';
+            
+            modal.innerHTML = `
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3 class="modal-title">פרטי הזמנה: ${request.id.substring(0, 6)}</h3>
+                        <button class="modal-close">&times;</button>
+                    </div>
+                    <div class="order-details-grid">
+                        <div><h4>פרטי לקוח</h4><ul><li><strong>שם:</strong> ${request.clientName}</li></ul></div>
+                        <div><h4>פרטי הזמנה</h4><ul><li><strong>תאריך:</strong> ${new Date(request.timestamp?.toDate()).toLocaleString('he-IL')}</li><li><strong>סטטוס:</strong> ${request.status}</li></ul></div>
+                    </div>
+                    <div class="order-details-list"><h4>פריטים:</h4><ul>${itemsHtml}</ul></div>
+                    <div class="action-buttons"><button class="btn btn-primary">שלח עדכון WhatsApp</button></div>
+                </div>
+            `;
+            
+            modal.style.display = 'flex';
+            modal.querySelector('.modal-close').onclick = () => modal.style.display = 'none';
+        }
+        
+        function getColumnIdFromStatus(status) {
+            return { 'חדש': 'new-requests', 'בטיפול': 'in-progress', 'בוצע': 'completed' }[status] || 'new-requests';
+        }
+        
+        function setupDragAndDrop() {
+            const cards = document.querySelectorAll('.card:not(.client-card)');
+            const columns = document.querySelectorAll('.column');
+            let draggedCard = null;
+
+            cards.forEach(card => {
+                card.addEventListener('dragstart', (e) => { draggedCard = e.currentTarget; setTimeout(() => e.currentTarget.classList.add('dragging'), 0); });
+                card.addEventListener('dragend', () => draggedCard.classList.remove('dragging'));
+            });
+
+            columns.forEach(column => {
+                column.addEventListener('dragover', e => e.preventDefault());
+                column.addEventListener('drop', e => {
+                    e.preventDefault();
+                    if (draggedCard && e.currentTarget.classList.contains('column')) {
+                        e.currentTarget.querySelector('.cards-container').appendChild(draggedCard);
+                        const newStatus = e.currentTarget.dataset.status;
+                        updateRequest(draggedCard.id, newStatus);
+                    }
+                });
+            });
+        }
+
+        async function updateRequest(id, newStatus) {
+            const requestRef = doc(db, "clientRequests", id);
+            await updateDoc(requestRef, { status: newStatus, handledBy: managerUser?.email || 'מנהל' });
+        }
+        
+        function setupClientManagement() {
+            const modal = document.getElementById('add-client-modal');
+            const openBtn = document.getElementById('add-client-btn');
+            const closeBtn = modal.querySelector('.modal-close');
+            const form = document.getElementById('add-client-form');
+
+            openBtn.onclick = () => modal.style.display = 'flex';
+            closeBtn.onclick = () => modal.style.display = 'none';
+            modal.onclick = (e) => { if (e.target === modal) modal.style.display = 'none'; };
+            
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const name = form['client-name'].value, email = form['client-email'].value, phone = form['client-phone'].value;
+                const submitBtn = form.querySelector('button[type="submit"]');
+                submitBtn.disabled = true; submitBtn.textContent = 'שומר...';
+                try {
+                    await addDoc(collection(db, "clients"), { name, email, phone, createdAt: serverTimestamp() });
+                    modal.style.display = 'none'; form.reset();
+                } catch (error) { console.error("Error adding client: ", error); alert('שגיאה בהוספת לקוח.');
+                } finally { submitBtn.disabled = false; submitBtn.textContent = 'שמור לקוח'; }
+            });
+        }
+    </script>
 </body>
 </html>
 
