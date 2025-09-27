@@ -5,8 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>אזור אישי - ח.סבן</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -95,23 +93,30 @@
 
     <script>
         // --- CONFIGURATION ---
-        const firebaseConfig = {
-            apiKey: "AIzaSyDy3k1AoEKeuCKjmFxefn9fapeqv2Le1_w",
-            authDomain: "hsaban94-cc777.firebaseapp.com",
-            databaseURL: "https://hsaban94-cc777.firebaseio.com",
-            projectId: "hsaban94-cc777",
-            storageBucket: "hsaban94-cc777.appspot.com",
-            messagingSenderId: "299206369469",
-            appId: "1:299206369469:web:50ca90c58f1981ec9457d4"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-        const serverTimestamp = firebase.firestore.FieldValue.serverTimestamp;
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx07zliATi8KaNVWALPQugtzCsuJ1CojF_N8-6wUE3AKY18Lho66XZplGSf8v2xdaVf/exec";
 
         // --- GLOBAL STATE ---
         let currentCustomer = null;
         let productCatalog = [];
         let cart = {}; // { productId: quantity, ... }
+
+        // --- API HELPER ---
+        async function apiCall(action, data) {
+            const payload = { action, ...data };
+            try {
+                const response = await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'cors',
+                    body: JSON.stringify(payload),
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    redirect: 'follow'
+                });
+                return await response.json();
+            } catch (error) {
+                console.error("API Call Error:", error);
+                return { status: 'error', message: 'שגיאת תקשורת עם השרת.' };
+            }
+        }
 
         // --- CORE APP LOGIC ---
         async function initApp() {
@@ -124,16 +129,16 @@
             }
 
             try {
-                const customerDoc = await db.collection('לקוחות').doc(customerId).get();
-                if (!customerDoc.exists) {
-                     document.body.innerHTML = '<p class="text-center text-red-500 p-10">שגיאה: לא נמצא לקוח עם המספר שסופק.</p>';
-                     return;
+                const loginResult = await apiCall('login', { customerId });
+                if (loginResult.status !== 'success') {
+                    throw new Error(loginResult.message || 'לא נמצא לקוח עם המספר שסופק.');
                 }
-                currentCustomer = { id: customerDoc.id, ...customerDoc.data() };
+                currentCustomer = loginResult.user;
                 document.getElementById('hub-customer-name').textContent = currentCustomer['שם לקוח'];
-
-                const catalogSnapshot = await db.collection('קטלוג מוצרים').get();
-                productCatalog = catalogSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                
+                const catalogResponse = await fetch(`${SCRIPT_URL}?sheet=קטלוג מוצרים`);
+                if (!catalogResponse.ok) throw new Error('Failed to load catalog');
+                productCatalog = await catalogResponse.json();
 
                 renderCatalog();
                 setupEventListeners();
@@ -141,7 +146,7 @@
 
             } catch (error) {
                 console.error("Initialization error:", error);
-                document.body.innerHTML = '<p class="text-center text-red-500 p-10">שגיאה בטעינת הנתונים.</p>';
+                document.body.innerHTML = `<p class="text-center text-red-500 p-10">שגיאה בטעינת הנתונים: ${error.message}</p>`;
             }
         }
 
@@ -159,7 +164,7 @@
                         <p class="font-bold text-lg">${product['שם מוצר']}</p>
                         <p class="text-sm text-gray-500">${product['מפרט מוצר'] || ''}</p>
                     </div>
-                    <input type="number" min="0" placeholder="0" data-product-id="${product.id}" 
+                    <input type="number" min="0" placeholder="0" data-product-id="${product['מק"ט']}" 
                            class="w-20 text-center text-lg border rounded-md p-2 quantity-input">
                 </div>
             `).join('');
@@ -176,35 +181,39 @@
         }
 
         async function submitMaterialsOrder() {
+            const submitBtn = this;
             if (Object.keys(cart).length === 0) {
                 showToast('עגלת הקניות ריקה.', 'error');
                 return;
             }
-            this.disabled = true;
-            this.textContent = 'שולח...';
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'שולח...';
 
             const orderItems = Object.entries(cart).map(([productId, quantity]) => {
-                const product = productCatalog.find(p => p.id === productId);
+                const product = productCatalog.find(p => String(p['מק"ט']) === String(productId));
                 return {
-                    productId: productId,
                     'שם מוצר': product ? product['שם מוצר'] : 'לא ידוע',
                     quantity: quantity
                 };
             });
             
-            const orderForDb = {
-                'תאריך קליטה': serverTimestamp(),
-                'מספר לקוח': currentCustomer.id,
-                'שם לקוח': currentCustomer['שם לקוח'],
-                'פרטי אספקה': currentCustomer['כתובת'] || 'לא צוין',
-                'פריטים': orderItems.map(item => `${item['שם מוצר']} (כמות: ${item.quantity})`).join(', '),
-                'סטטוס': 'חדשה'
+            const orderDetails = {
+                customerNumber: currentCustomer['מספר לקוח'],
+                customerName: currentCustomer['שם לקוח'],
+                deliveryAddress: currentCustomer['כתובת'] || 'לא צוין',
+                itemNames: orderItems.map(item => item['שם מוצר']).join('||'),
+                itemQuantities: orderItems.map(item => item.quantity).join('||'),
+                notes: ''
             };
 
             try {
-                await db.collection('הזמנות חומרי בניין').add(orderForDb);
+                const result = await apiCall('submitMaterialOrder', { orderDetails });
+                if (result.status !== 'success' || !result.whatsappUrl) {
+                    throw new Error(result.message || 'שגיאה לא ידועה מהשרת');
+                }
+                
                 showToast('ההזמנה נשלחה בהצלחה!', 'success');
-                generateWhatsAppLink(orderForDb);
+                window.open(result.whatsappUrl, '_blank');
                 
                 // Reset form
                 cart = {};
@@ -213,24 +222,11 @@
 
             } catch (error) {
                 console.error("Error submitting order:", error);
-                showToast('שגיאה בשליחת ההזמנה.', 'error');
+                showToast(`שגיאה בשליחת ההזמנה: ${error.message}`, 'error');
             } finally {
-                this.disabled = false;
-                this.textContent = 'שלח הזמנה';
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'שלח הזמנה';
             }
-        }
-
-        function generateWhatsAppLink(order) {
-            const managerPhone = "972508860896"; // !!! החלף למספר טלפון של המנהל !!!
-            let message = `*הזמנת חומרים חדשה נכנסה:*\n\n`;
-            message += `*לקוח:* ${order['שם לקוח']} (מס': ${order['מספר לקוח']})\n`;
-            message += `*כתובת:* ${order['פרטי אספקה']}\n\n`;
-            message += `*פירוט:*\n${order['פריטים'].replace(/, /g, '\n- ')}`;
-            
-            const encodedMessage = encodeURIComponent(message);
-            const whatsappUrl = `https://wa.me/${managerPhone}?text=${encodedMessage}`;
-            
-            window.open(whatsappUrl, '_blank');
         }
         
         // --- EVENT LISTENERS & HELPERS ---
@@ -263,3 +259,4 @@
     </script>
 </body>
 </html>
+
