@@ -129,6 +129,7 @@
             }
 
             try {
+                // Step 1: Login via Apps Script to get customer data
                 const loginResult = await apiCall('login', { customerId });
                 if (loginResult.status !== 'success') {
                     throw new Error(loginResult.message || 'לא נמצא לקוח עם המספר שסופק.');
@@ -136,6 +137,7 @@
                 currentCustomer = loginResult.user;
                 document.getElementById('hub-customer-name').textContent = currentCustomer['שם לקוח'];
                 
+                // Step 2: Fetch product catalog from the sheet via Apps Script (doGet)
                 const catalogResponse = await fetch(`${SCRIPT_URL}?sheet=קטלוג מוצרים`);
                 if (!catalogResponse.ok) throw new Error('Failed to load catalog');
                 productCatalog = await catalogResponse.json();
@@ -207,6 +209,7 @@
             };
 
             try {
+                // Step 3: Submit order to Apps Script
                 const result = await apiCall('submitMaterialOrder', { orderDetails });
                 if (result.status !== 'success' || !result.whatsappUrl) {
                     throw new Error(result.message || 'שגיאה לא ידועה מהשרת');
