@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>אימות טלפוני - V6</title>
+    <title>אימות טלפוני - V6 (עם בדיקה)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;700&display=swap" rel="stylesheet">
     <style>
@@ -45,6 +45,7 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 
     <script>
+        console.log("--- DEBUG MODE: login.html loaded ---");
         // Your web app's Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyDy3k1AoEKeuCKjmFxefn9fapeqv2Le1_w",
@@ -74,12 +75,14 @@
         window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
             'size': 'invisible',
             'callback': (response) => {
-                console.log("reCAPTCHA solved");
+                console.log("DEBUG: reCAPTCHA solved successfully.");
             }
         });
-        // Render the reCAPTCHA as soon as the page loads
+        
+        console.log("DEBUG: Rendering reCAPTCHA...");
         window.recaptchaVerifier.render().then(widgetId => {
             window.recaptchaWidgetId = widgetId;
+            console.log("DEBUG: reCAPTCHA rendered.");
         });
 
         // --- Step 2: Send Verification Code ---
@@ -88,22 +91,29 @@
             const appVerifier = window.recaptchaVerifier;
             errorP.textContent = '';
             
+            console.log(`DEBUG: Step 2 started. User entered phone: "${phoneNumberString}"`);
+            
             const sanitizedPhoneNumber = phoneNumberString.replace(/[^0-9]/g, '');
+            console.log(`DEBUG: Sanitized phone to: "${sanitizedPhoneNumber}"`);
+
 
             if (!/^(05\d{8})$/.test(sanitizedPhoneNumber)) {
                  errorP.textContent = 'מספר טלפון לא תקין. יש להזין 10 ספרות (לדוגמה: 0501234567).';
+                 console.error("DEBUG: Phone number is invalid.");
                  return;
             }
             const formattedPhoneNumber = `+972${sanitizedPhoneNumber.substring(1)}`;
+            console.log(`DEBUG: Sending SMS to formatted number: "${formattedPhoneNumber}"`);
+
 
             auth.signInWithPhoneNumber(formattedPhoneNumber, appVerifier)
                 .then((confirmationResult) => {
                     window.confirmationResult = confirmationResult;
-                    console.log("SMS sent successfully.");
+                    console.log("DEBUG: SMS sent successfully by Firebase.");
                     phoneSection.classList.add('hidden');
                     codeSection.classList.remove('hidden');
                 }).catch((error) => {
-                    console.error("Error sending SMS:", error);
+                    console.error("DEBUG: Error sending SMS from Firebase:", error);
                     errorP.textContent = 'שגיאה בשליחת הקוד. ודא שהדומיין מורשה ב-Firebase.';
                     grecaptcha.reset(window.recaptchaWidgetId);
                 });
@@ -113,36 +123,45 @@
         verifyCodeBtn.addEventListener('click', () => {
             const code = verificationCodeInput.value.trim();
             errorP.textContent = '';
+            console.log(`DEBUG: Step 3 started. User entered code: "${code}"`);
 
             if (code.length !== 6) {
                 errorP.textContent = 'הקוד חייב להכיל 6 ספרות.';
+                console.error("DEBUG: Verification code is not 6 digits.");
                 return;
             }
 
             window.confirmationResult.confirm(code).then(async (result) => {
                 const user = result.user;
-                console.log("User authenticated via SMS:", user);
+                console.log("DEBUG: User authenticated via SMS. User object:", user);
                 
-                // **FIX:** Sanitize the phone number from the input before querying Firestore
                 const sanitizedPhoneNumber = phoneNumberInput.value.replace(/[^0-9]/g, '');
 
+                console.log(`DEBUG: Now searching Firestore in 'לקוחות' collection for field 'טלפון' with value: "${sanitizedPhoneNumber}"`);
+                
                 const customerQuery = await db.collection('לקוחות').where('טלפון', '==', sanitizedPhoneNumber).get();
                 
+                console.log(`DEBUG: Firestore query finished. Found ${customerQuery.docs.length} matching documents.`);
+
                 if (!customerQuery.empty) {
                     const customerDoc = customerQuery.docs[0];
-                    const customerId = customerDoc.id;
-                    sessionStorage.setItem('loggedInUser', JSON.stringify({ id: customerDoc.id, ...customerDoc.data() }));
+                    const customerData = customerDoc.data();
+                    const customerId = customerDoc.id; // Usually the customer number
+                    console.log("DEBUG: Customer found! ID:", customerId, "Data:", customerData);
+                    
+                    sessionStorage.setItem('loggedInUser', JSON.stringify({ id: customerId, ...customerData }));
+                    console.log("DEBUG: User data saved to sessionStorage. Redirecting to dashboard...");
                     window.location.href = `./dashboard.html?customerId=${customerId}`;
                 } else {
+                     console.warn("DEBUG: Customer NOT found in Firestore for this phone number.");
                      errorP.textContent = 'הטלפון אומת, אך לא נמצא כרטיס לקוח תואם במערכת.';
                 }
 
             }).catch((error) => {
-                console.error("Error verifying code:", error);
+                console.error("DEBUG: Error verifying code with Firebase:", error);
                 errorP.textContent = 'קוד אימות שגוי. נסה שוב.';
             });
         });
     </script>
 </body>
 </html>
-
