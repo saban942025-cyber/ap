@@ -2,10 +2,10 @@
 <html lang="he" dir="rtl">
 <head>
     <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#3b82f6">
+    <meta name="theme-color" content="#3b82f6">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>הזמנות V6</title>
+    <title>הזמנות V7 - Firebase Edition</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;700&display=swap" rel="stylesheet">
     <style>
@@ -25,25 +25,12 @@
         }
         #popup-overlay.hidden, #loading-spinner.hidden { display: none; }
         #popup-overlay, #loading-spinner { display: flex; }
-        
-        #customer-id-input::placeholder {
-            animation: typing 3.5s steps(40, end) infinite, blink-caret .75s step-end infinite;
-            white-space: nowrap; overflow: hidden; border-right: .15em solid orange; width: 0;
-        }
-        @keyframes typing { 
-          from { width: 0 } to { width: 65% } 50% { width: 65% } 100% {width: 0} 
-        }
-        @keyframes blink-caret { 
-          from, to { border-color: transparent } 50% { border-color: orange; } 
-        }
-
         .checkmark__circle { stroke-dasharray: 166; stroke-dashoffset: 166; stroke-width: 2; stroke-miterlimit: 10; stroke: #4caf50; fill: none; animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards; }
         .checkmark { width: 56px; height: 56px; border-radius: 50%; display: block; stroke-width: 2; stroke: #fff; stroke-miterlimit: 10; margin: 10% auto; box-shadow: inset 0px 0px 0px #4caf50; animation: fill .4s ease-in-out .4s forwards, scale .3s ease-in-out .9s both; }
         .checkmark__check { transform-origin: 50% 50%; stroke-dasharray: 48; stroke-dashoffset: 48; animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards; }
         @keyframes stroke { 100% { stroke-dashoffset: 0; } }
         @keyframes scale { 0%, 100% { transform: none; } 50% { transform: scale3d(1.1, 1.1, 1); } }
         @keyframes fill { 100% { box-shadow: inset 0px 0px 0px 30px #4caf50; } }
-
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
         ::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
@@ -67,12 +54,9 @@
             <div class="flex-grow flex flex-col justify-center">
                  <img src="https://img.icons8.com/?size=100&id=106PofAoe3p7&format=png&color=000001" alt="אווטאר" class="h-20 w-20 rounded-full mx-auto p-1 border-4 border-blue-200 shadow-lg mb-4">
                 <h1 class="text-3xl font-bold text-center text-gray-800">כניסת לקוחות</h1>
-                <p class="text-center text-gray-500 mb-6">ברוכים הבאים למערכת ההזמנות</p>
-                <input type="number" id="customer-id-input" class="w-full p-4 border border-gray-300 rounded-lg text-center text-xl tracking-widest mb-4 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="הזן מספר לקוח...">
-                <button onclick="handleLogin()" class="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition duration-300 text-lg shadow-lg">כניסה למערכת</button>
-                <p id="login-error" class="text-red-500 text-center mt-4 h-6"></p>
+                <p class="text-center text-gray-500 mb-6">ברוכים הבאים למערכת ההזמנות החדשה</p>
+                <p class="text-center text-gray-500 mb-6">כניסה למערכת מתבצעת דרך <a href="./login.html" class="text-blue-600">אימות SMS</a> או דרך קישור אישי.</p>
             </div>
-            
         </div>
 
 
@@ -111,7 +95,7 @@
              <div class="space-y-4 mt-auto bg-white py-4">
                 <input type="text" id="delivery-address-input" class="w-full p-3 border border-gray-300 rounded-lg" placeholder="כתובת למשלוח">
                 <textarea id="order-notes-input" class="w-full p-3 border border-gray-300 rounded-lg" placeholder="הערות להזמנה"></textarea>
-                <button onclick="submitOrder()" class="w-full bg-green-600 text-white font-bold py-3 rounded-lg hover:bg-green-700 transition">אישור ושליחת הזמנה לוואטסאפ</button>
+                <button onclick="submitOrder()" class="w-full bg-green-600 text-white font-bold py-3 rounded-lg hover:bg-green-700 transition">אישור ושליחת הזמנה</button>
             </div>
         </div>
         
@@ -129,32 +113,44 @@
                 <button id="popup-close-btn" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700 transition">הבנתי</button>
             </div>
         </div>
-
     </div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 
     <script>
         // --- CONFIGURATION ---
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx07zliATi8KaNVWALPQugtzCsuJ1CojF_N8-6wUE3AKY18Lho66XZplGSf8v2xdaVf/exec";
+        const firebaseConfig = {
+            apiKey: "AIzaSyDy3k1AoEKeuCKjmFxefn9fapeqv2Le1_w",
+            authDomain: "hsaban94-cc777.firebaseapp.com",
+            databaseURL: "https://hsaban94-cc777.firebaseio.com",
+            projectId: "hsaban94-cc777",
+            storageBucket: "hsaban94-cc777.appspot.com",
+            messagingSenderId: "299206369469",
+            appId: "1:299206369469:web:50ca90c58f1981ec9457d4",
+            measurementId: "G-EJVHY5TTV8"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
         let loggedInUser = null;
         let products = [];
         let cart = [];
-        let refreshInterval;
 
         // --- POPUP MESSAGE LIBRARY ---
         const popupMessages = {
             loginSuccess: { icon: `<svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52"><circle class="checkmark__circle" cx="26" cy="26" r="25" fill="none"/><path class="checkmark__check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/></svg>`, title: 'התחברת בהצלחה!', message: ''},
             welcomeMorning: { icon: '☀️', title: 'בוקר טוב', message: 'כיף לראות אותך! מוכן להתחיל את היום?' },
             welcomeAfternoon: { icon: '👋', title: 'צהריים טובים', message: 'מקווים שהיום שלך הולך מצוין!' },
-            welcomeEvening: { icon: '🌙', title: 'ערב טוב', message: 'שמחים שאתה כבר מארגן את ההזמנות למחר. לנו זה נותן זמן להתארגן ואתה תקבל הכל במועד.' },
-            orderSuccess: { icon: '✅', title: 'ההזמנה נשלחה!', message: 'ההזמנה שלך התקבלה ונשלחה אלינו לוואטסאפ. ניצור קשר בהקדם.' },
+            welcomeEvening: { icon: '🌙', title: 'ערב טוב', message: 'שמחים שאתה כבר מארגן את ההזמנות למחר.' },
+            orderSuccess: { icon: '✅', title: 'ההזמנה התקבלה!', message: 'ההזמנה שלך נשמרה במערכת. ניצור קשר בהקדם.' },
             cartAddSuccess: { icon: '🛒', title: 'נוסף לעגלה', message: 'המוצר נוסף לעגלה בהצלחה.' }
         };
 
         // --- CORE UI FUNCTIONS ---
         function showScreen(screenId) {
-            document.querySelectorAll('.screen').forEach(screen => {
-                screen.classList.remove('active-screen');
-            });
+            document.querySelectorAll('.screen').forEach(screen => screen.classList.remove('active-screen'));
             document.getElementById(screenId).classList.add('active-screen');
         }
         
@@ -170,8 +166,9 @@
             document.getElementById('popup-message').textContent = popup.message;
             document.getElementById('popup-overlay').classList.remove('hidden');
             setTimeout(() => { 
-                document.getElementById('popup-content').classList.add('scale-100', 'opacity-100');
-                document.getElementById('popup-content').classList.remove('scale-95', 'opacity-0');
+                const popupContent = document.getElementById('popup-content');
+                popupContent.classList.add('scale-100', 'opacity-100');
+                popupContent.classList.remove('scale-95', 'opacity-0');
             }, 10);
         }
 
@@ -179,122 +176,75 @@
             const popupContent = document.getElementById('popup-content');
             popupContent.classList.remove('scale-100', 'opacity-100');
             popupContent.classList.add('scale-95', 'opacity-0');
-            setTimeout(() => {
-                document.getElementById('popup-overlay').classList.add('hidden');
-            }, 300);
+            setTimeout(() => document.getElementById('popup-overlay').classList.add('hidden'), 300);
         }
         
-        // --- API CALLS ---
-        async function apiCall(action, data) {
+        // --- LOGIN LOGIC (Magic Link) ---
+        async function handleDirectLogin(customerId) {
             showLoading(true);
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 15000);
-
             try {
-                const response = await fetch(SCRIPT_URL, {
-                    method: 'POST',
-                    mode: 'cors', 
-                    body: JSON.stringify({ action, ...data }),
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    redirect: 'follow',
-                    signal: controller.signal
-                });
-                
-                const responseText = await response.text();
-                try {
-                    const result = JSON.parse(responseText);
-                    return result;
-                } catch (e) {
-                    console.error("Failed to parse JSON:", responseText);
-                    throw new Error(`תשובה לא תקינה מהשרת: ${responseText.substring(0, 100)}...`);
-                }
+                // In Firestore, the document ID is the customer number.
+                const customerDoc = await db.collection("customers").doc(customerId).get();
 
-            } catch (error) {
-                console.error("API Call Error:", error);
-                let message = error.message || 'שגיאת תקשורת עם השרת.';
-                if (error.name === 'AbortError') message = 'הבקשה נמשכה זמן רב מדי.';
-                return { status: 'error', message: message };
-            } finally {
-                clearTimeout(timeoutId);
-                showLoading(false);
-            }
-        }
-
-        // --- LOGIN LOGIC ---
-        async function handleLogin() {
-            const idInput = document.getElementById('customer-id-input');
-            const errorP = document.getElementById('login-error');
-            const customerId = idInput.value.trim();
-            if (!customerId) {
-                errorP.textContent = "יש להזין מספר לקוח.";
-                errorP.classList.remove('hidden');
-                return;
-            }
-            const result = await apiCall('login', { customerId });
-
-            if (result.status === 'success') {
-                loggedInUser = result.user;
-                errorP.classList.add('hidden');
-                
-                showPopup('loginSuccess');
-                
-                setTimeout(() => {
-                    hidePopup();
+                if (customerDoc.exists) {
+                    loggedInUser = { id: customerDoc.id, ...customerDoc.data() };
+                    
+                    showPopup('loginSuccess');
+                    
                     setTimeout(() => {
-                        const hour = new Date().getHours();
-                        const customerFirstName = (loggedInUser['שם לקוח'] || '').split(' ')[0];
-                        let welcomeType = 'welcomeAfternoon';
-                        if (hour >= 5 && hour < 12) welcomeType = 'welcomeMorning';
-                        else if (hour >= 18 || hour < 5) welcomeType = 'welcomeEvening';
-                        
-                        document.getElementById('popup-close-btn').onclick = () => {
-                            hidePopup();
-                            loadCatalogAndStartRefresh(); 
-                        };
-                        showPopup(welcomeType, customerFirstName);
-                    }, 300);
-                }, 1500);
+                        hidePopup();
+                        setTimeout(() => {
+                            const hour = new Date().getHours();
+                            const customerFirstName = (loggedInUser['שם לקוח'] || '').split(' ')[0];
+                            let welcomeType = 'welcomeAfternoon';
+                            if (hour >= 5 && hour < 12) welcomeType = 'welcomeMorning';
+                            else if (hour >= 18 || hour < 5) welcomeType = 'welcomeEvening';
+                            
+                            document.getElementById('popup-close-btn').onclick = () => {
+                                hidePopup();
+                                loadCatalog(); 
+                            };
+                            showPopup(welcomeType, customerFirstName);
+                        }, 300);
+                    }, 1500);
 
-            } else {
-                errorP.textContent = result.message || "מספר לקוח לא נמצא במערכת.";
-                errorP.classList.remove('hidden');
+                } else {
+                    alert("שגיאה: מספר הלקוח בקישור אינו תקין.");
+                    showScreen('login-screen');
+                }
+            } catch (error) {
+                console.error("Direct Login Error:", error);
+                alert("שגיאת תקשורת בטעינת נתוני הלקוח.");
+                showScreen('login-screen');
+            } finally {
+                showLoading(false);
             }
         }
         
         // --- CATALOG LOGIC ---
-        function loadCatalogAndStartRefresh() {
-            loadCatalog(true); 
-            if (refreshInterval) clearInterval(refreshInterval); 
-            refreshInterval = setInterval(() => loadCatalog(false), 60000); 
-        }
-        
-        async function loadCatalog(showSpinner = false) {
-            if(showSpinner) showLoading(true);
+        async function loadCatalog() {
+            showLoading(true);
             try {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 15000);
-                const response = await fetch(`${SCRIPT_URL}?sheet=קטלוג מוצרים`, { signal: controller.signal });
-                clearTimeout(timeoutId);
-
-                if (!response.ok) throw new Error('Failed to fetch catalog');
-                products = await response.json();
+                // Fetch products directly from Firestore
+                const querySnapshot = await db.collection("products").get();
+                products = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 renderCatalog();
-                if (showSpinner) showScreen('catalog-screen');
+                showScreen('catalog-screen');
             } catch (error) {
                  console.error("Catalog Load Error:", error);
-                 if (showSpinner) alert('שגיאה בטעינת הקטלוג.');
+                 alert('שגיאה בטעינת הקטלוג מ-Firestore.');
             } finally {
-                if(showSpinner) showLoading(false);
+                showLoading(false);
             }
         }
 
         function renderCatalog() {
             const grid = document.getElementById('catalog-grid');
             grid.innerHTML = '';
-            products.forEach((product, index) => {
+            products.forEach((product) => {
                 const card = document.createElement('div');
                 card.className = 'border rounded-lg p-2 shadow-sm cursor-pointer hover:shadow-md transition';
-                card.onclick = () => showProductDetails(index);
+                card.onclick = () => showProductDetails(product.id);
                 card.innerHTML = `
                     <img src="${product['תמונת מוצר']}" alt="${product['שם מוצר']}" class="w-full h-24 object-cover rounded-md mb-2" onerror="this.src='https://placehold.co/400x300/e0e0e0/777?text=Image'">
                     <h3 class="font-bold text-sm text-gray-800 truncate">${product['שם מוצר']}</h3>
@@ -303,10 +253,11 @@
             });
         }
         
-        function showProductDetails(productIndex) {
-            const product = products[productIndex];
-            const contentDiv = document.getElementById('product-detail-content');
+        function showProductDetails(productId) {
+            const product = products.find(p => p.id === productId);
+            if (!product) return;
             
+            const contentDiv = document.getElementById('product-detail-content');
             contentDiv.innerHTML = `
                 <img src="${product['תמונת מוצר']}" alt="${product['שם מוצר']}" class="w-full h-48 object-cover" onerror="this.src='https://placehold.co/600x400/e0e0e0/777?text=Image'">
                 <div class="p-4">
@@ -315,18 +266,20 @@
                 </div>
             `;
             
-            document.getElementById('add-to-cart-btn').onclick = () => addToCart(productIndex);
+            document.getElementById('add-to-cart-btn').onclick = () => addToCart(productId);
             document.getElementById('quantity-input').value = 1;
             showScreen('product-detail-screen');
         }
 
         // --- CART LOGIC ---
-        function addToCart(productIndex) {
-            const product = products[productIndex];
+        function addToCart(productId) {
+            const product = products.find(p => p.id === productId);
+            if (!product) return;
+
             const quantity = parseInt(document.getElementById('quantity-input').value, 10);
             
             if (quantity > 0) {
-                const existingItem = cart.find(item => item['מק"ט'] === product['מק"ט']);
+                const existingItem = cart.find(item => item.id === product.id);
                 if (existingItem) {
                     existingItem.quantity += quantity;
                 } else {
@@ -342,7 +295,7 @@
         }
 
         function updateCartUI() {
-            document.getElementById('cart-badge').textContent = cart.length;
+            document.getElementById('cart-badge').textContent = cart.reduce((sum, item) => sum + item.quantity, 0);
             const container = document.getElementById('cart-items-container');
             container.innerHTML = '';
             if (cart.length === 0) {
@@ -374,19 +327,21 @@
             const deliveryAddress = document.getElementById('delivery-address-input').value;
             if (!deliveryAddress) { return alert("יש להזין כתובת למשלוח."); }
 
-            const orderDetails = {
-                customerNumber: loggedInUser['מספר לקוח'],
-                customerName: loggedInUser['שם לקוח'],
-                deliveryAddress,
-                notes: document.getElementById('order-notes-input').value,
-                itemNames: cart.map(item => item['שם מוצר']).join('||'),
-                itemQuantities: cart.map(item => item.quantity).join('||'),
-            };
+            showLoading(true);
+            try {
+                const orderDetails = {
+                    customerId: loggedInUser.id,
+                    customerName: loggedInUser['שם לקוח'],
+                    deliveryAddress,
+                    notes: document.getElementById('order-notes-input').value,
+                    items: cart.map(item => ({ name: item['שם מוצר'], quantity: item.quantity, sku: item['מק"ט'] })),
+                    status: 'חדשה',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp() // Adds a timestamp
+                };
 
-            const result = await apiCall('submitMaterialOrder', { orderDetails });
-            
-            if (result.status === 'success' && result.whatsappUrl) {
-                window.open(result.whatsappUrl, '_blank');
+                // Add the order to the 'material_orders' collection in Firestore
+                await db.collection("material_orders").add(orderDetails);
+                
                 cart = [];
                 updateCartUI();
                 document.getElementById('delivery-address-input').value = '';
@@ -396,8 +351,12 @@
                     showScreen('catalog-screen');
                 };
                 showPopup('orderSuccess');
-            } else {
-                alert(`שגיאה בשליחת ההזמנה: ${result.message || 'תקלה לא ידועה'}`);
+
+            } catch(error) {
+                console.error("Order Submission Error:", error);
+                alert(`שגיאה בשליחת ההזמנה: ${error.message}`);
+            } finally {
+                showLoading(false);
             }
         }
         
@@ -418,11 +377,11 @@
             const urlParams = new URLSearchParams(window.location.search);
             const customerIdFromAdalo = urlParams.get('customerId');
             if (customerIdFromAdalo) {
-                document.getElementById('customer-id-input').value = customerIdFromAdalo;
-                handleLogin();
+                handleDirectLogin(customerIdFromAdalo);
+            } else {
+                showScreen('login-screen');
             }
         };
     </script>
 </body>
 </html>
-
