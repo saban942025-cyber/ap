@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>אזור אישי - ח.סבן</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <style>
+        :root {
+            --brand: #0b72b9; --brand-light: #e3f2fd; --accent: #ff9f1c; --bg: #f4f7fa; --card-bg: #ffffff;
+            --text-dark: #2d3748; --text-light: #718096; --border: #e2e8f0; --success: #48bb78; --white: #fff;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --radius: 12px;
+        }
+        body { margin: 0; font-family: 'Assistant', sans-serif; background-color: var(--bg); color: var(--text-dark); }
+        .app-container { max-width: 800px; margin: 0 auto; padding-bottom: 80px; }
+        .tabs { display: flex; background-color: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow); margin: 16px; overflow: hidden; }
+        .tab-button { flex: 1; padding: 16px; text-align: center; font-weight: 700; font-size: 16px; color: var(--text-light); background: transparent; border: none; cursor: pointer; }
+        .tab-button.active { color: var(--brand); border-bottom: 3px solid var(--brand); }
+        .form-section { background: var(--card-bg); padding: 20px; border-radius: var(--radius); margin-bottom: 16px; box-shadow: var(--shadow); }
+        #map { height: 250px; border-radius: var(--radius); margin-bottom: 16px; }
+        .submit-btn { display: block; width: 100%; background: var(--accent); color: var(--white); border: none; padding: 16px; border-radius: 8px; font-size: 18px; font-weight: 700; cursor: pointer; }
+        #toast-container { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 2000; }
+        .toast { background-color: rgba(45, 55, 72, 0.9); color: var(--white); padding: 12px 20px; border-radius: 8px; margin-bottom: 10px; opacity: 0; transform: translateY(-20px); transition: opacity 0.3s, transform 0.3s; }
+        .toast.show { opacity: 1; transform: translateY(0); }
+    </style>
+</head>
+<body>
+    <div id="toast-container"></div>
+    <div class="app-container">
+        <div class="tabs">
+            <button class="tab-button active" data-order-type="materials">הזמנת חומרים</button>
+            <button class="tab-button" data-order-type="container">שירות למכולה</button>
+        </div>
+        <div id="materials-wizard">
+            <div class="form-section">
+                <h3>1. בחירת מוצרים</h3>
+                <div id="product-catalog"></div>
+            </div>
+            <div class="form-section">
+                <h3>2. כתובת למשלוח</h3>
+                <div id="map"></div>
+            </div>
+            <button id="submit-materials-order-btn" class="submit-btn">שליחת הזמנה</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, getDocs, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDy3k1AoEKeuCKjmFxefn9fapeqv2Le1_w",
+            authDomain: "hsaban94-cc777.firebaseapp.com",
+            projectId: "hsaban94-cc777",
+            storageBucket: "hsaban94-cc777.appspot.com",
+            messagingSenderId: "299206369469",
+            appId: "1:299206369469:web:50ca90c58f1981ec9457d4"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        
+        let currentUser = null;
+        let products = [];
+        let cart = {};
+        let map, marker;
+        
+        const dom = {
+            productCatalog: document.getElementById('product-catalog'),
+            submitMaterialsOrderBtn: document.getElementById('submit-materials-order-btn'),
+        };
+
+        async function initApp() {
+            onAuthStateChanged(auth, user => {
+                if (user) {
+                    currentUser = user;
+                    loadProducts();
+                    initMap();
+                    setupEventListeners();
+                } else {
+                    signInAnonymously(auth).catch(error => console.error("Sign in failed:", error));
+                }
+            });
+        }
+        
+        async function loadProducts() {
+            try {
+                const querySnapshot = await getDocs(collection(db, "products"));
+                products = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                renderProducts(products);
+            } catch (error) { console.error("Error loading products: ", error); }
+        }
+
+        function renderProducts(productsToRender) {
+            dom.productCatalog.innerHTML = '';
+            productsToRender.forEach(p => {
+                const sku = p["מק\"ט"];
+                const name = p["שם מוצר"];
+                if(!sku || !name) return;
+                const itemHtml = `<div class="product-item">...</div>`; // Simplified for brevity
+                dom.productCatalog.innerHTML += itemHtml.replace('...', `<span>${name}</span><input type="number" data-sku="${sku}" min="0">`);
+            });
+        }
+
+        function initMap() {
+            map = L.map('map').setView([32.0853, 34.7818], 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+            map.on('click', e => {
+                if (marker) map.removeLayer(marker);
+                marker = L.marker(e.latlng).addTo(map);
+            });
+        }
+        
+        function updateCart(sku, quantity) {
+            const numQuantity = parseInt(quantity, 10);
+            if (numQuantity > 0) {
+                const product = products.find(p => p["מק\"ט"] == sku);
+                cart[sku] = { name: product["שם מוצר"], quantity: numQuantity };
+            } else {
+                delete cart[sku];
+            }
+        }
+        
+        async function submitMaterialsOrder() {
+            if (Object.keys(cart).length === 0 || !marker) {
+                showToast("יש למלא סל וכתובת", "warning"); return;
+            }
+            this.disabled = true;
+            const orderData = {
+                clientId: currentUser.uid, clientName: "לקוח מזדמן",
+                requestType: 'הזמנת חומרי בניין', items: Object.values(cart),
+                location: { lat: marker.getLatLng().lat, lng: marker.getLatLng().lng },
+                status: 'חדש', timestamp: serverTimestamp()
+            };
+            try {
+                await addDoc(collection(db, "clientRequests"), orderData);
+                showToast("ההזמנה נשלחה!", "success");
+            } catch (error) { showToast("שגיאה בשליחה", "error"); }
+            finally { this.disabled = false; }
+        }
+
+        function setupEventListeners() {
+            dom.productCatalog.addEventListener('input', e => {
+                if(e.target.matches('input[type="number"]')) {
+                    updateCart(e.target.dataset.sku, e.target.value);
+                }
+            });
+            dom.submitMaterialsOrderBtn.addEventListener('click', submitMaterialsOrder);
+        }
+        
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`; toast.textContent = message;
+            document.getElementById('toast-container').appendChild(toast);
+            setTimeout(() => toast.classList.add('show'), 10);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                toast.addEventListener('transitionend', () => toast.remove());
+            }, 3000);
+        }
+        
+        initApp();
+    </script>
+</body>
+</html>
