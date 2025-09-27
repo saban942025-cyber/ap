@@ -2,171 +2,264 @@
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>אזור אישי - ח.סבן</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&display=swap" rel="stylesheet">
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --brand: #0b72b9; --brand-light: #e3f2fd; --accent: #ff9f1c; --bg: #f4f7fa; --card-bg: #ffffff;
-            --text-dark: #2d3748; --text-light: #718096; --border: #e2e8f0; --success: #48bb78; --white: #fff;
-            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            --radius: 12px;
+            --primary: #0c5b9e;
+            --secondary: #ff9900;
+            --bg-main: #f0f2f5;
+            --text-dark: #1a202c;
         }
-        body { margin: 0; font-family: 'Assistant', sans-serif; background-color: var(--bg); color: var(--text-dark); }
-        .app-container { max-width: 800px; margin: 0 auto; padding-bottom: 80px; }
-        .tabs { display: flex; background-color: var(--card-bg); border-radius: var(--radius); box-shadow: var(--shadow); margin: 16px; overflow: hidden; }
-        .tab-button { flex: 1; padding: 16px; text-align: center; font-weight: 700; font-size: 16px; color: var(--text-light); background: transparent; border: none; cursor: pointer; }
-        .tab-button.active { color: var(--brand); border-bottom: 3px solid var(--brand); }
-        .form-section { background: var(--card-bg); padding: 20px; border-radius: var(--radius); margin-bottom: 16px; box-shadow: var(--shadow); }
-        #map { height: 250px; border-radius: var(--radius); margin-bottom: 16px; }
-        .submit-btn { display: block; width: 100%; background: var(--accent); color: var(--white); border: none; padding: 16px; border-radius: 8px; font-size: 18px; font-weight: 700; cursor: pointer; }
-        #toast-container { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 2000; }
-        .toast { background-color: rgba(45, 55, 72, 0.9); color: var(--white); padding: 12px 20px; border-radius: 8px; margin-bottom: 10px; opacity: 0; transform: translateY(-20px); transition: opacity 0.3s, transform 0.3s; }
-        .toast.show { opacity: 1; transform: translateY(0); }
+        body { font-family: 'Assistant', sans-serif; background-color: var(--bg-main); }
+        .page { display: none; animation: fadeIn 0.5s; }
+        .page.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .toast {
+            position: fixed; bottom: -100px; left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 24px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 600;
+            z-index: 1000;
+            transition: bottom 0.5s ease-in-out;
+        }
+        .toast.show { bottom: 20px; }
+        .toast.success { background-color: #28a745; }
+        .toast.error { background-color: #dc3545; }
     </style>
 </head>
-<body>
-    <div id="toast-container"></div>
-    <div class="app-container">
-        <div class="tabs">
-            <button class="tab-button active" data-order-type="materials">הזמנת חומרים</button>
-            <button class="tab-button" data-order-type="container">שירות למכולה</button>
+<body class="max-w-md mx-auto bg-white min-h-screen">
+
+    <div id="app-container">
+        <!-- Loading Screen -->
+        <div id="page-loading" class="page active flex items-center justify-center h-screen">
+            <div class="text-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto"></div>
+                <p class="mt-4 text-lg font-semibold text-text-dark">טוען נתונים...</p>
+            </div>
         </div>
-        <div id="materials-wizard">
-            <div class="form-section">
-                <h3>1. בחירת מוצרים</h3>
-                <div id="product-catalog"></div>
+        
+        <!-- Hub Page -->
+        <div id="page-hub" class="page p-4">
+            <header class="text-center py-4">
+                <img src="https://i.postimg.cc/CMsm57QV/image.png" alt="לוגו" class="h-16 mx-auto mb-2 rounded-lg">
+                <p class="text-lg">שלום, <span id="hub-customer-name" class="font-bold"></span></p>
+                <p class="text-gray-500">מה תרצה לעשות היום?</p>
+            </header>
+            <div class="space-y-4 mt-6">
+                <button onclick="navigateTo('page-materials')" class="w-full text-left bg-white p-6 rounded-lg shadow-md flex items-center space-x-4 space-x-reverse transition hover:shadow-lg">
+                    <div class="bg-blue-100 p-3 rounded-full"><svg class="w-8 h-8 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2 1m2-1l-2-1M4 7l2 1M4 7l2-1M4 7v2.5M12 21.5V19m0 0V12m0 7c-5.012 0-9-2.015-9-4.5S6.988 8 12 8s9 2.015 9 4.5S17.012 19 12 19z"></path></svg></div>
+                    <div>
+                        <h2 class="text-xl font-bold text-text-dark">הזמנת חומרי בניין</h2>
+                        <p class="text-gray-500">בחר פריטים מהקטלוג ושלח הזמנה</p>
+                    </div>
+                </button>
+                <button onclick="navigateTo('page-containers')" class="w-full text-left bg-white p-6 rounded-lg shadow-md flex items-center space-x-4 space-x-reverse transition hover:shadow-lg">
+                     <div class="bg-yellow-100 p-3 rounded-full"><svg class="w-8 h-8 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-14L4 7m0 10l8 4m0-14L4 7"></path></svg></div>
+                    <div>
+                        <h2 class="text-xl font-bold text-text-dark">הזמנת מכולה</h2>
+                        <p class="text-gray-500">בקש הורדה, פינוי או החלפה</p>
+                    </div>
+                </button>
             </div>
-            <div class="form-section">
-                <h3>2. כתובת למשלוח</h3>
-                <div id="map"></div>
-            </div>
-            <button id="submit-materials-order-btn" class="submit-btn">שליחת הזמנה</button>
+        </div>
+
+        <!-- Materials Order Page -->
+        <div id="page-materials" class="page p-4">
+            <header class="flex items-center mb-4">
+                <button onclick="navigateTo('page-hub')" class="p-2 text-gray-500">&rarr;</button>
+                <h1 class="text-2xl font-bold mr-2">הזמנת חומרים</h1>
+            </header>
+            <div id="materials-catalog" class="space-y-3 pb-24"></div>
+            <footer class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white p-4 border-t">
+                <button id="submit-materials-order" class="w-full bg-primary text-white font-bold py-3 rounded-lg hover:opacity-90">שלח הזמנה</button>
+            </footer>
+        </div>
+
+        <!-- Container Order Page (Placeholder) -->
+        <div id="page-containers" class="page p-4">
+             <header class="flex items-center mb-4">
+                <button onclick="navigateTo('page-hub')" class="p-2 text-gray-500">&rarr;</button>
+                <h1 class="text-2xl font-bold mr-2">הזמנת מכולה</h1>
+            </header>
+            <p class="text-center text-gray-500 mt-10">אזור הזמנת מכולות בבנייה.</p>
         </div>
     </div>
+    <div id="toast-container"></div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, getDocs, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
+    <script>
+        // --- CONFIGURATION ---
         const firebaseConfig = {
             apiKey: "AIzaSyDy3k1AoEKeuCKjmFxefn9fapeqv2Le1_w",
             authDomain: "hsaban94-cc777.firebaseapp.com",
+            databaseURL: "https://hsaban94-cc777.firebaseio.com",
             projectId: "hsaban94-cc777",
             storageBucket: "hsaban94-cc777.appspot.com",
             messagingSenderId: "299206369469",
             appId: "1:299206369469:web:50ca90c58f1981ec9457d4"
         };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const serverTimestamp = firebase.firestore.FieldValue.serverTimestamp;
 
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-        
-        let currentUser = null;
-        let products = [];
-        let cart = {};
-        let map, marker;
-        
-        const dom = {
-            productCatalog: document.getElementById('product-catalog'),
-            submitMaterialsOrderBtn: document.getElementById('submit-materials-order-btn'),
-        };
+        // --- GLOBAL STATE ---
+        let currentCustomer = null;
+        let productCatalog = [];
+        let cart = {}; // { productId: quantity, ... }
 
+        // --- CORE APP LOGIC ---
         async function initApp() {
-            onAuthStateChanged(auth, user => {
-                if (user) {
-                    currentUser = user;
-                    loadProducts();
-                    initMap();
-                    setupEventListeners();
-                } else {
-                    signInAnonymously(auth).catch(error => console.error("Sign in failed:", error));
-                }
-            });
-        }
-        
-        async function loadProducts() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const customerId = urlParams.get('customerId');
+
+            if (!customerId) {
+                document.body.innerHTML = '<p class="text-center text-red-500 p-10">שגיאה: מספר לקוח לא סופק בכתובת.</p>';
+                return;
+            }
+
             try {
-                const querySnapshot = await getDocs(collection(db, "products"));
-                products = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderProducts(products);
-            } catch (error) { console.error("Error loading products: ", error); }
-        }
+                const customerDoc = await db.collection('לקוחות').doc(customerId).get();
+                if (!customerDoc.exists) {
+                     document.body.innerHTML = '<p class="text-center text-red-500 p-10">שגיאה: לא נמצא לקוח עם המספר שסופק.</p>';
+                     return;
+                }
+                currentCustomer = { id: customerDoc.id, ...customerDoc.data() };
+                document.getElementById('hub-customer-name').textContent = currentCustomer['שם לקוח'];
 
-        function renderProducts(productsToRender) {
-            dom.productCatalog.innerHTML = '';
-            productsToRender.forEach(p => {
-                const sku = p["מק\"ט"];
-                const name = p["שם מוצר"];
-                if(!sku || !name) return;
-                const itemHtml = `<div class="product-item">...</div>`; // Simplified for brevity
-                dom.productCatalog.innerHTML += itemHtml.replace('...', `<span>${name}</span><input type="number" data-sku="${sku}" min="0">`);
-            });
-        }
+                const catalogSnapshot = await db.collection('קטלוג מוצרים').get();
+                productCatalog = catalogSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        function initMap() {
-            map = L.map('map').setView([32.0853, 34.7818], 13);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-            map.on('click', e => {
-                if (marker) map.removeLayer(marker);
-                marker = L.marker(e.latlng).addTo(map);
-            });
-        }
-        
-        function updateCart(sku, quantity) {
-            const numQuantity = parseInt(quantity, 10);
-            if (numQuantity > 0) {
-                const product = products.find(p => p["מק\"ט"] == sku);
-                cart[sku] = { name: product["שם מוצר"], quantity: numQuantity };
-            } else {
-                delete cart[sku];
+                renderCatalog();
+                setupEventListeners();
+                navigateTo('page-hub');
+
+            } catch (error) {
+                console.error("Initialization error:", error);
+                document.body.innerHTML = '<p class="text-center text-red-500 p-10">שגיאה בטעינת הנתונים.</p>';
             }
         }
+
+        function navigateTo(pageId) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(pageId).classList.add('active');
+        }
+
+        // --- MATERIALS ORDER LOGIC ---
+        function renderCatalog() {
+            const container = document.getElementById('materials-catalog');
+            container.innerHTML = productCatalog.map(product => `
+                <div class="bg-white p-4 rounded-lg shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="font-bold text-lg">${product['שם מוצר']}</p>
+                        <p class="text-sm text-gray-500">${product['מפרט מוצר'] || ''}</p>
+                    </div>
+                    <input type="number" min="0" placeholder="0" data-product-id="${product.id}" 
+                           class="w-20 text-center text-lg border rounded-md p-2 quantity-input">
+                </div>
+            `).join('');
+        }
         
+        function updateCart(productId, quantity) {
+             const numQuantity = parseInt(quantity, 10);
+             if (isNaN(numQuantity) || numQuantity <= 0) {
+                 delete cart[productId];
+             } else {
+                 cart[productId] = numQuantity;
+             }
+             console.log("Cart updated:", cart);
+        }
+
         async function submitMaterialsOrder() {
-            if (Object.keys(cart).length === 0 || !marker) {
-                showToast("יש למלא סל וכתובת", "warning"); return;
+            if (Object.keys(cart).length === 0) {
+                showToast('עגלת הקניות ריקה.', 'error');
+                return;
             }
             this.disabled = true;
-            const orderData = {
-                clientId: currentUser.uid, clientName: "לקוח מזדמן",
-                requestType: 'הזמנת חומרי בניין', items: Object.values(cart),
-                location: { lat: marker.getLatLng().lat, lng: marker.getLatLng().lng },
-                status: 'חדש', timestamp: serverTimestamp()
+            this.textContent = 'שולח...';
+
+            const orderItems = Object.entries(cart).map(([productId, quantity]) => {
+                const product = productCatalog.find(p => p.id === productId);
+                return {
+                    productId: productId,
+                    'שם מוצר': product ? product['שם מוצר'] : 'לא ידוע',
+                    quantity: quantity
+                };
+            });
+            
+            const orderForDb = {
+                'תאריך קליטה': serverTimestamp(),
+                'מספר לקוח': currentCustomer.id,
+                'שם לקוח': currentCustomer['שם לקוח'],
+                'פרטי אספקה': currentCustomer['כתובת'] || 'לא צוין',
+                'פריטים': orderItems.map(item => `${item['שם מוצר']} (כמות: ${item.quantity})`).join(', '),
+                'סטטוס': 'חדשה'
             };
+
             try {
-                await addDoc(collection(db, "clientRequests"), orderData);
-                showToast("ההזמנה נשלחה!", "success");
-            } catch (error) { showToast("שגיאה בשליחה", "error"); }
-            finally { this.disabled = false; }
+                await db.collection('הזמנות חומרי בניין').add(orderForDb);
+                showToast('ההזמנה נשלחה בהצלחה!', 'success');
+                generateWhatsAppLink(orderForDb);
+                
+                // Reset form
+                cart = {};
+                document.querySelectorAll('.quantity-input').forEach(input => input.value = '');
+                setTimeout(() => navigateTo('page-hub'), 2000);
+
+            } catch (error) {
+                console.error("Error submitting order:", error);
+                showToast('שגיאה בשליחת ההזמנה.', 'error');
+            } finally {
+                this.disabled = false;
+                this.textContent = 'שלח הזמנה';
+            }
         }
 
-        function setupEventListeners() {
-            dom.productCatalog.addEventListener('input', e => {
-                if(e.target.matches('input[type="number"]')) {
-                    updateCart(e.target.dataset.sku, e.target.value);
-                }
-            });
-            dom.submitMaterialsOrderBtn.addEventListener('click', submitMaterialsOrder);
+        function generateWhatsAppLink(order) {
+            const managerPhone = "972508860896"; // !!! החלף למספר טלפון של המנהל !!!
+            let message = `*הזמנת חומרים חדשה נכנסה:*\n\n`;
+            message += `*לקוח:* ${order['שם לקוח']} (מס': ${order['מספר לקוח']})\n`;
+            message += `*כתובת:* ${order['פרטי אספקה']}\n\n`;
+            message += `*פירוט:*\n${order['פריטים'].replace(/, /g, '\n- ')}`;
+            
+            const encodedMessage = encodeURIComponent(message);
+            const whatsappUrl = `https://wa.me/${managerPhone}?text=${encodedMessage}`;
+            
+            window.open(whatsappUrl, '_blank');
         }
         
-        function showToast(message, type = 'info') {
+        // --- EVENT LISTENERS & HELPERS ---
+        function setupEventListeners() {
+            document.getElementById('materials-catalog').addEventListener('input', e => {
+                if (e.target.classList.contains('quantity-input')) {
+                    updateCart(e.target.dataset.productId, e.target.value);
+                }
+            });
+            document.getElementById('submit-materials-order').addEventListener('click', submitMaterialsOrder);
+        }
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
             const toast = document.createElement('div');
-            toast.className = `toast ${type}`; toast.textContent = message;
-            document.getElementById('toast-container').appendChild(toast);
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            container.appendChild(toast);
+            
             setTimeout(() => toast.classList.add('show'), 10);
             setTimeout(() => {
                 toast.classList.remove('show');
                 toast.addEventListener('transitionend', () => toast.remove());
             }, 3000);
         }
-        
-        initApp();
+
+        // --- START THE APP ---
+        window.onload = initApp;
+
     </script>
 </body>
 </html>
