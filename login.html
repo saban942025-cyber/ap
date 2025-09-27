@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>אימות טלפוני - V7</title>
+    <title>אימות טלפוני - V6</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;700&display=swap" rel="stylesheet">
     <style>
@@ -45,10 +45,11 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 
     <script>
-        // Firebase configuration
+        // Your web app's Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyDy3k1AoEKeuCKjmFxefn9fapeqv2Le1_w",
             authDomain: "hsaban94-cc777.firebaseapp.com",
+            databaseURL: "https://hsaban94-cc777.firebaseio.com",
             projectId: "hsaban94-cc777",
             storageBucket: "hsaban94-cc777.appspot.com",
             messagingSenderId: "299206369469",
@@ -56,6 +57,7 @@
             measurementId: "G-EJVHY5TTV8"
         };
 
+        // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
         const db = firebase.firestore();
@@ -68,30 +70,31 @@
         const verificationCodeInput = document.getElementById('verification-code-input');
         const errorP = document.getElementById('auth-error');
 
-        // --- reCAPTCHA setup ---
+        // --- Step 1: Set up reCAPTCHA ---
         window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
             'size': 'invisible',
             'callback': (response) => {
                 console.log("reCAPTCHA solved");
             }
         });
+        // Render the reCAPTCHA as soon as the page loads
         window.recaptchaVerifier.render().then(widgetId => {
             window.recaptchaWidgetId = widgetId;
         });
 
-        // --- Send Verification Code ---
+        // --- Step 2: Send Verification Code ---
         sendCodeBtn.addEventListener('click', () => {
-            const rawPhone = phoneNumberInput.value.trim();
-            const sanitizedPhone = rawPhone.replace(/[^0-9]/g, ''); // keep digits only
+            const phoneNumberString = phoneNumberInput.value.trim();
+            const appVerifier = window.recaptchaVerifier;
             errorP.textContent = '';
+            
+            const sanitizedPhoneNumber = phoneNumberString.replace(/[^0-9]/g, '');
 
-            if (!/^(05\d{8})$/.test(sanitizedPhone)) {
+            if (!/^(05\d{8})$/.test(sanitizedPhoneNumber)) {
                  errorP.textContent = 'מספר טלפון לא תקין. יש להזין 10 ספרות (לדוגמה: 0501234567).';
                  return;
             }
-
-            const formattedPhoneNumber = `+972${sanitizedPhone.substring(1)}`;
-            const appVerifier = window.recaptchaVerifier;
+            const formattedPhoneNumber = `+972${sanitizedPhoneNumber.substring(1)}`;
 
             auth.signInWithPhoneNumber(formattedPhoneNumber, appVerifier)
                 .then((confirmationResult) => {
@@ -106,7 +109,7 @@
                 });
         });
 
-        // --- Verify Code and Login ---
+        // --- Step 3: Verify Code and Login ---
         verifyCodeBtn.addEventListener('click', () => {
             const code = verificationCodeInput.value.trim();
             errorP.textContent = '';
@@ -119,11 +122,10 @@
             window.confirmationResult.confirm(code).then(async (result) => {
                 const user = result.user;
                 console.log("User authenticated via SMS:", user);
+                
+                const sanitizedPhoneNumber = phoneNumberInput.value.replace(/[^0-9]/g, '');
 
-                // sanitize phone for lookup
-                const sanitizedPhone = phoneNumberInput.value.replace(/[^0-9]/g, '');
-
-                const customerQuery = await db.collection('clients').where('phone', '==', sanitizedPhone).get();
+                const customerQuery = await db.collection('לקוחות').where('טלפון', '==', sanitizedPhoneNumber).get();
                 
                 if (!customerQuery.empty) {
                     const customerDoc = customerQuery.docs[0];
@@ -131,7 +133,7 @@
                     sessionStorage.setItem('loggedInUser', JSON.stringify({ id: customerDoc.id, ...customerDoc.data() }));
                     window.location.href = `./dashboard.html?customerId=${customerId}`;
                 } else {
-                     errorP.textContent = 'הטלפון אומת, אך לא נמצא לקוח תואם ב-Firestore.';
+                     errorP.textContent = 'הטלפון אומת, אך לא נמצא כרטיס לקוח תואם במערכת.';
                 }
 
             }).catch((error) => {
@@ -142,3 +144,4 @@
     </script>
 </body>
 </html>
+
