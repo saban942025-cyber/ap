@@ -3,665 +3,284 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>דשבורד ראשי - ח.סבן</title>
-    <meta name="theme-color" content="#0b72b9"/>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    
+    <title>אזור אישי - ח.סבן</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --brand: #0b72b9; --accent: #ff9f1c; --bg: #f0f2f5; --card: #ffffff;
-            --text-dark: #1a202c; --text-light: #4a5568; --text-muted: #718096;
-            --border: #e2e8f0; --success: #38a169; --warning: #dd6b20; --danger: #e53e3e;
-            --radius: 16px; --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.07), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-            --status-new: #a0aec0; --status-processing: #4299e1; --status-shipped: #ed8936; 
-            --status-delivered: #38a169; --status-cancelled: #e53e3e;
+            --brand: #0b72b9; --brand-light: #e3f2fd; --accent: #ff9f1c; --bg: #f4f7fa; --card-bg: #ffffff;
+            --text-dark: #2d3748; --text-light: #718096; --border: #e2e8f0; --success: #48bb78;
         }
-        
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes popIn { 0% { transform: scale(0.9); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
-        @keyframes statusPulse { 0% { box-shadow: 0 0 0 0 rgba(66, 153, 225, 0.5); } 70% { box-shadow: 0 0 0 10px rgba(66, 153, 225, 0); } 100% { box-shadow: 0 0 0 0 rgba(66, 153, 225, 0); } }
-        
-        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-        html, body { height: 100%; overflow: hidden; background-color: var(--bg); }
-        body { font-family: 'Assistant', sans-serif; color: var(--text-dark); display: flex; flex-direction: column; overscroll-behavior-y: contain; }
-        .app-shell { display: flex; flex-direction: column; height: 100%; }
-        .app-header { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; padding: 10px 15px; background-color: var(--card); border-bottom: 1px solid var(--border); position: relative; z-index: 10; }
-        .app-container { flex-grow: 1; overflow-y: auto; padding: 20px 15px 100px 15px; }
-        
-        .page-title { font-size: 28px; font-weight: 700; margin-bottom: 20px; animation: fadeIn 0.5s ease-out forwards; }
-        .card { background-color: var(--card); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); margin-bottom: 20px; border: 1px solid var(--border); animation: popIn 0.5s ease-out forwards; overflow: hidden; }
-        .btn { background: var(--brand); color: white; border: none; padding: 12px 18px; border-radius: 10px; cursor: pointer; font-weight: 700; font-size: 15px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s; width: 100%; }
-        .btn:active { transform: scale(0.95); }
-        .btn.secondary { background-color: var(--bg); color: var(--text-dark); border: 1px solid var(--border); }
-        
-        .dashboard-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 20px; }
-        .dashboard-card { background: var(--card); border-radius: var(--radius); padding: 15px; text-align: center; box-shadow: var(--shadow); transition: transform 0.2s, box-shadow 0.2s; }
-        .dashboard-card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); }
-        .dashboard-value { font-size: 24px; font-weight: 700; margin: 5px 0; }
-        .dashboard-label { font-size: 14px; color: var(--text-muted); }
-        
-        .mini-map-container { border-radius: 12px; border: 1px solid var(--border); height: 150px; width: 100%; margin-top: 15px; background-color: #eee; }
-        .leaflet-control-zoom, .leaflet-control-attribution { display: none !important; }
-        .profile-avatar { width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--border); }
-        
-        .status-cube { width: 20px; height: 20px; border-radius: 4px; display: inline-block; margin-left: 8px; animation: statusPulse 2s infinite; }
-        .status-new { background-color: var(--status-new); }
-        .status-processing { background-color: var(--status-processing); }
-        .status-shipped { background-color: var(--status-shipped); }
-        .status-delivered { background-color: var(--status-delivered); }
-        .status-cancelled { background-color: var(--status-cancelled); }
-        
-        .order-status { display: flex; align-items: center; gap: 10px; margin: 10px 0; padding: 10px; border-radius: var(--radius); background-color: var(--bg); }
-        
-        .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; height: 80px; background-color: var(--card); display: flex; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); z-index: 1000; }
-        .nav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: var(--text-muted); text-decoration: none; font-weight: 600; font-size: 14px; border: none; background: transparent; cursor: pointer; transition: color 0.2s, transform 0.2s;}
-        .nav-btn.active { color: var(--brand); }
-        .nav-btn svg { width: 28px; height: 28px; pointer-events: none; }
-        
-        #toast-container { position: fixed; top: 20px; left: 15px; right: 15px; z-index: 4000; display: flex; flex-direction: column; gap: 10px; align-items: center;}
-        .toast { display: flex; align-items: center; gap: 12px; width: 100%; max-width: 400px; background: var(--card); color: var(--text-dark); padding: 14px 22px; border-radius: var(--radius); font-weight: 600; box-shadow: 0 4px 20px rgba(0,0,0,0.15); border: 1px solid var(--border); opacity: 0; transform: translateY(-20px); transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        .toast.show { opacity: 1; transform: translateY(0); }
-        
-        .modal-overlay { position: fixed; inset: 0; background-color: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 2000; opacity: 0; visibility: hidden; transition: opacity 0.3s; backdrop-filter: blur(5px); }
-        .modal-overlay.show { opacity: 1; visibility: visible; }
-        .modal-content { background-color: white; padding: 25px; border-radius: var(--radius); width: 90%; max-width: 500px; max-height: 80vh; overflow-y: auto; animation: popIn 0.3s; }
-        
-        #splash-screen { position: fixed; inset: 0; z-index: 9999; background-color: #ffffff; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: opacity 0.5s ease, visibility 0.5s ease; }
-        #splash-logo { width: 120px; }
-        .splash-loader { width: 40px; height: 40px; border: 4px solid rgba(11, 114, 185, 0.2); border-top-color: var(--brand); border-radius: 50%; animation: spin 1s linear infinite; margin-top: 20px; opacity: 0; transition: opacity 0.3s; }
-        #splash-screen.loading .splash-loader { opacity: 1; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        
-        .quick-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
-        .quick-action-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--card); border-radius: var(--radius); padding: 20px 10px; text-align: center; box-shadow: var(--shadow); transition: all 0.2s; border: 1px solid var(--border); text-decoration: none; color: inherit; }
-        .quick-action-btn:active { transform: scale(0.95); }
-        .quick-action-btn svg { width: 40px; height: 40px; margin-bottom: 10px; color: var(--brand); }
-        
-        .order-item { padding: 10px; border-bottom: 1px solid var(--border); }
-        .order-item:last-child { border-bottom: none; }
-        
-        .login-form { max-width: 400px; margin: 0 auto; padding: 20px; }
-        .login-form input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid var(--border); border-radius: 8px; font-size: 16px; }
+        body { font-family: 'Assistant', sans-serif; background-color: var(--bg); }
+        .page { display: none; }
+        .page.active { display: block; animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .popup-overlay { position: fixed; inset: 0; background-color: rgba(0,0,0,0.5); z-index: 50; display: flex; items-center: justify-center; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+        .popup-overlay.active { opacity: 1; pointer-events: auto; }
+        .popup-content { background: var(--card-bg); border-radius: 16px; padding: 24px; width: 90%; max-width: 400px; transform: scale(0.95); transition: transform 0.3s; }
+        .popup-overlay.active .popup-content { transform: scale(1); }
+        .fab { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); z-index: 40; }
+        .toast { position: fixed; bottom: -100px; left: 50%; transform: translateX(-50%); padding: 12px 24px; border-radius: 99px; color: white; font-weight: 600; z-index: 1000; transition: all 0.5s ease; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .toast.show { bottom: 20px; }
     </style>
 </head>
-<body>
-    <div class="app-shell">
-        <header class="app-header">
-            <div id="profile-container" class="profile-container">
-                <img id="profile-avatar" src="https://img.icons8.com/?size=100&id=Ry7mumEprV9w&format=png&color=000000" alt="Profile" class="profile-avatar">
-            </div>
-             <h1 id="client-name-header" style="font-weight: 700; font-size: 16px;">...</h1>
-            <div style="text-align: center; font-weight: 600;">
-                <div id="clock"></div>
-                <div id="date" style="font-size: 12px; color: var(--text-muted);"></div>
-            </div>
-        </header>
+<body class="max-w-md mx-auto bg-bg min-h-screen">
 
-        <main class="app-container" id="app-container">
-            <!-- Login Form (initially hidden) -->
-            <div id="login-section" class="card" style="display: none;">
-                <h2 class="page-title">התחברות</h2>
-                <form id="login-form" class="login-form">
-                    <input type="text" id="login-identifier" placeholder="מספר לקוח / טלפון" required>
-                    <button type="submit" class="btn">התחבר</button>
-                </form>
+    <div id="app-container">
+        <!-- Loading Screen -->
+        <div id="page-loading" class="page active flex items-center justify-center h-screen">
+             <div class="text-center">
+                <img src="https://i.postimg.cc/CMsm57QV/image.png" alt="לוגו" class="h-20 mx-auto mb-4 rounded-lg">
+                <div class="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-brand mx-auto"></div>
+                <p class="mt-4 text-lg font-semibold text-text-dark">טוען פרטי לקוח...</p>
             </div>
-            
-            <!-- Dashboard Content (initially hidden) -->
-            <div id="dashboard-content" style="display: none;">
-                <h1 class="page-title" id="greeting"></h1>
-                
-                <!-- Dashboard -->
-                <div class="dashboard-grid">
-                    <div class="dashboard-card">
-                        <div class="dashboard-value" id="active-containers">0</div>
-                        <div class="dashboard-label">מכולות פעילות</div>
-                    </div>
-                    <div class="dashboard-card">
-                        <div class="dashboard-value" id="pending-orders">0</div>
-                        <div class="dashboard-label">הזמנות ממתינות</div>
-                    </div>
+        </div>
+
+        <!-- Hub Page -->
+        <div id="page-hub" class="page p-4">
+            <header class="flex justify-between items-center py-4">
+                <div>
+                    <p class="text-text-light">שלום,</p>
+                    <h1 id="hub-customer-name" class="text-2xl font-extrabold text-text-dark"></h1>
                 </div>
-                
-                <!-- Active Orders -->
-                <div class="card">
-                    <h2 style="margin-bottom: 15px;">הזמנות פעילות</h2>
-                    <div id="active-orders-container">
-                        <p style="color: var(--text-muted);">טוען הזמנות...</p>
-                    </div>
-                </div>
-                
-                <!-- Quick Actions -->
-                <div class="card">
-                    <h2 style="margin-bottom: 15px;">פעולות מהירות</h2>
-                    <div class="quick-actions">
-                        <a id="materials-link" href="#" class="quick-action-btn">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect>
-                                <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path>
-                            </svg>
-                            <span>חומרי בנין</span>
-                        </a>
-                        <a id="containers-link" href="#" class="quick-action-btn">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M14 11V5a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-5"></path>
-                                <path d="M20 7h-5a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h5a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"></path>
-                            </svg>
-                            <span>מכולות</span>
-                        </a>
+                <img src="https://i.postimg.cc/CMsm57QV/image.png" alt="לוגו" class="h-12 rounded-lg">
+            </header>
+            <main class="mt-6 space-y-4">
+                <div class="bg-card-bg p-4 rounded-2xl shadow-sm">
+                    <h2 class="font-bold text-text-dark mb-3">הזמנות מהירות</h2>
+                    <div class="grid grid-cols-2 gap-4">
+                        <button data-action="go-materials" class="action-btn text-center bg-brand-light p-4 rounded-xl hover:bg-blue-200 transition">
+                            <span class="text-4xl">🧱</span>
+                            <p class="font-bold mt-2 text-brand">חומרי בניין</p>
+                        </button>
+                         <button data-action="go-containers" class="action-btn text-center bg-yellow-100 p-4 rounded-xl hover:bg-yellow-200 transition">
+                            <span class="text-4xl">🗑️</span>
+                            <p class="font-bold mt-2 text-yellow-800">מכולות</p>
+                        </button>
                     </div>
                 </div>
-                
-                <!-- Order Location Map -->
-                <div class="card">
-                    <h2 style="margin-bottom: 15px;">מיקום הזמנות פעילות</h2>
-                    <div id="map" class="mini-map-container"></div>
-                </div>
-                
-                <!-- Recent Orders -->
-                <div class="card">
-                    <h2 style="margin-bottom: 15px;">הזמנות אחרונות</h2>
-                    <div id="recent-orders-list" class="space-y-2">
-                        <p style="color: var(--text-muted);">טוען הזמנות...</p>
-                    </div>
-                </div>
+            </main>
+            <div class="fab">
+                <button data-action="open-popup" class="action-btn bg-brand text-white w-16 h-16 rounded-full flex items-center justify-center shadow-lg text-4xl">+</button>
             </div>
-        </main>
+        </div>
+        
+        <!-- Materials Order Form Page -->
+        <div id="page-materials-order" class="page p-4 pb-24">
+            <header class="flex items-center mb-4">
+                <button data-action="go-hub" class="p-2 text-text-light">&rarr;</button>
+                <h1 class="text-2xl font-bold mr-2">הזמנת חומרים</h1>
+            </header>
+            <div class="space-y-4">
+                <div>
+                    <label for="project-selector" class="font-semibold text-text-dark">בחר פרויקט</label>
+                    <select id="project-selector" class="w-full mt-1 p-3 bg-card-bg border border-border rounded-lg">
+                        <!-- Options will be populated by JS -->
+                    </select>
+                </div>
+                <div class="relative">
+                     <label for="product-search" class="font-semibold text-text-dark">הוסף מוצרים</label>
+                    <input type="text" id="product-search" placeholder="הקלד שם מוצר או הדבק רשימה..." class="w-full p-3 mt-1 border border-border rounded-lg">
+                    <div id="autocomplete-results" class="absolute z-10 w-full bg-card-bg border border-border rounded-b-lg mt-1 hidden shadow-lg"></div>
+                </div>
+                 <div id="order-items-container" class="space-y-2"></div>
+            </div>
+             <footer class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-card-bg p-4 border-t">
+                <button id="submit-order-btn" class="w-full bg-brand text-white font-bold py-3 rounded-lg hover:opacity-90 transition disabled:opacity-50" disabled>שלח בקשה למנהל</button>
+            </footer>
+        </div>
+
     </div>
-    
-    <nav class="bottom-nav" style="display: none;" id="bottom-nav">
-        <button class="nav-btn active" data-action="navigate" data-page="page-home">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
-            <span>דף הבית</span>
-        </button>
-        <button class="nav-btn" data-action="navigate" data-page="page-materials">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
-            <span>חומרי בנין</span>
-        </button>
-        <button class="nav-btn" data-action="navigate" data-page="page-history">
-             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"></path></svg>
-            <span>היסטוריה</span>
-        </button>
-    </nav>
-    
-    <div id="splash-screen"><img id="splash-logo" src="https://i.postimg.cc/2SbDgD1B/1.png" alt="לוגו ח.סבן"><div class="splash-loader"></div></div>
+
+    <!-- New Order Popup -->
+    <div id="new-order-popup" class="popup-overlay">
+        <div class="popup-content text-center">
+            <h2 class="text-2xl font-bold mb-6">יצירת הזמנה חדשה</h2>
+            <div class="space-y-4">
+                <button data-action="go-materials" class="w-full text-lg bg-brand text-white font-bold py-4 rounded-lg">הזמנת חומרי בניין</button>
+                <button data-action="go-containers" class="w-full text-lg bg-accent text-white font-bold py-4 rounded-lg">הזמנת מכולה</button>
+            </div>
+            <button data-action="close-popup" class="mt-6 text-text-light">סגור</button>
+        </div>
+    </div>
     <div id="toast-container"></div>
-    <div id="modal-container" class="modal-overlay"></div>
 
     <script>
-        // Main Application Logic
-        document.addEventListener('DOMContentLoaded', () => {
-            let clientState = { 
-                id: null, 
-                name: null, 
-                avatar: null, 
-                orders: []
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx07zliATi8KaNVWALPQugtzCsuJ1CojF_N8-6wUE3AKY18Lho66XZplGSf8v2xdaVf/exec";
+        let state = { customer: null, catalog: [], orderItems: [] };
+
+        const dom = {
+            app: document.getElementById('app-container'),
+            customerName: document.getElementById('hub-customer-name'),
+            newOrderPopup: document.getElementById('new-order-popup'),
+            projectSelector: document.getElementById('project-selector'),
+            productSearch: document.getElementById('product-search'),
+            autocompleteResults: document.getElementById('autocomplete-results'),
+            orderItemsContainer: document.getElementById('order-items-container'),
+            submitOrderBtn: document.getElementById('submit-order-btn')
+        };
+
+        async function apiCall(action, data) {
+            try {
+                const res = await fetch(SCRIPT_URL, {
+                    method: 'POST', mode: 'cors', body: JSON.stringify({ action, ...data }),
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+                });
+                return await res.json();
+            } catch (error) {
+                console.error("API Error:", error);
+                return { status: 'error', message: 'שגיאת תקשורת' };
+            }
+        }
+
+        async function initApp() {
+            const customerId = new URLSearchParams(window.location.search).get('customerId');
+            if (!customerId) return showError("שגיאה: מספר לקוח לא סופק.");
+            
+            try {
+                const [loginRes, catalogRes] = await Promise.all([
+                    apiCall('login', { customerId }),
+                    fetch(`${SCRIPT_URL}?sheet=קטלוג מוצרים`).then(res => res.json())
+                ]);
+
+                if (loginRes.status !== 'success') throw new Error(loginRes.message);
+                
+                state.customer = loginRes.user;
+                state.catalog = catalogRes;
+
+                dom.customerName.textContent = state.customer['שם לקוח'];
+                populateProjects();
+                navigateTo('page-hub');
+            } catch (error) {
+                showError(`שגיאה בטעינת נתונים: ${error.message}`);
+            }
+        }
+
+        function navigateTo(pageId) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(pageId).classList.add('active');
+        }
+        
+        function populateProjects() {
+            const projects = state.customer['פרויקטים'] ? state.customer['פרויקטים'].split(',') : [state.customer['פרוייקט']];
+            dom.projectSelector.innerHTML = '<option value="ללא פרויקט">הזמנה כללית (ללא פרויקט)</option>';
+            projects.forEach(p => {
+                if(p && p.trim()) dom.projectSelector.innerHTML += `<option value="${p.trim()}">${p.trim()}</option>`;
+            });
+        }
+
+        function renderOrderItems() {
+            dom.submitOrderBtn.disabled = state.orderItems.length === 0;
+            if (state.orderItems.length === 0) {
+                dom.orderItemsContainer.innerHTML = ''; return;
+            }
+            dom.orderItemsContainer.innerHTML = state.orderItems.map((item, i) => `
+                <div class="bg-brand-light p-3 rounded-lg flex items-center justify-between">
+                    <p class="font-semibold text-brand">${item.name}</p>
+                    <div class="flex items-center space-x-2 space-x-reverse">
+                        <input type="number" value="${item.quantity}" min="1" data-index="${i}" class="item-quantity w-16 text-center border rounded-md p-1">
+                        <button data-index="${i}" class="remove-item text-red-500 text-2xl">&times;</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function submitOrder() {
+            dom.submitOrderBtn.disabled = true;
+            dom.submitOrderBtn.textContent = 'שולח...';
+            
+            const orderDetails = {
+                customerNumber: state.customer['מספר לקוח'],
+                customerName: state.customer['שם לקוח'],
+                projectName: dom.projectSelector.value,
+                deliveryAddress: state.customer['כתובת'],
+                itemNames: state.orderItems.map(item => item.name).join('||'),
+                itemQuantities: state.orderItems.map(item => item.quantity).join('||'),
             };
-            
-            const dom = {};
 
-            function initApp() {
-                cacheDomElements();
-                updateClock();
-                setInterval(updateClock, 1000);
-                
-                // Check if user is already logged in
-                checkAuthentication();
+            const result = await apiCall('submitMaterialOrder', { orderDetails });
+
+            if (result.status === 'success' && result.whatsappUrl) {
+                showToast('הבקשה נשלחה למנהל!', 'success');
+                window.open(result.whatsappUrl, '_blank');
+                state.orderItems = [];
+                renderOrderItems();
+                navigateTo('page-hub');
+            } else {
+                showToast(`שגיאה: ${result.message}`, 'error');
             }
-            
-            function cacheDomElements(){
-                Object.assign(dom, {
-                    appShell: document.querySelector('.app-shell'),
-                    splashScreen: document.getElementById('splash-screen'),
-                    modalContainer: document.getElementById('modal-container'),
-                    toastContainer: document.getElementById('toast-container'),
-                    loginSection: document.getElementById('login-section'),
-                    dashboardContent: document.getElementById('dashboard-content'),
-                    loginForm: document.getElementById('login-form'),
-                    bottomNav: document.getElementById('bottom-nav'),
-                    activeOrdersContainer: document.getElementById('active-orders-container'),
-                    greeting: document.getElementById('greeting'),
-                    clientNameHeader: document.getElementById('client-name-header'),
-                    profileAvatar: document.getElementById('profile-avatar'),
-                    clock: document.getElementById('clock'),
-                    date: document.getElementById('date'),
-                    recentOrdersList: document.getElementById('recent-orders-list'),
-                    activeContainers: document.getElementById('active-containers'),
-                    pendingOrders: document.getElementById('pending-orders'),
-                    materialsLink: document.getElementById('materials-link'),
-                    containersLink: document.getElementById('containers-link'),
-                    navButtons: document.querySelectorAll('.nav-btn')
-                });
-            }
-            
-            function checkAuthentication() {
-                console.log("--- דשבורד: מתחיל בדיקת אימות ---");
-
-                const urlParams = new URLSearchParams(window.location.search);
-                const customerIdFromUrl = urlParams.get('customerId');
-                console.log("שלב 1: מספר לקוח מכתובת האתר:", customerIdFromUrl);
-                
-                const loggedInUserString = sessionStorage.getItem('loggedInUser');
-                console.log("שלב 2: מידע גולמי מזיכרון הדפדפן:", loggedInUserString);
-
-                // If no session found, show login form
-                if (!loggedInUserString) {
-                    console.log("לא נמצא מידע התחברות, מציג טופס התחברות");
-                    showLoginForm();
-                    return;
+            dom.submitOrderBtn.disabled = false;
+            dom.submitOrderBtn.textContent = 'שלח בקשה למנהל';
+        }
+        
+        function setupEventListeners() {
+            document.body.addEventListener('click', e => {
+                const action = e.target.closest('.action-btn')?.dataset.action;
+                switch (action) {
+                    case 'go-materials': navigateTo('page-materials-order'); dom.newOrderPopup.classList.remove('active'); break;
+                    case 'go-containers': alert('בבנייה'); break; // Placeholder
+                    case 'go-hub': navigateTo('page-hub'); break;
+                    case 'open-popup': dom.newOrderPopup.classList.add('active'); break;
+                    case 'close-popup': dom.newOrderPopup.classList.remove('active'); break;
                 }
+            });
 
-                const loggedInUser = JSON.parse(loggedInUserString);
-                console.log("שלב 3: אובייקט המשתמש שפוענח:", loggedInUser);
+            dom.productSearch.addEventListener('input', e => {
+                const query = e.target.value.toLowerCase();
+                if (query.length < 2) { dom.autocompleteResults.classList.add('hidden'); return; }
+                const results = state.catalog.filter(p => p['שם מוצר'].toLowerCase().includes(query)).slice(0, 5);
+                dom.autocompleteResults.innerHTML = results.map(p => `<div class="p-3 hover:bg-gray-100 cursor-pointer" data-sku="${p['מק"ט']}">${p['שם מוצר']}</div>`).join('');
+                dom.autocompleteResults.classList.remove('hidden');
+            });
 
-                const customerIdFromSession = loggedInUser['מספר לקוח'];
-                console.log("שלב 4: מספר לקוח שחולץ מאובייקט המשתמש:", customerIdFromSession);
-
-                const finalIdFromUrl = String(customerIdFromUrl || '').trim();
-                const finalIdFromSession = String(customerIdFromSession || '').trim();
-
-                console.log(`שלב 5: מבצע השוואה: האם "${finalIdFromUrl}" (מהכתובת) זהה ל-"${finalIdFromSession}" (מהזיכרון)?`);
-
-                if (finalIdFromUrl && finalIdFromSession && finalIdFromUrl !== finalIdFromSession) {
-                    console.error("שגיאת אימות: מספרי הלקוח אינם זהים! מבצע הפניה לדף התחברות.");
-                    showLoginForm();
-                    return;
-                }
-
-                console.log("אימות עבר בהצלחה! טוען את הדשבורד.");
-
-                // If we reached here, the user is authorized
-                const finalCustomerId = finalIdFromUrl || finalIdFromSession;
-                clientState.id = finalCustomerId;
-                clientState.name = loggedInUser['שם לקוח'];
-                
-                // Load client data
-                loadClientData(finalCustomerId);
-            }
-            
-            function showLoginForm() {
-                // Hide splash screen
-                dom.splashScreen.style.opacity = '0';
-                setTimeout(() => {
-                    dom.splashScreen.style.display = 'none';
-                    
-                    // Show login form
-                    dom.loginSection.style.display = 'block';
-                    
-                    // Set up login form handler
-                    dom.loginForm.addEventListener('submit', handleLogin);
-                }, 500);
-            }
-            
-            function handleLogin(event) {
-                event.preventDefault();
-                
-                const identifier = document.getElementById('login-identifier').value.trim();
-                if (!identifier) {
-                    showToast("אנא הזן מספר לקוח או טלפון", '⚠️');
-                    return;
-                }
-                
-                // Show loading state
-                const submitBtn = dom.loginForm.querySelector('button');
-                const originalText = submitBtn.textContent;
-                submitBtn.textContent = 'מתחבר...';
-                submitBtn.disabled = true;
-                
-                // Simulate login process
-                setTimeout(() => {
-                    // For demo purposes, create a mock user
-                    const mockUser = {
-                        'מספר לקוח': identifier,
-                        'שם לקוח': `לקוח ${identifier}`,
-                        'טלפון': '050-0000000'
-                    };
-                    
-                    // Save to session storage
-                    sessionStorage.setItem('loggedInUser', JSON.stringify(mockUser));
-                    
-                    // Update client state
-                    clientState.id = identifier;
-                    clientState.name = mockUser['שם לקוח'];
-                    
-                    // Hide login form and show dashboard
-                    dom.loginSection.style.display = 'none';
-                    
-                    // Load client data
-                    loadClientData(identifier);
-                    
-                    // Reset button
-                    submitBtn.textContent = originalText;
-                    submitBtn.disabled = false;
-                }, 1000);
-            }
-            
-            function loadClientData(clientId) {
-                try {
-                    // Create mock data based on client ID
-                    const mockData = generateMockData(clientId);
-                    
-                    clientState = { 
-                        ...clientState, 
-                        avatar: mockData.avatarUrl, 
-                        orders: mockData.orders || [] 
-                    };
-                    
-                    // Hide splash screen and show content
-                    setTimeout(() => {
-                        dom.splashScreen.style.opacity = '0';
-                        setTimeout(() => {
-                            dom.splashScreen.style.display = 'none';
-                            dom.dashboardContent.style.display = 'block';
-                            dom.bottomNav.style.display = 'flex';
-                            
-                            renderDashboard();
-                            setupEventListeners();
-                        }, 500);
-                    }, 500);
-                    
-                } catch (error) {
-                    console.error("Failed to load client data:", error);
-                    showToast("שגיאה בטעינת נתונים.", '❌');
-                    
-                    // Fallback: hide splash screen even on error
-                    setTimeout(() => {
-                        dom.splashScreen.style.opacity = '0';
-                        setTimeout(() => {
-                            dom.splashScreen.style.display = 'none';
-                            dom.loginSection.style.display = 'block';
-                        }, 500);
-                    }, 500);
-                }
-            }
-            
-            function generateMockData(clientId) {
-                // Generate consistent mock data based on client ID
-                const clientNum = parseInt(clientId) || 1;
-                
-                const projects = [
-                    'בניין מגורים תל אביב',
-                    'משרדים רמת גן',
-                    'וילה הרצליה',
-                    'מרכז מסחרי חיפה',
-                    'מגדל משרדים ירושלים'
-                ];
-                
-                const addresses = [
-                    'דיזנגוף 123, תל אביב',
-                    'אבא הלל 45, רמת גן',
-                    'הרצל 78, הרצליה',
-                    'הנמל 22, חיפה',
-                    'יafo 56, ירושלים'
-                ];
-                
-                const statuses = ['חדש', 'בעיבוד', 'במשלוח', 'נמסר', 'בוטל'];
-                
-                const orders = [];
-                const numOrders = (clientNum % 3) + 2; // 2-4 orders based on client ID
-                
-                for (let i = 0; i < numOrders; i++) {
-                    const projectIndex = (clientNum + i) % projects.length;
-                    const addressIndex = (clientNum + i) % addresses.length;
-                    const statusIndex = (clientNum + i) % statuses.length;
-                    const daysAgo = i * 3;
-                    
-                    orders.push({
-                        'תעודה': `ORD${clientNum}${i+1}`,
-                        'שם פרויקט': projects[projectIndex],
-                        'כתובת': addresses[addressIndex],
-                        'סטטוס': statuses[statusIndex],
-                        'תאריך הזמנה': new Date(Date.now() - daysAgo * 86400000).toISOString()
-                    });
-                }
-                
-                return {
-                    avatarUrl: 'https://img.icons8.com/?size=100&id=Ry7mumEprV9w&format=png&color=000000',
-                    orders: orders
-                };
-            }
-
-            function updateClock() {
-                const now = new Date();
-                // Convert to Israel timezone
-                const options = { timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit' };
-                dom.clock.textContent = now.toLocaleTimeString('he-IL', options);
-                
-                const dateOptions = { timeZone: 'Asia/Jerusalem', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
-                dom.date.textContent = now.toLocaleDateString('he-IL', dateOptions);
-            }
-            
-            function renderDashboard() {
-                dom.clientNameHeader.textContent = clientState.name;
-                dom.greeting.textContent = `שלום, ${clientState.name}`;
-                dom.profileAvatar.src = clientState.avatar;
-                dom.materialsLink.href = `./Materials.html?customerId=${clientState.id}`;
-                dom.containersLink.href = `./containers.html?customerId=${clientState.id}`;
-                
-                renderActiveOrders();
-                renderRecentOrders();
-                updateDashboard();
-                initMap();
-            }
-            
-            function renderActiveOrders() {
-                const activeOrders = clientState.orders.filter(o => 
-                    o['סטטוס'] !== 'נמסר' && o['סטטוס'] !== 'בוטל'
-                );
-                const container = dom.activeOrdersContainer;
-                container.innerHTML = '';
-                
-                if (activeOrders.length > 0) {
-                    activeOrders.forEach(order => {
-                        const cardElement = createOrderCardElement(order);
-                        container.appendChild(cardElement);
-                    });
-                } else {
-                    container.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 20px;">אין לך כרגע הזמנות פעילות.</p>';
-                }
-            }
-            
-            function renderRecentOrders() {
-                const recentOrders = clientState.orders.slice(0, 5); // Show last 5 orders
-                const listEl = dom.recentOrdersList;
-                
-                if (recentOrders.length === 0) {
-                    listEl.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 20px;">אין הזמנות אחרונות להצגה.</p>';
-                    return;
-                }
-                
-                listEl.innerHTML = recentOrders.map(order => `
-                    <div class="order-item">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <div>
-                                <strong>${formatDate(order['תאריך הזמנה'])}</strong>
-                                <div style="font-size: 14px; color: var(--text-muted);">${order['כתובת']}</div>
-                            </div>
-                            <div class="order-status">
-                                <span class="status-cube status-${getStatusClass(order['סטטוס'])}"></span>
-                                <span>${order['סטטוס']}</span>
-                            </div>
-                        </div>
-                    </div>
-                `).join('');
-            }
-            
-            function createOrderCardElement(order) {
-                const card = document.createElement('div');
-                card.className = 'order-card';
-                card.style.padding = '15px';
-                card.style.borderBottom = '1px solid var(--border)';
-                card.innerHTML = `
-                    <h3 style="margin-bottom: 10px; font-size: 18px;">${order['שם פרויקט'] || `הזמנה`}</h3>
-                    <p style="margin-bottom: 10px; color: var(--text-light);">${order['כתובת']}</p>
-                    <div class="order-status">
-                        <span>סטטוס:</span>
-                        <span class="status-cube status-${getStatusClass(order['סטטוס'])}"></span>
-                        <span>${order['סטטוס']}</span>
-                    </div>
-                    <div style="display: flex; gap: 10px; margin-top: 15px;">
-                        <button class="btn secondary" data-action="request-swap" data-id="${order['תעודה']}" style="flex: 1; font-size: 14px; padding: 8px;">החלפה</button>
-                        <button class="btn" data-action="request-pickup" data-id="${order['תעודה']}" style="flex: 1; font-size: 14px; padding: 8px;">פינוי</button>
-                    </div>`;
-                return card;
-            }
-            
-            function initMap() {
-                const mapContainer = document.getElementById('map');
-                if (!mapContainer) return;
-                
-                // Use the first active order's address for the map
-                const activeOrders = clientState.orders.filter(o => 
-                    o['סטטוס'] !== 'נמסר' && o['סטטוס'] !== 'בוטל'
-                );
-                
-                if (activeOrders.length > 0) {
-                    const order = activeOrders[0];
-                    renderLeafletMap(mapContainer, order['כתובת']);
-                } else {
-                    mapContainer.innerHTML = '<p style="text-align: center; padding: 60px 0; color: var(--text-muted);">אין הזמנות פעילות להצגה במפה</p>';
-                }
-            }
-            
-            function renderLeafletMap(container, address) {
-                if (!container || !address) return;
-                
-                // Use a default location for demo (Tel Aviv)
-                const defaultCoords = [32.0853, 34.7818]; // Tel Aviv coordinates
-                
-                try {
-                    const map = L.map(container, { zoomControl: false }).setView(defaultCoords, 13);
-                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                        attribution: '© OpenStreetMap contributors'
-                    }).addTo(map);
-                    
-                    L.marker(defaultCoords).addTo(map)
-                        .bindPopup(address)
-                        .openPopup();
-                        
-                } catch (err) { 
-                    container.innerHTML = '<p style="text-align: center; padding: 60px 0; color: var(--text-muted);">מפה לא זמינה כרגע</p>'; 
-                }
-            }
-
-            function updateDashboard() {
-                // Calculate counts based on order status
-                const activeContainersCount = clientState.orders.filter(o => 
-                    ['בעיבוד', 'במשלוח'].includes(o['סטטוס'])
-                ).length;
-                
-                const pendingOrdersCount = clientState.orders.filter(o => 
-                    o['סטטוס'] === 'בעיבוד'
-                ).length;
-                
-                dom.activeContainers.textContent = activeContainersCount;
-                dom.pendingOrders.textContent = pendingOrdersCount;
-            }
-
-            // --- UTILITY FUNCTIONS ---
-            async function sendClientRequest(requestType, orderId) {
-                 try {
-                    showToast("שולח בקשה...", '💬');
-                    
-                    // Simulate API call delay
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                    
-                    showToast("בקשתך נשלחה בהצלחה!", '✅');
-                    
-                    // Save request to localStorage for persistence
-                    const requests = JSON.parse(localStorage.getItem('clientRequests') || '[]');
-                    requests.push({
-                        clientId: clientState.id,
-                        clientName: clientState.name,
-                        requestType: requestType,
-                        orderId: orderId,
-                        timestamp: new Date().toISOString(),
-                        status: 'new'
-                    });
-                    localStorage.setItem('clientRequests', JSON.stringify(requests));
-                    
-                } catch (error) { 
-                    showToast(`שגיאה בשליחת הבקשה`, '❌'); 
-                }
-            }
-
-            function showToast(message, icon = 'ℹ️') {
-                const toast = document.createElement('div');
-                toast.className = 'toast';
-                toast.innerHTML = `<span>${icon}</span> ${message}`;
-                dom.toastContainer.appendChild(toast);
-                
-                setTimeout(() => toast.classList.add('show'), 10);
-                setTimeout(() => { 
-                    toast.classList.remove('show'); 
-                    setTimeout(() => toast.remove(), 400); 
-                }, 4000);
-            }
-
-            function getStatusClass(status) {
-                const statusMap = {
-                    'חדש': 'new',
-                    'בעיבוד': 'processing',
-                    'במשלוח': 'shipped',
-                    'נמסר': 'delivered',
-                    'בוטל': 'cancelled'
-                };
-                return statusMap[status] || 'new';
-            }
-
-            function formatDate(dateString) {
-                if (!dateString) return 'תאריך לא זמין';
-                try {
-                    const date = new Date(dateString);
-                    return date.toLocaleDateString('he-IL');
-                } catch (e) {
-                    return dateString;
-                }
-            }
-
-            function setupEventListeners() {
-                // Navigation buttons
-                dom.navButtons.forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        const page = e.currentTarget.dataset.page;
-                        dom.navButtons.forEach(b => b.classList.remove('active'));
-                        e.currentTarget.classList.add('active');
-                        
-                        // Handle navigation
-                        if (page === 'page-home') {
-                            // Already on home page
-                            window.location.href = `./dashboard.html?customerId=${clientState.id}`;
-                        } else if (page === 'page-materials') {
-                            window.location.href = `./Materials.html?customerId=${clientState.id}`;
-                        } else if (page === 'page-history') {
-                            window.location.href = `./history.html?customerId=${clientState.id}`;
-                        }
-                    });
-                });
-                
-                // Order action buttons
-                document.addEventListener('click', (e) => {
-                    if (e.target.matches('[data-action="request-swap"]')) {
-                        const orderId = e.target.dataset.id;
-                        sendClientRequest('swap', orderId);
-                    } else if (e.target.matches('[data-action="request-pickup"]')) {
-                        const orderId = e.target.dataset.id;
-                        sendClientRequest('pickup', orderId);
+            dom.autocompleteResults.addEventListener('click', e => {
+                const sku = e.target.dataset.sku;
+                if (sku) {
+                    const product = state.catalog.find(p => String(p['מק"ט']) === sku);
+                    if (product && !state.orderItems.some(item => item.sku === sku)) {
+                        state.orderItems.push({ name: product['שם מוצר'], quantity: 1, sku });
+                        renderOrderItems();
                     }
-                });
-                
-                // Logout functionality (optional - could add a logout button)
-                // For now, clearing sessionStorage will log the user out
-            }
+                    dom.productSearch.value = '';
+                    dom.autocompleteResults.classList.add('hidden');
+                }
+            });
+            
+            dom.orderItemsContainer.addEventListener('change', e => {
+                if (e.target.classList.contains('item-quantity')) {
+                    state.orderItems[e.target.dataset.index].quantity = parseInt(e.target.value) || 1;
+                }
+            });
+             dom.orderItemsContainer.addEventListener('click', e => {
+                if (e.target.classList.contains('remove-item')) {
+                    state.orderItems.splice(e.target.dataset.index, 1);
+                    renderOrderItems();
+                }
+            });
+            
+            dom.submitOrderBtn.addEventListener('click', submitOrder);
+        }
 
-            // Initialize the application
+        function showError(message) {
+            document.body.innerHTML = `<div class="p-8 text-center text-red-600">${message}</div>`;
+        }
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            document.getElementById('toast-container').appendChild(toast);
+            setTimeout(() => toast.classList.add('show'), 10);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                toast.addEventListener('transitionend', () => toast.remove());
+            }, 3000);
+        }
+
+        window.onload = () => {
             initApp();
-        });
+            setupEventListeners();
+        };
     </script>
 </body>
 </html>
+
