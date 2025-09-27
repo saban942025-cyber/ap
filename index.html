@@ -1,387 +1,286 @@
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#3b82f6">
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>הזמנות V7 - Firebase Edition</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>אזור אישי - ח.סבן</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Assistant', sans-serif; overflow-y: hidden; }
-        .screen {
-            position: absolute; top: 0; left: 0;
-            width: 100%; height: 100%;
-            transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
-            opacity: 0;
-            transform: scale(0.98);
-            pointer-events: none;
+        :root {
+            --brand: #0b72b9; --brand-light: #e3f2fd; --accent: #ff9f1c; --bg: #f4f7fa; --card-bg: #ffffff;
+            --text-dark: #2d3748; --text-light: #718096; --border: #e2e8f0; --success: #48bb78;
         }
-        .active-screen {
-            opacity: 1;
-            transform: scale(1);
-            pointer-events: auto;
-        }
-        #popup-overlay.hidden, #loading-spinner.hidden { display: none; }
-        #popup-overlay, #loading-spinner { display: flex; }
-        .checkmark__circle { stroke-dasharray: 166; stroke-dashoffset: 166; stroke-width: 2; stroke-miterlimit: 10; stroke: #4caf50; fill: none; animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards; }
-        .checkmark { width: 56px; height: 56px; border-radius: 50%; display: block; stroke-width: 2; stroke: #fff; stroke-miterlimit: 10; margin: 10% auto; box-shadow: inset 0px 0px 0px #4caf50; animation: fill .4s ease-in-out .4s forwards, scale .3s ease-in-out .9s both; }
-        .checkmark__check { transform-origin: 50% 50%; stroke-dasharray: 48; stroke-dashoffset: 48; animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards; }
-        @keyframes stroke { 100% { stroke-dashoffset: 0; } }
-        @keyframes scale { 0%, 100% { transform: none; } 50% { transform: scale3d(1.1, 1.1, 1); } }
-        @keyframes fill { 100% { box-shadow: inset 0px 0px 0px 30px #4caf50; } }
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #f1f1f1; }
-        ::-webkit-scrollbar-thumb { background: #888; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #555; }
+        body { font-family: 'Assistant', sans-serif; background-color: var(--bg); }
+        .page { display: none; }
+        .page.active { display: block; animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .popup-overlay { position: fixed; inset: 0; background-color: rgba(0,0,0,0.5); z-index: 50; display: flex; items-center: justify-center; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+        .popup-overlay.active { opacity: 1; pointer-events: auto; }
+        .popup-content { background: var(--card-bg); border-radius: 16px; padding: 24px; width: 90%; max-width: 400px; transform: scale(0.95); transition: transform 0.3s; }
+        .popup-overlay.active .popup-content { transform: scale(1); }
+        .fab { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); z-index: 40; }
+        .toast { position: fixed; bottom: -100px; left: 50%; transform: translateX(-50%); padding: 12px 24px; border-radius: 99px; color: white; font-weight: 600; z-index: 1000; transition: all 0.5s ease; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .toast.show { bottom: 20px; }
     </style>
 </head>
-<body class="bg-gray-100">
+<body class="max-w-md mx-auto bg-bg min-h-screen">
 
-    <div id="app-container" class="max-w-md mx-auto bg-white h-screen shadow-lg relative overflow-hidden">
-
-        <!-- ===== Login Screen ===== -->
-        <div id="login-screen" class="screen active-screen p-6 flex flex-col h-full bg-gray-50">
-             <div class="text-center pt-8">
-                <img src="https://i.postimg.cc/CMsm57QV/image.png" alt="לוגו החברה" class="h-16 mx-auto rounded-lg shadow-md p-1 border">
-                 <div id="datetime" class="text-center mt-2">
-                    <p id="time" class="text-lg font-semibold text-gray-700"></p>
-                    <p id="date" class="text-sm text-gray-500"></p>
-                </div>
-            </div>
-            
-            <div class="flex-grow flex flex-col justify-center">
-                 <img src="https://img.icons8.com/?size=100&id=106PofAoe3p7&format=png&color=000001" alt="אווטאר" class="h-20 w-20 rounded-full mx-auto p-1 border-4 border-blue-200 shadow-lg mb-4">
-                <h1 class="text-3xl font-bold text-center text-gray-800">כניסת לקוחות</h1>
-                <p class="text-center text-gray-500 mb-6">ברוכים הבאים למערכת ההזמנות החדשה</p>
-                <p class="text-center text-gray-500 mb-6">כניסה למערכת מתבצעת דרך <a href="./login.html" class="text-blue-600">אימות SMS</a> או דרך קישור אישי.</p>
+    <div id="app-container">
+        <!-- Loading Screen -->
+        <div id="page-loading" class="page active flex items-center justify-center h-screen">
+             <div class="text-center">
+                <img src="https://i.postimg.cc/CMsm57QV/image.png" alt="לוגו" class="h-20 mx-auto mb-4 rounded-lg">
+                <div class="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-brand mx-auto"></div>
+                <p class="mt-4 text-lg font-semibold text-text-dark">טוען פרטי לקוח...</p>
             </div>
         </div>
 
-
-        <!-- ===== Catalog Screen ===== -->
-        <div id="catalog-screen" class="screen p-4 overflow-y-auto">
-             <div class="flex justify-between items-center mb-4 sticky top-0 bg-white py-2 z-10">
-                <h1 class="text-2xl font-bold text-gray-800">קטלוג מוצרים</h1>
+        <!-- Hub Page -->
+        <div id="page-hub" class="page p-4">
+            <header class="flex justify-between items-center py-4">
+                <div>
+                    <p class="text-text-light">שלום,</p>
+                    <h1 id="hub-customer-name" class="text-2xl font-extrabold text-text-dark"></h1>
+                </div>
+                <img src="https://i.postimg.cc/CMsm57QV/image.png" alt="לוגו" class="h-12 rounded-lg">
+            </header>
+            <main class="mt-6 space-y-4">
+                <div class="bg-card-bg p-4 rounded-2xl shadow-sm">
+                    <h2 class="font-bold text-text-dark mb-3">הזמנות מהירות</h2>
+                    <div class="grid grid-cols-2 gap-4">
+                        <button data-action="go-materials" class="action-btn text-center bg-brand-light p-4 rounded-xl hover:bg-blue-200 transition">
+                            <span class="text-4xl">🧱</span>
+                            <p class="font-bold mt-2 text-brand">חומרי בניין</p>
+                        </button>
+                         <button data-action="go-containers" class="action-btn text-center bg-yellow-100 p-4 rounded-xl hover:bg-yellow-200 transition">
+                            <span class="text-4xl">🗑️</span>
+                            <p class="font-bold mt-2 text-yellow-800">מכולות</p>
+                        </button>
+                    </div>
+                </div>
+            </main>
+            <div class="fab">
+                <button data-action="open-popup" class="action-btn bg-brand text-white w-16 h-16 rounded-full flex items-center justify-center shadow-lg text-4xl">+</button>
+            </div>
+        </div>
+        
+        <!-- Materials Order Form Page -->
+        <div id="page-materials-order" class="page p-4 pb-24">
+            <header class="flex items-center mb-4">
+                <button data-action="go-hub" class="p-2 text-text-light">&rarr;</button>
+                <h1 class="text-2xl font-bold mr-2">הזמנת חומרים</h1>
+            </header>
+            <div class="space-y-4">
+                <div>
+                    <label for="project-selector" class="font-semibold text-text-dark">בחר פרויקט</label>
+                    <select id="project-selector" class="w-full mt-1 p-3 bg-card-bg border border-border rounded-lg">
+                        <!-- Options will be populated by JS -->
+                    </select>
+                </div>
                 <div class="relative">
-                    <button onclick="showScreen('cart-screen')" class="p-2 rounded-full hover:bg-gray-200">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-                        <span id="cart-badge" class="absolute top-0 right-0 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">0</span>
-                    </button>
+                     <label for="product-search" class="font-semibold text-text-dark">הוסף מוצרים</label>
+                    <input type="text" id="product-search" placeholder="הקלד שם מוצר או הדבק רשימה..." class="w-full p-3 mt-1 border border-border rounded-lg">
+                    <div id="autocomplete-results" class="absolute z-10 w-full bg-card-bg border border-border rounded-b-lg mt-1 hidden shadow-lg"></div>
                 </div>
+                 <div id="order-items-container" class="space-y-2"></div>
             </div>
-            <div id="catalog-grid" class="grid grid-cols-2 gap-4"></div>
+             <footer class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-card-bg p-4 border-t">
+                <button id="submit-order-btn" class="w-full bg-brand text-white font-bold py-3 rounded-lg hover:opacity-90 transition disabled:opacity-50" disabled>שלח בקשה למנהל</button>
+            </footer>
         </div>
 
-        <div id="product-detail-screen" class="screen overflow-y-auto">
-            <div class="p-4 sticky top-0 bg-white z-10">
-                <button onclick="showScreen('catalog-screen')" class="mb-4 text-blue-600">&larr; חזרה לקטלוג</button>
-            </div>
-            <div id="product-detail-content"></div>
-            <div class="p-4 mt-4 bg-gray-50 sticky bottom-0">
-                 <label for="quantity-input" class="block text-sm font-medium text-gray-700 mb-1">כמות</label>
-                 <input type="number" id="quantity-input" value="1" min="1" class="w-full p-2 border border-gray-300 rounded-md mb-4">
-                 <button id="add-to-cart-btn" class="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition">הוסף לעגלה</button>
-            </div>
-        </div>
-        
-        <div id="cart-screen" class="screen p-4 flex flex-col h-full">
-            <div class="flex items-center mb-4">
-                 <button onclick="showScreen('catalog-screen')" class="p-2 text-blue-600">&larr; חזרה לקטלוג</button>
-                 <h1 class="text-2xl font-bold text-gray-800 mr-2">עגלת קניות</h1>
-            </div>
-            <div id="cart-items-container" class="mb-4 flex-grow overflow-y-auto"></div>
-             <div class="space-y-4 mt-auto bg-white py-4">
-                <input type="text" id="delivery-address-input" class="w-full p-3 border border-gray-300 rounded-lg" placeholder="כתובת למשלוח">
-                <textarea id="order-notes-input" class="w-full p-3 border border-gray-300 rounded-lg" placeholder="הערות להזמנה"></textarea>
-                <button onclick="submitOrder()" class="w-full bg-green-600 text-white font-bold py-3 rounded-lg hover:bg-green-700 transition">אישור ושליחת הזמנה</button>
-            </div>
-        </div>
-        
-        <!-- ===== Global Loading Spinner ===== -->
-        <div id="loading-spinner" class="hidden fixed inset-0 bg-white bg-opacity-75 items-center justify-center z-50">
-            <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-600"></div>
-        </div>
-
-        <!-- ===== Global Popup (Modal) ===== -->
-        <div id="popup-overlay" class="hidden fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-40 p-4 transition-opacity duration-300">
-            <div id="popup-content" class="bg-white rounded-lg shadow-2xl p-6 text-center max-w-sm w-full transform transition-all duration-300 scale-95 opacity-0">
-                <div id="popup-icon" class="h-20 flex items-center justify-center"></div>
-                <h2 id="popup-title" class="text-2xl font-bold text-gray-800 mb-2"></h2>
-                <p id="popup-message" class="text-gray-600 mb-6"></p>
-                <button id="popup-close-btn" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700 transition">הבנתי</button>
-            </div>
-        </div>
     </div>
 
-    <!-- Firebase SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <!-- New Order Popup -->
+    <div id="new-order-popup" class="popup-overlay">
+        <div class="popup-content text-center">
+            <h2 class="text-2xl font-bold mb-6">יצירת הזמנה חדשה</h2>
+            <div class="space-y-4">
+                <button data-action="go-materials" class="w-full text-lg bg-brand text-white font-bold py-4 rounded-lg">הזמנת חומרי בניין</button>
+                <button data-action="go-containers" class="w-full text-lg bg-accent text-white font-bold py-4 rounded-lg">הזמנת מכולה</button>
+            </div>
+            <button data-action="close-popup" class="mt-6 text-text-light">סגור</button>
+        </div>
+    </div>
+    <div id="toast-container"></div>
 
     <script>
-        // --- CONFIGURATION ---
-        const firebaseConfig = {
-            apiKey: "AIzaSyDy3k1AoEKeuCKjmFxefn9fapeqv2Le1_w",
-            authDomain: "hsaban94-cc777.firebaseapp.com",
-            databaseURL: "https://hsaban94-cc777.firebaseio.com",
-            projectId: "hsaban94-cc777",
-            storageBucket: "hsaban94-cc777.appspot.com",
-            messagingSenderId: "299206369469",
-            appId: "1:299206369469:web:50ca90c58f1981ec9457d4",
-            measurementId: "G-EJVHY5TTV8"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx07zliATi8KaNVWALPQugtzCsuJ1CojF_N8-6wUE3AKY18Lho66XZplGSf8v2xdaVf/exec";
+        let state = { customer: null, catalog: [], orderItems: [] };
 
-        let loggedInUser = null;
-        let products = [];
-        let cart = [];
-
-        // --- POPUP MESSAGE LIBRARY ---
-        const popupMessages = {
-            loginSuccess: { icon: `<svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52"><circle class="checkmark__circle" cx="26" cy="26" r="25" fill="none"/><path class="checkmark__check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/></svg>`, title: 'התחברת בהצלחה!', message: ''},
-            welcomeMorning: { icon: '☀️', title: 'בוקר טוב', message: 'כיף לראות אותך! מוכן להתחיל את היום?' },
-            welcomeAfternoon: { icon: '👋', title: 'צהריים טובים', message: 'מקווים שהיום שלך הולך מצוין!' },
-            welcomeEvening: { icon: '🌙', title: 'ערב טוב', message: 'שמחים שאתה כבר מארגן את ההזמנות למחר.' },
-            orderSuccess: { icon: '✅', title: 'ההזמנה התקבלה!', message: 'ההזמנה שלך נשמרה במערכת. ניצור קשר בהקדם.' },
-            cartAddSuccess: { icon: '🛒', title: 'נוסף לעגלה', message: 'המוצר נוסף לעגלה בהצלחה.' }
+        const dom = {
+            app: document.getElementById('app-container'),
+            customerName: document.getElementById('hub-customer-name'),
+            newOrderPopup: document.getElementById('new-order-popup'),
+            projectSelector: document.getElementById('project-selector'),
+            productSearch: document.getElementById('product-search'),
+            autocompleteResults: document.getElementById('autocomplete-results'),
+            orderItemsContainer: document.getElementById('order-items-container'),
+            submitOrderBtn: document.getElementById('submit-order-btn')
         };
 
-        // --- CORE UI FUNCTIONS ---
-        function showScreen(screenId) {
-            document.querySelectorAll('.screen').forEach(screen => screen.classList.remove('active-screen'));
-            document.getElementById(screenId).classList.add('active-screen');
-        }
-        
-        function showLoading(isLoading) {
-            document.getElementById('loading-spinner').classList.toggle('hidden', !isLoading);
-        }
-
-        function showPopup(type, userName = '') {
-            const popup = popupMessages[type];
-            if (!popup) return;
-            document.getElementById('popup-icon').innerHTML = popup.icon;
-            document.getElementById('popup-title').textContent = `${popup.title} ${userName}`;
-            document.getElementById('popup-message').textContent = popup.message;
-            document.getElementById('popup-overlay').classList.remove('hidden');
-            setTimeout(() => { 
-                const popupContent = document.getElementById('popup-content');
-                popupContent.classList.add('scale-100', 'opacity-100');
-                popupContent.classList.remove('scale-95', 'opacity-0');
-            }, 10);
-        }
-
-        function hidePopup() {
-            const popupContent = document.getElementById('popup-content');
-            popupContent.classList.remove('scale-100', 'opacity-100');
-            popupContent.classList.add('scale-95', 'opacity-0');
-            setTimeout(() => document.getElementById('popup-overlay').classList.add('hidden'), 300);
-        }
-        
-        // --- LOGIN LOGIC (Magic Link) ---
-        async function handleDirectLogin(customerId) {
-            showLoading(true);
+        async function apiCall(action, data) {
             try {
-                // In Firestore, the document ID is the customer number.
-                const customerDoc = await db.collection("customers").doc(customerId).get();
-
-                if (customerDoc.exists) {
-                    loggedInUser = { id: customerDoc.id, ...customerDoc.data() };
-                    
-                    showPopup('loginSuccess');
-                    
-                    setTimeout(() => {
-                        hidePopup();
-                        setTimeout(() => {
-                            const hour = new Date().getHours();
-                            const customerFirstName = (loggedInUser['שם לקוח'] || '').split(' ')[0];
-                            let welcomeType = 'welcomeAfternoon';
-                            if (hour >= 5 && hour < 12) welcomeType = 'welcomeMorning';
-                            else if (hour >= 18 || hour < 5) welcomeType = 'welcomeEvening';
-                            
-                            document.getElementById('popup-close-btn').onclick = () => {
-                                hidePopup();
-                                loadCatalog(); 
-                            };
-                            showPopup(welcomeType, customerFirstName);
-                        }, 300);
-                    }, 1500);
-
-                } else {
-                    alert("שגיאה: מספר הלקוח בקישור אינו תקין.");
-                    showScreen('login-screen');
-                }
+                const res = await fetch(SCRIPT_URL, {
+                    method: 'POST', mode: 'cors', body: JSON.stringify({ action, ...data }),
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+                });
+                return await res.json();
             } catch (error) {
-                console.error("Direct Login Error:", error);
-                alert("שגיאת תקשורת בטעינת נתוני הלקוח.");
-                showScreen('login-screen');
-            } finally {
-                showLoading(false);
+                console.error("API Error:", error);
+                return { status: 'error', message: 'שגיאת תקשורת' };
             }
         }
-        
-        // --- CATALOG LOGIC ---
-        async function loadCatalog() {
-            showLoading(true);
+
+        async function initApp() {
+            const customerId = new URLSearchParams(window.location.search).get('customerId');
+            if (!customerId) return showError("שגיאה: מספר לקוח לא סופק.");
+            
             try {
-                // Fetch products directly from Firestore
-                const querySnapshot = await db.collection("products").get();
-                products = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderCatalog();
-                showScreen('catalog-screen');
-            } catch (error) {
-                 console.error("Catalog Load Error:", error);
-                 alert('שגיאה בטעינת הקטלוג מ-Firestore.');
-            } finally {
-                showLoading(false);
-            }
-        }
+                const [loginRes, catalogRes] = await Promise.all([
+                    apiCall('login', { customerId }),
+                    fetch(`${SCRIPT_URL}?sheet=קטלוג מוצרים`).then(res => res.json())
+                ]);
 
-        function renderCatalog() {
-            const grid = document.getElementById('catalog-grid');
-            grid.innerHTML = '';
-            products.forEach((product) => {
-                const card = document.createElement('div');
-                card.className = 'border rounded-lg p-2 shadow-sm cursor-pointer hover:shadow-md transition';
-                card.onclick = () => showProductDetails(product.id);
-                card.innerHTML = `
-                    <img src="${product['תמונת מוצר']}" alt="${product['שם מוצר']}" class="w-full h-24 object-cover rounded-md mb-2" onerror="this.src='https://placehold.co/400x300/e0e0e0/777?text=Image'">
-                    <h3 class="font-bold text-sm text-gray-800 truncate">${product['שם מוצר']}</h3>
-                `;
-                grid.appendChild(card);
-            });
-        }
-        
-        function showProductDetails(productId) {
-            const product = products.find(p => p.id === productId);
-            if (!product) return;
-            
-            const contentDiv = document.getElementById('product-detail-content');
-            contentDiv.innerHTML = `
-                <img src="${product['תמונת מוצר']}" alt="${product['שם מוצר']}" class="w-full h-48 object-cover" onerror="this.src='https://placehold.co/600x400/e0e0e0/777?text=Image'">
-                <div class="p-4">
-                    <h2 class="text-2xl font-bold mb-2">${product['שם מוצר']}</h2>
-                    <p class="text-gray-600">${product['מפרט מוצר']}</p>
-                </div>
-            `;
-            
-            document.getElementById('add-to-cart-btn').onclick = () => addToCart(productId);
-            document.getElementById('quantity-input').value = 1;
-            showScreen('product-detail-screen');
-        }
-
-        // --- CART LOGIC ---
-        function addToCart(productId) {
-            const product = products.find(p => p.id === productId);
-            if (!product) return;
-
-            const quantity = parseInt(document.getElementById('quantity-input').value, 10);
-            
-            if (quantity > 0) {
-                const existingItem = cart.find(item => item.id === product.id);
-                if (existingItem) {
-                    existingItem.quantity += quantity;
-                } else {
-                    cart.push({ ...product, quantity });
-                }
-                updateCartUI();
-                document.getElementById('popup-close-btn').onclick = () => {
-                    hidePopup();
-                    showScreen('catalog-screen');
-                };
-                showPopup('cartAddSuccess');
-            }
-        }
-
-        function updateCartUI() {
-            document.getElementById('cart-badge').textContent = cart.reduce((sum, item) => sum + item.quantity, 0);
-            const container = document.getElementById('cart-items-container');
-            container.innerHTML = '';
-            if (cart.length === 0) {
-                container.innerHTML = '<p class="text-center text-gray-500">עגלת הקניות ריקה</p>';
-                return;
-            }
-            cart.forEach((item, index) => {
-                const itemDiv = document.createElement('div');
-                itemDiv.className = 'flex justify-between items-center border-b py-2';
-                itemDiv.innerHTML = `
-                    <div>
-                        <p class="font-bold">${item['שם מוצר']}</p>
-                        <p class="text-sm text-gray-600">כמות: ${item.quantity}</p>
-                    </div>
-                    <button onclick="removeFromCart(${index})" class="text-red-500 hover:text-red-700">מחק</button>
-                `;
-                container.appendChild(itemDiv);
-            });
-        }
-        
-        function removeFromCart(index) {
-            cart.splice(index, 1);
-            updateCartUI();
-        }
-
-        // --- ORDER SUBMISSION ---
-        async function submitOrder() {
-            if (cart.length === 0) { return alert("עגלת הקניות ריקה."); }
-            const deliveryAddress = document.getElementById('delivery-address-input').value;
-            if (!deliveryAddress) { return alert("יש להזין כתובת למשלוח."); }
-
-            showLoading(true);
-            try {
-                const orderDetails = {
-                    customerId: loggedInUser.id,
-                    customerName: loggedInUser['שם לקוח'],
-                    deliveryAddress,
-                    notes: document.getElementById('order-notes-input').value,
-                    items: cart.map(item => ({ name: item['שם מוצר'], quantity: item.quantity, sku: item['מק"ט'] })),
-                    status: 'חדשה',
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp() // Adds a timestamp
-                };
-
-                // Add the order to the 'material_orders' collection in Firestore
-                await db.collection("material_orders").add(orderDetails);
+                if (loginRes.status !== 'success') throw new Error(loginRes.message);
                 
-                cart = [];
-                updateCartUI();
-                document.getElementById('delivery-address-input').value = '';
-                document.getElementById('order-notes-input').value = '';
-                document.getElementById('popup-close-btn').onclick = () => {
-                    hidePopup();
-                    showScreen('catalog-screen');
-                };
-                showPopup('orderSuccess');
+                state.customer = loginRes.user;
+                state.catalog = catalogRes;
 
-            } catch(error) {
-                console.error("Order Submission Error:", error);
-                alert(`שגיאה בשליחת ההזמנה: ${error.message}`);
-            } finally {
-                showLoading(false);
+                dom.customerName.textContent = state.customer['שם לקוח'];
+                populateProjects();
+                navigateTo('page-hub');
+            } catch (error) {
+                showError(`שגיאה בטעינת נתונים: ${error.message}`);
             }
+        }
+
+        function navigateTo(pageId) {
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            document.getElementById(pageId).classList.add('active');
         }
         
-        // --- INITIALIZATION & UTILITIES ---
-        function updateDateTime() {
-            const now = new Date();
-            const timeOptions = { hour: '2-digit', minute: '2-digit', hour12: false };
-            const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-            document.getElementById('time').textContent = now.toLocaleTimeString('he-IL', timeOptions);
-            document.getElementById('date').textContent = now.toLocaleDateString('he-IL', dateOptions);
+        function populateProjects() {
+            const projects = state.customer['פרויקטים'] ? state.customer['פרויקטים'].split(',') : [state.customer['פרוייקט']];
+            dom.projectSelector.innerHTML = '<option value="ללא פרויקט">הזמנה כללית (ללא פרויקט)</option>';
+            projects.forEach(p => {
+                if(p && p.trim()) dom.projectSelector.innerHTML += `<option value="${p.trim()}">${p.trim()}</option>`;
+            });
         }
 
-        window.onload = function() {
-            showLoading(false); 
-            updateDateTime();
-            setInterval(updateDateTime, 1000); 
-
-            const urlParams = new URLSearchParams(window.location.search);
-            const customerIdFromAdalo = urlParams.get('customerId');
-            if (customerIdFromAdalo) {
-                handleDirectLogin(customerIdFromAdalo);
-            } else {
-                showScreen('login-screen');
+        function renderOrderItems() {
+            dom.submitOrderBtn.disabled = state.orderItems.length === 0;
+            if (state.orderItems.length === 0) {
+                dom.orderItemsContainer.innerHTML = ''; return;
             }
+            dom.orderItemsContainer.innerHTML = state.orderItems.map((item, i) => `
+                <div class="bg-brand-light p-3 rounded-lg flex items-center justify-between">
+                    <p class="font-semibold text-brand">${item.name}</p>
+                    <div class="flex items-center space-x-2 space-x-reverse">
+                        <input type="number" value="${item.quantity}" min="1" data-index="${i}" class="item-quantity w-16 text-center border rounded-md p-1">
+                        <button data-index="${i}" class="remove-item text-red-500 text-2xl">&times;</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function submitOrder() {
+            dom.submitOrderBtn.disabled = true;
+            dom.submitOrderBtn.textContent = 'שולח...';
+            
+            const orderDetails = {
+                customerNumber: state.customer['מספר לקוח'],
+                customerName: state.customer['שם לקוח'],
+                projectName: dom.projectSelector.value,
+                deliveryAddress: state.customer['כתובת'],
+                itemNames: state.orderItems.map(item => item.name).join('||'),
+                itemQuantities: state.orderItems.map(item => item.quantity).join('||'),
+            };
+
+            const result = await apiCall('submitMaterialOrder', { orderDetails });
+
+            if (result.status === 'success' && result.whatsappUrl) {
+                showToast('הבקשה נשלחה למנהל!', 'success');
+                window.open(result.whatsappUrl, '_blank');
+                state.orderItems = [];
+                renderOrderItems();
+                navigateTo('page-hub');
+            } else {
+                showToast(`שגיאה: ${result.message}`, 'error');
+            }
+            dom.submitOrderBtn.disabled = false;
+            dom.submitOrderBtn.textContent = 'שלח בקשה למנהל';
+        }
+        
+        function setupEventListeners() {
+            document.body.addEventListener('click', e => {
+                const action = e.target.closest('.action-btn')?.dataset.action;
+                switch (action) {
+                    case 'go-materials': navigateTo('page-materials-order'); dom.newOrderPopup.classList.remove('active'); break;
+                    case 'go-containers': alert('בבנייה'); break; // Placeholder
+                    case 'go-hub': navigateTo('page-hub'); break;
+                    case 'open-popup': dom.newOrderPopup.classList.add('active'); break;
+                    case 'close-popup': dom.newOrderPopup.classList.remove('active'); break;
+                }
+            });
+
+            dom.productSearch.addEventListener('input', e => {
+                const query = e.target.value.toLowerCase();
+                if (query.length < 2) { dom.autocompleteResults.classList.add('hidden'); return; }
+                const results = state.catalog.filter(p => p['שם מוצר'].toLowerCase().includes(query)).slice(0, 5);
+                dom.autocompleteResults.innerHTML = results.map(p => `<div class="p-3 hover:bg-gray-100 cursor-pointer" data-sku="${p['מק"ט']}">${p['שם מוצר']}</div>`).join('');
+                dom.autocompleteResults.classList.remove('hidden');
+            });
+
+            dom.autocompleteResults.addEventListener('click', e => {
+                const sku = e.target.dataset.sku;
+                if (sku) {
+                    const product = state.catalog.find(p => String(p['מק"ט']) === sku);
+                    if (product && !state.orderItems.some(item => item.sku === sku)) {
+                        state.orderItems.push({ name: product['שם מוצר'], quantity: 1, sku });
+                        renderOrderItems();
+                    }
+                    dom.productSearch.value = '';
+                    dom.autocompleteResults.classList.add('hidden');
+                }
+            });
+            
+            dom.orderItemsContainer.addEventListener('change', e => {
+                if (e.target.classList.contains('item-quantity')) {
+                    state.orderItems[e.target.dataset.index].quantity = parseInt(e.target.value) || 1;
+                }
+            });
+             dom.orderItemsContainer.addEventListener('click', e => {
+                if (e.target.classList.contains('remove-item')) {
+                    state.orderItems.splice(e.target.dataset.index, 1);
+                    renderOrderItems();
+                }
+            });
+            
+            dom.submitOrderBtn.addEventListener('click', submitOrder);
+        }
+
+        function showError(message) {
+            document.body.innerHTML = `<div class="p-8 text-center text-red-600">${message}</div>`;
+        }
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            document.getElementById('toast-container').appendChild(toast);
+            setTimeout(() => toast.classList.add('show'), 10);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                toast.addEventListener('transitionend', () => toast.remove());
+            }, 3000);
+        }
+
+        window.onload = () => {
+            initApp();
+            setupEventListeners();
         };
     </script>
 </body>
 </html>
+
