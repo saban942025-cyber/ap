@@ -1537,6 +1537,21 @@
         window.showTomorrowOrders = showTomorrowOrders;
         window.hideFullPageView = hideFullPageView;
 
+        window.focusViewerMapItem = focusViewerMapItem;
+
+
+        // --- HELPERS ---
+        async function playNotificationSound(note = "C5", duration = "8n") { /* ... */ }
+        function showLoader(elementId, show) { /* ... */ }
+
+        // Remove the local showToast function, it's now imported
+        /*
+        function showToast(message, type = 'info') {
+             // ... old local implementation ...
+        }
+        */
+
     </script>
-</body>
+    <!-- Service Worker Registration --></body>
 </html>
+נ
