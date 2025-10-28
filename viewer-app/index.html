@@ -8,6 +8,7 @@
       DeliveryMaster Live Viewer App v50.7 (Modular + SW)
 
       Changelog:
+      - v50.7.1 (FIX): Changed import path to absolute (/shared/firebase-init.js)
       - v50.7:
         - Refactored to use shared firebase-init.js module.
         - Added Service Worker registration.
@@ -100,7 +101,7 @@
         import {
             db, authReadyPromise, SmartLog, // Core shared components
             collection, doc, onSnapshot, query, orderBy, where, limit, Timestamp // Firestore functions used + Timestamp
-        } from '../shared/firebase-init.js'; // Adjust path if needed
+        } from '/shared/firebase-init.js'; // *** FIXED PATH TO ABSOLUTE ***
 
         // --- CONFIG & STATE ---
         const ISRAEL_CENTER = [32.0853, 34.7818];
@@ -351,3 +352,4 @@
     </script>
 </body>
 </html>
+
