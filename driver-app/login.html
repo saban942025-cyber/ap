@@ -49,7 +49,7 @@
     <script type="module">
         // --- Import Shared and Specific Firebase Functions ---
         // Note: No need for SmartLog in the login page itself
-        import { db, authReadyPromise, collection, query, where, getDocs, limit } from '/shared/firebase-init.js'; // Use absolute path
+        import { db, authReadyPromise, collection, query, where, getDocs, limit } from '/ap/shared/firebase-init.js'; // *** FIXED PATH AGAIN *** Use absolute path including /ap/
 
         // --- DOM Elements ---
         const loginForm = document.getElementById('login-form');
@@ -60,13 +60,10 @@
         const errorMessage = document.getElementById('error-message');
 
         // --- Pre-check if already logged in ---
-        // If driver details exist, redirect immediately
         if (localStorage.getItem('driverId') && localStorage.getItem('driverName')) {
              console.log("Driver already logged in, redirecting...");
-             // Use './' which resolves relative to the current directory (driver-app)
-             window.location.href = './index.html';
+             window.location.href = './index.html'; // Relative to current dir
         }
-
 
         // --- Login Logic ---
         loginForm.addEventListener('submit', async (event) => {
@@ -87,11 +84,9 @@
             }
 
             try {
-                // Ensure Firebase connection is ready
                 await authReadyPromise;
                 if (!db) throw new Error("Database connection not available.");
 
-                // Query Firestore for the driver name (case-sensitive)
                 const driversRef = collection(db, "drivers");
                 const q = query(driversRef, where("name", "==", driverName), limit(1));
                 const querySnapshot = await getDocs(q);
@@ -100,25 +95,21 @@
                     errorMessage.textContent = 'שם הנהג שהוזן אינו קיים במערכת.';
                     console.warn(`Login failed: Driver "${driverName}" not found.`);
                 } else {
-                    // Driver found
                     const driverDoc = querySnapshot.docs[0];
                     const driverId = driverDoc.id;
-                    const foundDriverName = driverDoc.data().name; // Get name from Firestore doc
+                    const foundDriverName = driverDoc.data().name;
 
-                    // Store driver details
                     localStorage.setItem('driverId', driverId);
-                    localStorage.setItem('driverName', foundDriverName); // Use the exact name from DB
+                    localStorage.setItem('driverName', foundDriverName);
                     console.log(`Driver logged in: ID=${driverId}, Name=${foundDriverName}`);
 
-                    // Redirect to the main driver app page
-                    window.location.href = './index.html'; // Relative path to main app page
+                    window.location.href = './index.html'; // Redirect
                 }
 
             } catch (error) {
                 console.error("Login process error:", error);
                 errorMessage.textContent = 'שגיאה בתהליך ההתחברות. נסה שוב.';
             } finally {
-                 // Ensure button is re-enabled and text/spinner reset in all cases
                  loginButton.disabled = false;
                  if(loginButtonText) loginButtonText.textContent = 'כניסה לאפליקציה';
                  loadingSpinner?.classList.add('hidden');
@@ -127,3 +118,4 @@
     </script>
 </body>
 </html>
+
