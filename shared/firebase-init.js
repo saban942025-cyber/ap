@@ -53,3 +53,14 @@ function showToast(message, type = 'info', duration = 3000) {
     SmartLog.info(`Toast shown: ${message}`, "UI.Toast", { type, duration });
 }
 // Note: This function is now EXPORTED from this module.
+// --- Enhanced Toast Function ---
+// ... (Function definition remains the same)
+
+// Export necessary Firebase services and functions, plus our helpers
+export {
+    db, auth, authReadyPromise, functions, SmartLog, showToast, // *** Double-checking showToast is EXPORTED ***
+    // Firestore functions (list all used across apps)
+    collection, doc, onSnapshot, query, orderBy, addDoc, updateDoc,
+    serverTimestamp, deleteDoc, arrayUnion, where, getDocs, setDoc, limit, getDoc,
+    Timestamp // Export Timestamp
+};
