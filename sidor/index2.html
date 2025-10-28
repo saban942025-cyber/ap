@@ -1,8 +1,8 @@
     -->
 
     <!-- PWA Settings -->
-    <link rel="manifest" href="./manifest.json"> <!-- Ensure correct path -->
-    <meta name="theme-color" content="#1F2937"> <!-- Dark Nav Color -->
+    <link rel="manifest" href="./manifest.json"> <!-- Path should be correct relative to HTML -->
+    <meta name="theme-color" content="#1F2937">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes"> <!-- Added missing tag -->
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -291,7 +291,7 @@
             collection, doc, onSnapshot, query, orderBy, addDoc, updateDoc,
             serverTimestamp, deleteDoc, arrayUnion, where, getDocs, setDoc, limit, getDoc,
             Timestamp
-        } from '/ap/shared/firebase-init.js'; // *** FIXED PATH AGAIN *** Use absolute path including /ap/
+        } from '/shared/firebase-init.js'; // *** TRYING ABSOLUTE PATH FROM ROOT ***
 
         // --- State, Config, Icons ---
         // ... (Remain the same as previous version v33.0) ...
@@ -602,20 +602,15 @@
 
     </script>
      <script>
-        // Service Worker Registration (Remains the same)
+        // Service Worker Registration
         if ('serviceWorker' in navigator) {
              window.addEventListener('load', () => {
-                 navigator.serviceWorker.register('./sw.js') // Ensure correct path
+                 navigator.serviceWorker.register('./sw.js') // Path should be correct relative to HTML
                      .then(reg => console.log('Admin SW registered:', reg.scope))
                      .catch(err => {
                           console.error('Admin SW registration failed:', err);
-                          // Show a toast message if registration fails due to 404 or other issues
-                          // Ensure showToast is available globally or handle error differently
-                          if (typeof showToast === 'function') {
-                              showToast('שגיאה ברישום Service Worker', 'error');
-                          } else {
-                              console.error('showToast function not available for SW error');
-                          }
+                          // Using console.error directly as showToast might not be loaded yet if SW fails early
+                          console.error('שגיאה ברישום Service Worker');
                      });
              });
          }
