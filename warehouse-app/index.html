@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>DeliveryMaster - טרמינל מחסן v50.7 (Modular)</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#ffffff">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+    <style>
+        /* CSS remains the same as v50.6 */
+        :root { --primary-color: #007bff; --success: #28a745; --warning: #ffc107; --shadow-light: 0 8px 32px 0 rgba(31, 38, 135, 0.2); }
+        html, body { height: 100%; overflow: hidden; }
+        body { font-family: 'Rubik', sans-serif; margin: 0; background: linear-gradient(135deg, #f5f7fa, #c3cfe2); color: #333; }
+        .view { display: none !important; height: 100vh; } .view.active { display: flex !important; flex-direction: column; }
+        .glass-card { background: rgba(255, 255, 255, 0.4); box-shadow: var(--shadow-light); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.6); }
+        #loginView { justify-content: center; align-items: center; } .login-card { padding: 40px; text-align: center; width: 90%; max-width: 400px; } .login-card h2 { font-size: 1.8rem; margin-bottom: 20px; } .login-card input { width: 100%; padding: 15px; margin-bottom: 20px; border: none; border-radius: 12px; font-size: 1.2rem; text-align: center; background-color: rgba(255,255,255,0.5); color: #333; } .login-card button { width: 100%; padding: 15px; background-color: var(--primary-color); color:white; border:none; border-radius: 12px; font-size: 1.2rem; cursor: pointer; transition: transform 0.2s; } .login-card button:hover { transform: scale(1.05); }
+        .app-header { padding: 15px 20px; z-index: 10; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; } #welcomeMessage { margin:0; font-size: 1.5em; }
+        main { flex-grow: 1; overflow-y: auto; padding: 0 15px; }
+        #warehouse-map { height: 300px; border-radius: 20px; margin: 15px 0; border: 1px solid rgba(255, 255, 255, 0.6); box-shadow: var(--shadow-light); background-color: #eee; padding:0; overflow:hidden; } .leaflet-popup-content-wrapper { border-radius: 8px; } .leaflet-popup-content { font-family: 'Rubik', sans-serif; }
+        .order-section { margin-bottom: 30px; } .order-section h2 { padding-bottom: 10px; display: flex; align-items: center; gap: 10px; font-size: 1.5rem; } .order-card { margin: 10px 0; padding: 20px; } .order-card h4 { font-size: 1.2rem; margin-bottom: 10px; } .order-card p { opacity: 0.8; } .order-card button { width: 100%; padding: 12px; border: none; border-radius: 12px; color: white; cursor: pointer; font-size: 1em; margin-top: 15px; } .btn-acknowledge { background-color: var(--success); } .btn-load { background-color: var(--warning); } .btn-call-driver { background-color: var(--primary-color); margin-top: 8px; } button:disabled { background-color: #999; cursor: not-allowed; opacity: 0.7; }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid var(--primary-color); border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; display: inline-block; margin-right: 10px; } @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #toast-container { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 5000; display: flex; flex-direction: column; gap: 8px; } .toast { padding: 12px 20px; background-color: var(--primary-color); color: white; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); opacity: 0; transform: translateY(20px); transition: all 0.3s ease; } .toast.show { opacity: 1; transform: translateY(0); }
+    </style>
+</head>
+<body>
+
+    <div id="loginView" class="view active">
+        <div class="login-card glass-card">
+            <h2>כניסת מנהל מחסן</h2>
+            <input type="text" id="managerIdInput" placeholder="הזן קוד מנהל (OREN/TAMIR)">
+            <button id="loginBtn">כניסה</button>
+        </div>
+    </div>
+
+    <div id="mainView" class="view">
+        <header class="app-header glass-card" style="margin: 15px; height: 70px;"> <h1 id="welcomeMessage"></h1> <button id="logoutBtn" style="background:none; border:none; color:#333; font-size: 1.5em;"><i class="fas fa-sign-out-alt"></i></button> </header>
+         <main> <div id="warehouse-map"></div> <div id="newOrders" class="order-section"> <h2><i class="fas fa-inbox"></i> הזמנות חדשות</h2> <div id="newOrdersList"><p>טוען...</p></div> </div> <div id="inProgressOrders" class="order-section"> <h2><i class="fas fa-tasks"></i> הזמנות בתהליך</h2> <div id="inProgressOrdersList"><p>טוען...</p></div> </div> </main>
+    </div>
+
+    <div id="toast-container"></div> <script type="module">
+        // --- Import from Shared Module ---
+        import {
+            db, authReadyPromise, SmartLog,
+            collection, doc, onSnapshot, query, addDoc, updateDoc,
+            serverTimestamp, where, setDoc, limit
+        } from '../shared/firebase-init.js'; // Adjust path
+
+        // --- Original App Logic (Modified for Firebase v50.7 Modular) ---
+
+        // DOM Elements
+        const loginView = document.getElementById('loginView');
+        const mainView = document.getElementById('mainView');
+        const loginBtn = document.getElementById('loginBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const managerIdInput = document.getElementById('managerIdInput');
+        const welcomeMessage = document.getElementById('welcomeMessage');
+        const newOrdersList = document.getElementById('newOrdersList');
+        const inProgressOrdersList = document.getElementById('inProgressOrdersList');
+
+        let currentManager = null;
+        let knownOrderIds = new Set();
+        let state = { drivers: {}, orders: {}, locations: {} };
+        let map; let driverMarkers = {};
+        const warehouseCoords = { "החרש": [32.13266165049073, 34.898196599998755], "התלמיד": [32.16303427408473, 34.894926705310006] };
+
+        // Map Icons (remain the same)
+        const driverIconAvailable = L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png', shadowSize: [41, 41] });
+        const driverIconLoading = L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-yellow.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png', shadowSize: [41, 41] });
+        const driverIconInactive = L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-grey.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png', shadowSize: [41, 41] });
+        const warehouseIcon = L.icon({ iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png', iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png', shadowSize: [41, 41] });
+
+        // OneSignal Initialization (remains the same)
+        window.OneSignalDeferred = window.OneSignalDeferred || [];
+        OneSignalDeferred.push(async function(OneSignal) { try { await OneSignal.init({ appId: "c711df10-6c87-4d81-889c-8e13963a155b" }); initWarehouseApp(OneSignal); } catch (e) { SmartLog.error(e, "OneSignal.Init"); initWarehouseApp(null); } });
+
+        // App Initialization (uses imported authReadyPromise)
+        function initWarehouseApp(OneSignalInstance) {
+            SmartLog.info("Initializing Warehouse App (v50.7 Modular)...", "Init");
+            loginBtn.addEventListener('click', () => onLogin(OneSignalInstance));
+            logoutBtn.addEventListener('click', onLogout);
+            const loggedInManager = JSON.parse(sessionStorage.getItem('warehouseManager'));
+            if (loggedInManager) initApp(loggedInManager, OneSignalInstance);
+            else switchView('loginView');
+        }
+
+        function onLogin(OneSignalInstance) { /* ... function remains the same ... */ const mid = managerIdInput.value.trim().toUpperCase(); if(!mid || (mid !== 'OREN' && mid !== 'TAMIR')) { alert('קוד לא תקין (OREN/TAMIR)'); return; } const md = { id: mid, name: mid === 'OREN' ? 'אורן' : 'תמיר', warehouse: mid === 'OREN' ? 'החרש' : 'התלמיד' }; sessionStorage.setItem('warehouseManager', JSON.stringify(md)); initApp(md, OneSignalInstance); }
+        function onLogout() { /* ... function remains the same ... */ SmartLog.info("Logout", "Auth"); sessionStorage.removeItem('warehouseManager'); if(window.OneSignal) OneSignal.logout(); switchView('loginView'); location.reload(); }
+
+        async function initApp(manager, OneSignalInstance) {
+            SmartLog.info(`Init session for: ${manager.id}`, "Auth", { manager });
+            currentManager = manager;
+            welcomeMessage.textContent = `מחסן ${manager.warehouse} | ${manager.name}`;
+            switchView('mainView');
+            try {
+                await authReadyPromise; // Use imported promise
+                SmartLog.info("Auth ready, init components.", "Init");
+                initMap();
+                listenToDrivers(); listenToLocations(); listenToOrders(); listenToGlobalPings();
+                if (OneSignalInstance) initializeNotifications(manager.id, OneSignalInstance);
+                else SmartLog.warn("OneSignal failed, skipping notifications.", "Init");
+            } catch (error) { SmartLog.error(error, "Init.Critical"); welcomeMessage.textContent = `שגיאת התחברות.`; }
+        }
+
+        // --- Map Functions (remain the same) ---
+        function initMap() { if (map) map.remove(); if (!currentManager || !warehouseCoords[currentManager.warehouse]) { SmartLog.error("Warehouse location unknown", "Map.Init"); document.getElementById('warehouse-map').innerHTML = "שגיאה: מיקום מחסן לא ידוע"; return; } const center = warehouseCoords[currentManager.warehouse]; map = L.map('warehouse-map').setView(center, 13); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OSM' }).addTo(map); L.marker(center, { icon: warehouseIcon }).addTo(map).bindPopup(`<b>המחסן (${currentManager.warehouse})</b>`); SmartLog.info("Map initialized", "Map.Init"); }
+        function renderWarehouseMap() { if (!map) return; Object.values(state.locations).forEach(loc => { const did = loc.id; const d = state.drivers[did]; if (!d) return; let icon = driverIconInactive; let pt = `<b>${d.name}</b><br>${loc.isStuck ? 'תקוע' : 'לא פעיל'}`; const ao = Object.values(state.orders).find(o => o.driver?.id === did && o.status === 'שויך' && o.warehouse === currentManager.warehouse); const ood = Object.values(state.orders).some(o => o.driver?.id === did && o.status === 'בדרך'); if (ao) { icon = driverIconLoading; pt = `<b>${d.name}</b><br>בדרך להעמסת #${ao.orderNumber || ao.id.slice(-6)}`; } else if (loc.isStuck) { pt = `<b>${d.name}</b><br>תקוע`; } else if (!ood && loc.lastUpdate?.toDate) { const ma = Math.round((Date.now() - loc.lastUpdate.toDate().getTime()) / 60000); if (ma < 15) { icon = driverIconAvailable; pt = `<b>${d.name}</b><br>פנוי (${ma} דק')`; } else pt = `<b>${d.name}</b><br>לא פעיל (${ma} דק')`; } const ll = [loc.latitude, loc.longitude]; if (driverMarkers[did]) driverMarkers[did].setLatLng(ll).setIcon(icon).setPopupContent(pt); else driverMarkers[did] = L.marker(ll, { icon }).addTo(map).bindPopup(pt); }); Object.keys(driverMarkers).forEach(did => { if (!state.locations[did]) { if (map.hasLayer(driverMarkers[did])) map.removeLayer(driverMarkers[did]); delete driverMarkers[did]; } }); }
+
+        // --- Firebase Listeners (use imported functions) ---
+        function listenToDrivers() { SmartLog.info("Listening: Drivers", "Firestore"); const q = query(collection(db, "drivers")); onSnapshot(q, s => { s.docChanges().forEach(c => state.drivers[c.doc.id] = { id: c.doc.id, ...c.doc.data() }); renderWarehouseMap(); }, e => SmartLog.error(e, "Firestore.Listen.Drivers")); }
+        function listenToLocations() { SmartLog.info("Listening: Locations", "Firestore"); const q = query(collection(db, "driverLocations")); onSnapshot(q, s => { s.docChanges().forEach(c => { if (c.type === "removed") delete state.locations[c.doc.id]; else state.locations[c.doc.id] = { id: c.doc.id, ...c.doc.data() }; }); renderWarehouseMap(); }, e => SmartLog.error(e, "Firestore.Listen.Locations")); }
+        function listenToOrders() { if (!currentManager) return; SmartLog.info(`Listening: Orders for ${currentManager.warehouse}`, "Firestore"); const q = query(collection(db, "orders"), where("warehouse", "==", currentManager.warehouse), where("status", "in", ["חדש", "שויך", "באיסוף", "טעון"])); let firstLoad = true; onSnapshot(q, s => { let newOrder = false; s.docChanges().forEach(c => { const id = c.doc.id; const d = { id, ...c.doc.data() }; if (c.type === "added") { state.orders[id] = d; if (d.status === 'חדש' && !firstLoad) newOrder = true; knownOrderIds.add(id); } else if (c.type === "modified") { const os = state.orders[id]?.status; if (d.status === 'חדש' && os !== 'חדש' && !firstLoad) newOrder = true; state.orders[id] = d; } else if (c.type === "removed") { delete state.orders[id]; knownOrderIds.delete(id); } }); if (firstLoad) firstLoad = false; if (newOrder) { SmartLog.info("New order detected", "Orders"); playNotificationSound(); } renderOrderLists(); renderWarehouseMap(); }, e => { SmartLog.error(e, "Firestore.Listen.Orders"); newOrdersList.innerHTML = `<p class="text-red-500">שגיאת סנכרון.</p>`; }); }
+        function listenToGlobalPings() { SmartLog.info("Listening: Global Pings", "Firestore"); const since = new Date(Date.now() - 60000); const q = query(collection(db, "globalPings"), where("createdAt", ">", since), orderBy("createdAt", "desc"), limit(1)); let init = true; onSnapshot(q, s => { if (init) { init = false; return; } s.docChanges().forEach(c => { if (c.type === "added") { const p = c.doc.data(); SmartLog.info("Global Ping Rx!", "Pings", p); playNotificationSound('A5', '4n'); showToast(`התראה מהמנהל: ${p.message}`); } }); }, e => SmartLog.error(e, "Firestore.Pings.Listener")); }
+
+        // --- Render Lists (remain the same) ---
+        function renderOrderLists() { newOrdersList.innerHTML = ''; inProgressOrdersList.innerHTML = ''; const awo = Object.values(state.orders); const no = awo.filter(o => o.status === 'חדש'); const ip = awo.filter(o => ['באיסוף', 'טעון', 'שויך'].includes(o.status)); if (no.length === 0) newOrdersList.innerHTML = '<p>אין הזמנות חדשות.</p>'; no.forEach(o => newOrdersList.innerHTML += createOrderCard(o, 'acknowledge')); if (ip.length === 0) inProgressOrdersList.innerHTML = '<p>אין הזמנות בתהליך.</p>'; ip.sort((a,b) => (a.status === 'שויך' ? -1 : 1)).forEach(o => inProgressOrdersList.innerHTML += createOrderCard(o, 'load')); }
+        function createOrderCard(order, type) { let bh = ''; if (type === 'acknowledge') bh = `<button class="btn-acknowledge" onclick="updateOrderStatus(event, '${order.id}', 'באיסוף')">אשר קבלה</button>`; else if (order.status === 'שויך') bh = `<button class="btn-call-driver" onclick="callDriverForLoading(event, '${order.id}')"><i class="fas fa-bullhorn mr-2"></i> קרא לנהג</button>`; else if (order.status === 'באיסוף') bh = `<button class="btn-load" onclick="updateOrderStatus(event, '${order.id}', 'טעון')">סמן כטעון</button>`; else bh = `<p class="text-green-600 font-bold text-center mt-4">הועמס ✔️</p>`; const di = order.orderNumber || order.id.slice(-6); const dn = order.driver?.name ? `(נהג: ${order.driver.name})` : ''; return `<div class="order-card glass-card" data-order-id="${order.id}"><h4>${order.customer?.name || '?'} (${di})</h4><p><strong>כתובת:</strong> ${order.address || '?'}</p><p><strong>סוג:</strong> ${order.deliveryType || '?'} ${dn}</p>${bh}</div>`; }
+
+        // --- Actions (use imported functions) ---
+        async function callDriverForLoading(event, orderId) { const btn = event.target; const order = state.orders[orderId]; if (!order || !order.driver?.id) { alert("נהג לא משויך."); return; } btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> שולח...'; try { playNotificationSound('G5', '8n'); const pingRef = doc(collection(db, "driverPings")); await setDoc(pingRef, { driverId: order.driver.id, orderId: orderId, warehouse: currentManager.warehouse, createdAt: serverTimestamp(), type: 'LOAD_REQUEST' }); SmartLog.info(`Ping sent`, "CRUD.Ping", { orderId, driverId: order.driver.id }); btn.innerHTML = 'נשלחה <i class="fas fa-check"></i>'; setTimeout(() => { btn.disabled = false; btn.innerHTML = '<i class="fas fa-bullhorn mr-2"></i> קרא לנהג'; }, 3000); } catch (e) { SmartLog.error(e, "CRUD.Ping", { orderId }); alert("שגיאה בשליחת קריאה."); btn.disabled = false; btn.innerHTML = '<i class="fas fa-bullhorn mr-2"></i> קרא לנהג'; } } window.callDriverForLoading = callDriverForLoading;
+        async function updateOrderStatus(event, orderId, newStatus) { SmartLog.info(`Update order ${orderId} -> ${newStatus}`, "CRUD.Order"); const btn = event.target; btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> מעדכן...'; try { const orderRef = doc(db, "orders", orderId); await updateDoc(orderRef, { status: newStatus, lastModified: serverTimestamp() }); SmartLog.info(`Update success ${orderId}`, "CRUD.Order"); } catch (e) { SmartLog.error(e, "CRUD.Order.Update", { orderId, newStatus }); btn.disabled = false; btn.innerHTML = 'נסה שוב'; } } window.updateOrderStatus = updateOrderStatus;
+
+        // --- Helpers (remain the same) ---
+        async function playNotificationSound(note = "C5", duration = "8n") { try { if (!window.Tone) return; await Tone.start(); const synth = new Tone.Synth().toDestination(); synth.triggerAttackRelease(note, duration); SmartLog.info("Sound played.", 'Notifications'); } catch (e) { SmartLog.error(e, "Notifications.Sound"); } }
+        function switchView(viewId) { document.querySelectorAll('.view').forEach(v => v.classList.remove('active')); document.getElementById(viewId)?.classList.add('active'); }
+        async function initializeNotifications(managerId, OneSignal) { try { await OneSignal.Notifications.requestPermission(); await OneSignal.login(managerId); const pid = OneSignal.User.onesignalId; if (pid) { SmartLog.info(`Registering OneSignal ${pid} for ${managerId}`, "OneSignal"); const dr = doc(db, "warehouseDevices", pid); await setDoc(dr, { managerId, warehouse: currentManager.warehouse, registeredAt: serverTimestamp() }); SmartLog.info("Device registered", "OneSignal"); } } catch (e) { SmartLog.error(e, "OneSignal.Register"); } }
+        function showToast(message) { const c = document.getElementById('toast-container'); if (!c) return; const t = document.createElement('div'); t.className = 'toast'; t.innerText = message; c.appendChild(t); setTimeout(() => t.classList.add('show'), 10); setTimeout(() => { t.classList.remove('show'); setTimeout(() => { if (c.contains(t)) c.removeChild(t); }, 300); }, 5000); }
+
+        // --- Start App Fallback (remains the same) ---
+        setTimeout(() => { if (!currentManager && !document.getElementById('mainView')?.classList.contains('active')) { SmartLog.warn("OneSignal timeout, init manually.", "Init"); initWarehouseApp(null); } }, 3000);
+
+    </script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js') // Path relative to index.html
+                    .then(registration => { console.log('Warehouse SW registered:', registration.scope); })
+                    .catch(error => { console.log('Warehouse SW registration failed:', error); });
+            });
+        }
+    </script>
+</body>
+</html>
