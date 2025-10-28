@@ -4,6 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>DeliveryMaster Viewer v50.7 (Modular + SW)</title>
+    <!--
+      DeliveryMaster Live Viewer App v50.7 (Modular + SW)
+
+      Changelog:
+      - v50.7:
+        - Refactored to use shared firebase-init.js module.
+        - Added Service Worker registration.
+        - Unified SmartLog to use 'system_logs_v3'.
+      - v50.6: Fixed mobile UI, added Global Ping listener.
+      - v50.5: Faulty mobile UI implementation.
+      - v50.4: Added Global Ping listener (initial).
+      - v50.3: Fixed ISRAEL_CENTER error.
+    -->
+
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#ffffff">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -85,7 +99,7 @@
         // --- Import from Shared Module ---
         import {
             db, authReadyPromise, SmartLog, // Core shared components
-            collection, doc, onSnapshot, query, orderBy, where, limit, Timestamp // Firestore functions used
+            collection, doc, onSnapshot, query, orderBy, where, limit, Timestamp // Firestore functions used + Timestamp
         } from '../shared/firebase-init.js'; // Adjust path if needed
 
         // --- CONFIG & STATE ---
@@ -185,71 +199,37 @@
 
                 const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
                 const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
-                const todayStartMs = todayStart.getTime(); // Cache for performance
-                const todayEndMs = todayEnd.getTime();
+                const todayStartMs = todayStart.getTime(); const todayEndMs = todayEnd.getTime();
 
-                viewerState.activeOrders = [];
-                viewerState.futureOrders = [];
-                let completedTodayCount = 0;
+                viewerState.activeOrders = []; viewerState.futureOrders = []; let completedTodayCount = 0;
 
                 for (const o of viewerState.allOrders) {
-                    // Active orders check
-                    if (ACTIVE_ORDER_STATUSES.includes(o.status || '')) {
-                         viewerState.activeOrders.push(o);
-                    }
-                    // Future orders check
-                    if (o.orderDate) {
-                        try {
-                            const orderDateObj = new Date(o.orderDate);
-                            orderDateObj.setHours(0, 0, 0, 0);
-                            if (orderDateObj > todayEnd) {
-                                viewerState.futureOrders.push(o);
-                            }
-                        } catch (e) { /* Ignore parsing errors */ }
-                    }
-                     // Completed today check
-                     if (o.status === 'הושלם') {
-                          const modifiedTime = o.lastModified?.toDate ? o.lastModified.toDate().getTime() : 0;
-                          if (modifiedTime >= todayStartMs && modifiedTime <= todayEndMs) {
-                              completedTodayCount++;
-                          }
-                     }
+                    if (ACTIVE_ORDER_STATUSES.includes(o.status || '')) viewerState.activeOrders.push(o);
+                    if (o.orderDate) { try { const d = new Date(o.orderDate); d.setHours(0,0,0,0); if (d > todayEnd) viewerState.futureOrders.push(o); } catch (e) {} }
+                    if (o.status === 'הושלם') { const modTime = o.lastModified?.toDate ? o.lastModified.toDate().getTime() : 0; if (modTime >= todayStartMs && modTime <= todayEndMs) completedTodayCount++; }
                 }
-
-                // Sort lists
                 viewerState.activeOrders.sort((a,b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
                 viewerState.futureOrders.sort((a,b) => (a.orderDate ? new Date(a.orderDate).getTime() : 0) - (b.orderDate ? new Date(b.orderDate).getTime() : 0));
 
-
-                // Update UI
-                renderViewerOrdersList();
-                renderViewerFutureOrdersList();
-                renderViewerMapMarkers();
-                updateCounters(completedTodayCount); // Pass count directly
-
-                showLoader('viewer-orders-active-list', false);
-                showLoader('viewer-orders-future-list', false);
+                renderViewerOrdersList(); renderViewerFutureOrdersList(); renderViewerMapMarkers(); updateCounters(completedTodayCount);
+                showLoader('viewer-orders-active-list', false); showLoader('viewer-orders-future-list', false);
 
             }, e => { SmartLog.error(e, "Firestore.AllOrders.Listener"); updateConnectionStatus("error", "שגיאת הזמנות"); });
         }
-
 
         function listenToLocationsViewer() {
              SmartLog.info("Listening to Locations...", "Firestore.Listen");
              const q = query(collection(db, "driverLocations"));
              onSnapshot(q, (snapshot) => {
                 // SmartLog.info(`Locations: ${snapshot.docChanges().length} changes.`, "Firestore.Snapshot");
-                const newLocations = {};
-                snapshot.forEach(doc => { newLocations[doc.id] = { id: doc.id, ...doc.data() }; });
-                viewerState.liveLocations = newLocations;
-                renderViewerDriversList();
-                renderViewerMapMarkers();
+                const newLocations = {}; snapshot.forEach(doc => { newLocations[doc.id] = { id: doc.id, ...doc.data() }; }); viewerState.liveLocations = newLocations;
+                renderViewerDriversList(); renderViewerMapMarkers();
              }, e => { SmartLog.error(e, "Firestore.Locations.Listener"); updateConnectionStatus("error", "שגיאת מיקומים"); });
         }
 
         function listenToGlobalPings() {
              SmartLog.info("Listening for Global Pings...", "Firestore.Listen");
-             const since = Timestamp.fromDate(new Date(Date.now() - 60000)); // Use Firestore Timestamp
+             const since = Timestamp.fromDate(new Date(Date.now() - 60000)); // Use imported Timestamp
              const q = query( collection(db, "globalPings"), where("createdAt", ">", since), orderBy("createdAt", "desc"), limit(1) );
              let initialLoad = true;
              onSnapshot(q, (snapshot) => {
@@ -258,103 +238,58 @@
              }, e => { SmartLog.error(e, "Firestore.Pings.Listener"); updateConnectionStatus("error", "שגיאת התראות"); });
         }
 
-        // --- RENDER FUNCTIONS (remain mostly the same, pass completedToday count) ---
-         function updateCounters(completedTodayCount) { // Accept count as argument
-             const activeCount = viewerState.activeOrders.length;
-             const futureCount = viewerState.futureOrders.length;
-             const countActiveEl = document.getElementById('count-active');
-             const countCompletedEl = document.getElementById('count-completed-today');
-             const countFutureEl = document.getElementById('count-future');
-             if(countActiveEl) countActiveEl.innerText = activeCount;
-             if(countCompletedEl) countCompletedEl.innerText = completedTodayCount;
-             if(countFutureEl) countFutureEl.innerText = futureCount;
+        // --- RENDER FUNCTIONS (remain mostly the same) ---
+         function updateCounters(completedTodayCount) {
+             const activeCount = viewerState.activeOrders.length; const futureCount = viewerState.futureOrders.length;
+             const countActiveEl = document.getElementById('count-active'); const countCompletedEl = document.getElementById('count-completed-today'); const countFutureEl = document.getElementById('count-future');
+             if(countActiveEl) countActiveEl.innerText = activeCount; if(countCompletedEl) countCompletedEl.innerText = completedTodayCount; if(countFutureEl) countFutureEl.innerText = futureCount;
          }
 
         function renderViewerDriversList() {
             const list = document.getElementById('viewer-drivers-list'); if (!list) return;
-            // Sort drivers alphabetically - already done in listener query, but can be done here too
-            // const sortedDrivers = [...viewerState.drivers].sort((a, b) => a.name?.localeCompare(b.name || '') || 0);
-            const sortedDrivers = viewerState.drivers; // Assuming listener returns sorted
-
+            const sortedDrivers = viewerState.drivers; // Assume sorted by listener
             if (sortedDrivers.length === 0) { list.innerHTML = `<div class="p-4 text-center text-gray-500">לא נמצאו נהגים.</div>`; return; }
-
-            // Use DocumentFragment for performance
-            const fragment = document.createDocumentFragment();
-            sortedDrivers.forEach(driver => {
-                const location = viewerState.liveLocations[driver.id];
-                fragment.appendChild(createViewerDriverCard(driver, location));
-            });
-            list.innerHTML = ''; // Clear existing content
-            list.appendChild(fragment);
-            filterViewerLists();
+            const fragment = document.createDocumentFragment(); sortedDrivers.forEach(d => fragment.appendChild(createViewerDriverCard(d, viewerState.liveLocations[d.id])));
+            list.innerHTML = ''; list.appendChild(fragment); filterViewerLists();
         }
 
         function createViewerDriverCard(driver, location) {
-            const el = document.createElement('div');
-            el.className = 'driver-card p-4 cursor-pointer'; el.id = `viewer-driver-card-${driver.id}`;
-            el.setAttribute('data-search', driver.name?.toLowerCase() || '');
-            el.onclick = () => focusViewerMapItem(driver.id, 'driver');
+            const el = document.createElement('div'); el.className = 'driver-card p-4 cursor-pointer'; el.id = `viewer-driver-card-${driver.id}`;
+            el.setAttribute('data-search', driver.name?.toLowerCase() || ''); el.onclick = () => focusViewerMapItem(driver.id, 'driver');
             const minutesAgo = location?.lastUpdate?.toDate ? Math.round((Date.now() - location.lastUpdate.toDate().getTime()) / 60000) : '?';
-            const statusClass = location ? (location.isStuck ? 'status-stuck' : 'status-active') : 'status-inactive';
-            const statusText = location ? (location.isStuck ? `תקוע (${minutesAgo} דק')` : `פעיל (${minutesAgo} דק')`) : 'לא מחובר';
+            const statusClass = location ? (location.isStuck ? 'status-stuck' : 'status-active') : 'status-inactive'; const statusText = location ? (location.isStuck ? `תקוע (${minutesAgo} דק')` : `פעיל (${minutesAgo} דק')`) : 'לא מחובר';
             el.innerHTML = `<div class="flex justify-between items-center"><span class="font-semibold">${driver.name || '?'}</span><div class="flex items-center space-x-2 space-x-reverse"><span class="text-sm font-medium">${statusText}</span><span class="status-dot ${statusClass}"></span></div></div><div class="text-sm text-gray-500 mt-1"><span>${driver.vehicleType || '?'} | ${driver.phone || '?'}</span></div>`;
             return el;
         }
 
-        function renderViewerOrdersList() { // Active Orders
+        function renderViewerOrdersList() { // Active
             const list = document.getElementById('viewer-orders-active-list'); if (!list) return;
-            // Orders are already sorted by the listener
             if (viewerState.activeOrders.length === 0) { list.innerHTML = `<div class="p-4 text-center text-gray-500">אין הזמנות פעילות.</div>`; return; }
-            const fragment = document.createDocumentFragment();
-            viewerState.activeOrders.forEach(order => fragment.appendChild(createViewerOrderCard(order, false)));
-            list.innerHTML = ''; list.appendChild(fragment);
-            filterViewerLists();
+            const fragment = document.createDocumentFragment(); viewerState.activeOrders.forEach(o => fragment.appendChild(createViewerOrderCard(o, false)));
+            list.innerHTML = ''; list.appendChild(fragment); filterViewerLists();
         }
 
-        function renderViewerFutureOrdersList() { // Future Orders
+        function renderViewerFutureOrdersList() { // Future
             const list = document.getElementById('viewer-orders-future-list'); if (!list) return;
-            // Orders are already sorted by the listener
             if (viewerState.futureOrders.length === 0) { list.innerHTML = `<div class="p-4 text-center text-gray-500">אין הזמנות עתידיות.</div>`; return; }
-            const fragment = document.createDocumentFragment();
-            viewerState.futureOrders.forEach(order => fragment.appendChild(createViewerOrderCard(order, true)));
-            list.innerHTML = ''; list.appendChild(fragment);
-            filterViewerLists();
+            const fragment = document.createDocumentFragment(); viewerState.futureOrders.forEach(o => fragment.appendChild(createViewerOrderCard(o, true)));
+            list.innerHTML = ''; list.appendChild(fragment); filterViewerLists();
         }
 
-        function createViewerOrderCard(order, isFuture = false) {
-            const el = document.createElement('div');
-            const typeInfo = orderTypeDetails[order.deliveryType] || orderTypeDetails['default'];
-            el.className = `order-card p-3 cursor-pointer ${typeInfo.className} ${isFuture ? 'future-order' : ''}`;
-            el.id = `viewer-order-card-${order.id}`;
-            el.setAttribute('data-search', `${order.orderNumber || order.id} ${order.customer?.name?.toLowerCase()} ${order.address?.toLowerCase()}`);
-            if (!isFuture) el.onclick = () => focusViewerMapItem(order.id, 'order'); else el.style.cursor = 'default';
-            const customerName = order.customer?.name || '?'; const address = order.address || '?'; const displayId = order.orderNumber || `#${order.id.slice(-6)}`; const status = order.status || '?'; const driverName = order.driver?.name ? `(${order.driver.name})` : '';
-            const createdDateTime = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'N/A';
-            const orderDateForDisplay = order.orderDate ? new Date(order.orderDate).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'N/A';
+        function createViewerOrderCard(order, isFuture = false) { // Remains the same
+            const el = document.createElement('div'); const typeInfo = orderTypeDetails[order.deliveryType] || orderTypeDetails['default']; el.className = `order-card p-3 cursor-pointer ${typeInfo.className} ${isFuture ? 'future-order' : ''}`; el.id = `viewer-order-card-${order.id}`; el.setAttribute('data-search', `${order.orderNumber || order.id} ${order.customer?.name?.toLowerCase()} ${order.address?.toLowerCase()}`); if (!isFuture) el.onclick = () => focusViewerMapItem(order.id, 'order'); else el.style.cursor = 'default';
+            const customerName = order.customer?.name || '?'; const address = order.address || '?'; const displayId = order.orderNumber || `#${order.id.slice(-6)}`; const status = order.status || '?'; const driverName = order.driver?.name ? `(${order.driver.name})` : ''; const createdDateTime = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'N/A'; const orderDateForDisplay = order.orderDate ? new Date(order.orderDate).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'N/A';
             el.innerHTML = `<div class="flex justify-between items-center mb-1"><span class="font-bold text-blue-600 flex items-center">${displayId} <span class="order-type-icon">${typeInfo.icon}</span></span>${isFuture ? `<span class="text-sm font-semibold text-gray-600">לתאריך: ${orderDateForDisplay}</span>` : `<span class="text-sm font-semibold">${status} ${driverName}</span>`}</div><div class="font-semibold text-gray-800 text-sm">${customerName}</div><div class="text-xs text-gray-600 truncate">${address}</div><div class="text-xs text-gray-500 mt-1 flex justify-between"><span>${order.warehouse || ''}</span><span>נוצר: ${createdDateTime}</span></div>`;
             return el;
         }
 
         function renderViewerMapMarkers() { // Remains the same
             if (!viewerMap) return; const bounds = L.latLngBounds();
-            // Drivers
-            Object.values(viewerState.liveLocations).forEach(loc => {
-                if (!loc.latitude) return; const driverData = viewerState.drivers.find(d => d.id === loc.id); const name = driverData?.name || '?'; const latLng = [loc.latitude, loc.longitude]; const icon = loc.isStuck ? driverIconStuck : driverIconActive; const popup = `<h4>${name}</h4><p>${loc.isStuck ? 'תקוע' : 'פעיל'}</p>`;
-                if (viewerDriverMarkers[loc.id]) viewerDriverMarkers[loc.id].setLatLng(latLng).setIcon(icon).setPopupContent(popup); else viewerDriverMarkers[loc.id] = L.marker(latLng, { icon }).addTo(viewerMap).bindPopup(popup).on('click', () => focusViewerMapItem(loc.id, 'driver'));
-                 if (!loc.isStuck) bounds.extend(latLng);
-            });
+            Object.values(viewerState.liveLocations).forEach(loc => { if (!loc.latitude) return; const driverData = viewerState.drivers.find(d => d.id === loc.id); const name = driverData?.name || '?'; const latLng = [loc.latitude, loc.longitude]; const icon = loc.isStuck ? driverIconStuck : driverIconActive; const popup = `<h4>${name}</h4><p>${loc.isStuck ? 'תקוע' : 'פעיל'}</p>`; if (viewerDriverMarkers[loc.id]) viewerDriverMarkers[loc.id].setLatLng(latLng).setIcon(icon).setPopupContent(popup); else viewerDriverMarkers[loc.id] = L.marker(latLng, { icon }).addTo(viewerMap).bindPopup(popup).on('click', () => focusViewerMapItem(loc.id, 'driver')); if (!loc.isStuck) bounds.extend(latLng); });
             Object.keys(viewerDriverMarkers).forEach(id => { if (!viewerState.liveLocations[id]) { if (viewerMap.hasLayer(viewerDriverMarkers[id])) viewerMap.removeLayer(viewerDriverMarkers[id]); delete viewerDriverMarkers[id]; } });
-            // Active Orders
-            const activeMapOrders = viewerState.activeOrders.filter(o => o.latitude);
-            Object.keys(viewerOrderMarkers).forEach(id => { if (!activeMapOrders.some(o => o.id == id)) { if (viewerMap.hasLayer(viewerOrderMarkers[id])) viewerMap.removeLayer(viewerOrderMarkers[id]); delete viewerOrderMarkers[id]; } });
-            activeMapOrders.forEach(order => {
-                const latLng = [order.latitude, order.longitude]; const typeInfo = orderTypeDetails[order.deliveryType] || orderTypeDetails['default']; const popup = `<h4>${typeInfo.icon} ${order.orderNumber || `#${order.id.slice(-6)}`}</h4><p>${order.customer?.name || '?'}</p><p>${order.address || '?'}</p><p>סטטוס: ${order.status}</p>${order.driver?.name ? `<p>נהג: ${order.driver.name}</p>` : ''}`;
-                if (viewerOrderMarkers[order.id]) viewerOrderMarkers[order.id].setLatLng(latLng).setPopupContent(popup); else viewerOrderMarkers[order.id] = L.marker(latLng, { icon: orderIconActive }).addTo(viewerMap).bindPopup(popup).on('click', () => focusViewerMapItem(order.id, 'order'));
-                bounds.extend(latLng);
-            });
-            // Fit Bounds
-            if (bounds.isValid() && (activeMapOrders.length > 0 || Object.values(viewerState.liveLocations).some(loc => !loc.isStuck))) { try { viewerMap.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 }); } catch (e) { console.warn("FitBounds error:", e); } }
-            else if (!bounds.isValid()) viewerMap.setView(ISRAEL_CENTER, 9);
+            const activeMapOrders = viewerState.activeOrders.filter(o => o.latitude); Object.keys(viewerOrderMarkers).forEach(id => { if (!activeMapOrders.some(o => o.id == id)) { if (viewerMap.hasLayer(viewerOrderMarkers[id])) viewerMap.removeLayer(viewerOrderMarkers[id]); delete viewerOrderMarkers[id]; } });
+            activeMapOrders.forEach(order => { const latLng = [order.latitude, order.longitude]; const typeInfo = orderTypeDetails[order.deliveryType] || orderTypeDetails['default']; const popup = `<h4>${typeInfo.icon} ${order.orderNumber || `#${order.id.slice(-6)}`}</h4><p>${order.customer?.name || '?'}</p><p>${order.address || '?'}</p><p>סטטוס: ${order.status}</p>${order.driver?.name ? `<p>נהג: ${order.driver.name}</p>` : ''}`; if (viewerOrderMarkers[order.id]) viewerOrderMarkers[order.id].setLatLng(latLng).setPopupContent(popup); else viewerOrderMarkers[order.id] = L.marker(latLng, { icon: orderIconActive }).addTo(viewerMap).bindPopup(popup).on('click', () => focusViewerMapItem(order.id, 'order')); bounds.extend(latLng); });
+            if (bounds.isValid() && (activeMapOrders.length > 0 || Object.values(viewerState.liveLocations).some(loc => !loc.isStuck))) { try { viewerMap.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 }); } catch (e) { console.warn("FitBounds error:", e); } } else if (!bounds.isValid()) viewerMap.setView(ISRAEL_CENTER, 9);
         }
 
         // --- UI INTERACTIONS (remain the same) ---
@@ -374,11 +309,11 @@
         }
         window.filterViewerLists = filterViewerLists;
 
-        function focusViewerMapItem(id, type) {
+        function focusViewerMapItem(id, type) { // Remains the same
             let marker, card, listId; document.querySelectorAll('.driver-card, .order-card').forEach(c => c.classList.remove('active'));
             if (type === 'driver') { marker = viewerDriverMarkers[id]; card = document.getElementById(`viewer-driver-card-${id}`); listId = 'viewer-drivers-list'; }
             else { marker = viewerOrderMarkers[id]; card = document.getElementById(`viewer-order-card-${id}`); listId = 'viewer-orders-active-list'; }
-            if (marker) { viewerMap.setView(marker.getLatLng(), 15); marker.openPopup(); }
+            if (marker && viewerMap) { viewerMap.setView(marker.getLatLng(), 15); marker.openPopup(); }
             if (card) { card.classList.add('active'); const listEl = document.getElementById(listId); if (listEl) { const contRect = listEl.getBoundingClientRect(); const cardRect = card.getBoundingClientRect(); listEl.scrollTop += (cardRect.top - contRect.top) - 10; } }
         }
         window.focusViewerMapItem = focusViewerMapItem;
@@ -389,26 +324,19 @@
             try { if (!window.Tone) return; await Tone.start(); const synth = new Tone.Synth().toDestination(); synth.triggerAttackRelease(note, duration, Tone.now()); if (note !== "C5") synth.triggerAttackRelease(note, duration, Tone.now() + 0.2); SmartLog.info("Sound played.", 'Notifications'); }
             catch (e) { SmartLog.error(e, "Notifications.Sound"); }
         }
-
         function showLoader(elementId, show) {
-            const container = document.getElementById(elementId); if (!container) return;
-            let loader = container.querySelector('.loader-container');
-            if (show) {
-                if (!loader && !container.querySelector('.loader')) { loader = document.createElement('div'); loader.className = 'loader-container'; loader.innerHTML = `<div class="loader"></div>`; if (elementId !== 'viewer-map-loader') container.prepend(loader); else container.style.display = 'flex'; }
-                else if (loader) loader.style.display = 'flex';
-            } else { if (loader) loader.style.display = 'none'; if (elementId === 'viewer-map-loader') container.style.display = 'none'; }
+            const container = document.getElementById(elementId); if (!container) return; let loader = container.querySelector('.loader-container');
+            if (show) { if (!loader && !container.querySelector('.loader')) { loader = document.createElement('div'); loader.className = 'loader-container'; loader.innerHTML = `<div class="loader"></div>`; if (elementId !== 'viewer-map-loader') container.prepend(loader); else container.style.display = 'flex'; } else if (loader) loader.style.display = 'flex'; }
+            else { if (loader) loader.style.display = 'none'; if (elementId === 'viewer-map-loader') container.style.display = 'none'; }
         }
-
         function showToast(message, type = 'info') {
-            SmartLog.info(`Toast-${type}: ${message}`, "UI.Toast"); // Log toast message
-            const container = document.getElementById('toast-container'); if (!container) return;
-            const toast = document.createElement('div'); toast.className = `toast ${type}`; toast.innerText = message; container.appendChild(toast);
-            setTimeout(() => toast.classList.add('show'), 10);
-            setTimeout(() => { toast.classList.remove('show'); setTimeout(() => { if (container.contains(toast)) container.removeChild(toast); }, 300); }, 5000);
+            SmartLog.info(`Toast-${type}: ${message}`, "UI.Toast");
+            const container = document.getElementById('toast-container'); if (!container) return; const toast = document.createElement('div'); toast.className = `toast ${type}`; toast.innerText = message; container.appendChild(toast); setTimeout(() => toast.classList.add('show'), 10); setTimeout(() => { toast.classList.remove('show'); setTimeout(() => { if (container.contains(toast)) container.removeChild(toast); }, 300); }, 5000);
         }
 
     </script>
-    <script>
+    <!-- Service Worker Registration -->
+     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('./sw.js') // Path relative to index.html
