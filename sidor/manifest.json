@@ -1,0 +1,26 @@
+{
+    "short_name": "DM Admin",
+    "name": "DeliveryMaster - ניהול סידור",
+    "lang": "he-IL",
+    "description": "אפליקציית ניהול למערכת DeliveryMaster",
+    "icons": [
+        {
+            "src": "https://i.postimg.cc/ryPT3r29/image.png",
+            "type": "image/png",
+            "sizes": "192x192",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "https://i.postimg.cc/ryPT3r29/image.png",
+            "type": "image/png",
+            "sizes": "512x512",
+            "purpose": "any maskable"
+        }
+    ],
+    "start_url": ".",
+    "scope": "./",
+    "display": "standalone",
+    "orientation": "portrait-primary",
+    "background_color": "#f3f4f6",
+    "theme_color": "#1F2937"
+}
