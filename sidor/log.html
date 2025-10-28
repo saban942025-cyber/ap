@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
+    
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DeliveryMaster v45.3 (Modular)</title>
@@ -42,7 +44,7 @@
             <option value="ERROR">ERROR</option>
         </select>
     </div>
-
+      
     <div class="log-container">
         <table>
             <thead>
@@ -54,8 +56,10 @@
 
     <script type="module">
         // --- Import from Shared Module ---
-        import { db, authReadyPromise, SmartLog, collection, query, orderBy, limit, onSnapshot } from '../shared/firebase-init.js'; // Adjusted path
+        import { db, authReadyPromise, SmartLog, showToast, collection, query, orderBy, limit, onSnapshot, Timestamp } from '/shared/firebase-init.js'; // *** TRYING ABSOLUTE PATH FROM ROOT ***
 
+        // Use unified LOG_COLLECTION from shared module
+        const LOG_COLLECTION = 'system_logs_v3';
         // Use unified LOG_COLLECTION from shared module
         const LOG_COLLECTION = 'system_logs_v3';
         const LOG_LIMIT = 200; // Keep local limit setting
@@ -69,7 +73,7 @@
 
         let allLogs = [];
         let unsubscribe = null;
-
+              
         function init() {
             SmartLog.info("Log Viewer Initializing.", "LogViewer.Init"); // Use imported SmartLog
 
