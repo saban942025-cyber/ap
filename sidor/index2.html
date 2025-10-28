@@ -1,28 +1,10 @@
-<!DOCTYPE html>
-<html lang="he" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>DeliveryMaster Admin v33.1</title>
-    <!--
-      DeliveryMaster Admin App v33.1 (Mobile Refinements)
-
-      Changelog:
-      - v33.1: Mobile UI Refinements & Enhancements
-        - Improved Customer Search: Dynamic suggestions during typing in New Order form.
-        - Styling: Refined borders, rounded corners, spacing for cleaner look.
-        - Page Transitions: Added simple fade effect between main views.
-        - New Order Form: Enhanced layout, clearer distinction new/existing customer.
-        - Notifications: Enhanced `showToast` moved to shared module, `sendGlobalPing` offers predefined messages.
-      - v33.0: Refactored UI for Mobile-First experience (Bottom Nav, PWA Manifest).
-      - v32.0: Modularized Firebase/SmartLog, Added SW registration.
-      ... (Previous versions)
     -->
 
     <!-- PWA Settings -->
-    <link rel="manifest" href="./manifest.json">
+    <link rel="manifest" href="./manifest.json"> <!-- Ensure correct path -->
     <meta name="theme-color" content="#1F2937"> <!-- Dark Nav Color -->
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes"> <!-- Added missing tag -->
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="https://i.postimg.cc/ryPT3r29/image.png">
 
@@ -309,7 +291,7 @@
             collection, doc, onSnapshot, query, orderBy, addDoc, updateDoc,
             serverTimestamp, deleteDoc, arrayUnion, where, getDocs, setDoc, limit, getDoc,
             Timestamp
-        } from '../shared/firebase-init.js';
+        } from '/ap/shared/firebase-init.js'; // *** FIXED PATH AGAIN *** Use absolute path including /ap/
 
         // --- State, Config, Icons ---
         // ... (Remain the same as previous version v33.0) ...
@@ -621,7 +603,22 @@
     </script>
      <script>
         // Service Worker Registration (Remains the same)
-        if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('./sw.js').then(reg => console.log('Admin SW registered:', reg.scope)).catch(err => console.log('Admin SW registration failed:', err)); }); }
+        if ('serviceWorker' in navigator) {
+             window.addEventListener('load', () => {
+                 navigator.serviceWorker.register('./sw.js') // Ensure correct path
+                     .then(reg => console.log('Admin SW registered:', reg.scope))
+                     .catch(err => {
+                          console.error('Admin SW registration failed:', err);
+                          // Show a toast message if registration fails due to 404 or other issues
+                          // Ensure showToast is available globally or handle error differently
+                          if (typeof showToast === 'function') {
+                              showToast('שגיאה ברישום Service Worker', 'error');
+                          } else {
+                              console.error('showToast function not available for SW error');
+                          }
+                     });
+             });
+         }
     </script>
 </body>
 </html>
