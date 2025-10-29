@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeliveryMaster v32.5 (Stable)</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script src="https://unpkg.com/feather-icons"></script>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <!-- סגנונות CSS - ללא שינוי מהמקור -->
+    <style>
+        :root {
+            --primary-color: #3b82f6; /* blue-500 */
+            --primary-dark: #2563eb; /* blue-600 */
+            --bg-light: #f3f4f6; /* gray-100 */
+            --bg-white: #ffffff;
+            --border-color: #e5e7eb; /* gray-200 */
+            --text-dark: #1f2937; /* gray-800 */
+            --text-light: #6b7280; /* gray-500 */
+            --text-dark-nav: #d1d5db; /* gray-300 */
+            --bg-dark-nav: #1f2937; /* slate-800 */
+            --bg-dark-nav-hover: #374151; /* slate-700 */
+            --danger-soft: #fee2e2; /* red-100 */
+            --danger-medium: #f87171; /* red-400 */
+            --danger-dark: #dc2626; /* red-600 */
+        }
+        body {
+            font-family: 'Inter', 'Arial', sans-serif;
+            background-color: var(--bg-light);
+            color: var(--text-dark);
+            overflow: hidden;
+        }
+
+        /* Layout */
+        .app-layout {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            height: 100vh;
+        }
+
+        /* App Views */
+        .app-view {
+            width: 100%;
+            height: 100vh;
+            overflow: hidden; /* Prevent scrolling on main views */
+            display: none; /* Hidden by default */
+        }
+        .app-view.active {
+            display: block; /* Show active view */
+        }
+
+        #view-dashboard {
+            display: grid; /* Use grid for dashboard */
+            grid-template-columns: 1fr 350px;
+            overflow: hidden;
+        }
+        .app-view.active#view-dashboard { display: grid; } /* Override default block for dashboard */
+
+        #view-history, #view-containers { /* Allow scrolling for History and Containers */
+            overflow-y: auto;
+            padding: 1.5rem 2.5rem;
+        }
+
+        #view-driver-history {
+             display: grid; /* Use grid for driver history */
+             grid-template-columns: 300px 1fr; /* Sidebar and Map */
+             height: 100vh;
+        }
+        .app-view.active#view-driver-history { display: grid; } /* Override default block */
+
+        #map-container {
+            position: relative;
+            background-color: #e0e0e0;
+        }
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+        #side-panel {
+            background-color: var(--bg-white);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        /* Navbar */
+        #navbar {
+            background-color: var(--bg-dark-nav);
+            border-left: 1px solid var(--border-color);
+            color: white;
+            z-index: 10;
+        }
+        #navbar .text-xl { color: white; }
+        .nav-link { transition: all 0.2s; color: var(--text-dark-nav); }
+        .nav-link:hover { background-color: var(--bg-dark-nav-hover); color: white; }
+        .nav-link.active { background-color: var(--primary-color); color: white; border-right: 3px solid #60a5fa; }
+        .nav-link-special { color: var(--text-dark-nav); background-color: var(--bg-dark-nav-hover); }
+        .nav-link-special:hover { background-color: var(--primary-color); color: white; }
+        #navbar .hidden.lg\\:block { color: white; }
+        #navbar #last-updated { color: var(--text-light); }
+
+        /* Side Panel */
+        #side-panel-lists { flex: 1; overflow-y: auto; position: relative; }
+        .panel-list { overflow-y: auto; position: relative; }
+        .order-card, .driver-card { padding: 1rem; border-bottom: 1px solid var(--border-color); transition: background-color 0.2s; }
+        .order-card:hover, .driver-card:hover { background-color: #fafafa; }
+        .order-card.active, .driver-card.active { background-color: #eff6ff; border-right: 3px solid var(--primary-color); }
+        .order-card .font-bold { color: var(--primary-dark); }
+
+        /* Details Panel */
+        #details-panel { height: 300px; overflow-y: auto; border-top: 2px solid var(--border-color); background: #fdfdfd; padding: 1rem; display: none; position: relative; }
+        #details-panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        #details-panel h4 { font-weight: 700; color: var(--text-dark); }
+        #details-panel ul { list-style-type: none; padding: 0; margin: 0; }
+        #details-panel li { font-size: 0.9rem; margin-bottom: 4px; color: var(--text-light); }
+        #details-panel .status-line { display: flex; align-items: center; gap: 0.5rem; }
+        #details-panel li .dist { font-weight: 500; color: var(--text-dark); display: inline-block; min-width: 60px; text-align: left; }
+        #details-close-btn, #details-copy-link-btn { cursor: pointer; color: var(--text-light); }
+        #details-close-btn:hover, #details-copy-link-btn:hover { color: var(--text-dark); }
+        .status-change-btn { background: none; border: none; color: var(--primary-color); font-size: 0.8rem; font-weight: 500; cursor: pointer; padding: 2px 4px; border-radius: 4px; }
+        .status-change-btn:hover { background-color: #eff6ff; color: var(--primary-dark); }
+
+        /* History & Customer Management View */
+         #view-history .tab-button, #view-containers .tab-button { /* Apply to both */
+            padding: 0.75rem 1.5rem; cursor: pointer; border-bottom: 3px solid transparent; font-weight: 500; color: var(--text-light); }
+         #view-history .tab-button.active, #view-containers .tab-button.active { border-bottom-color: var(--primary-color); color: var(--primary-color); }
+        .history-table tbody tr:hover, .customer-table tbody tr:hover, .container-table tbody tr:hover { background-color: #f9fafb; }
+        .customer-table tbody tr:hover, .container-table tbody tr:hover { cursor: pointer; } /* Make container table rows clickable for editing */
+        .action-button { background-color: var(--primary-color); color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; cursor: pointer; margin-left: 4px; }
+        .action-button:hover { background-color: var(--primary-dark); }
+        .action-button-secondary { background-color: var(--text-light); }
+        .action-button-secondary:hover { background-color: var(--text-dark); }
+
+        /* Driver History View */
+        #driver-history-sidebar { background-color: var(--bg-white); border-left: 1px solid var(--border-color); padding: 1rem; display: flex; flex-direction: column; gap: 1rem; }
+        #driver-history-map { background-color: #e0e0e0; position: relative; }
+
+        /* Containers View */
+        #view-containers h2 { font-size: 1.8rem; font-weight: 700; margin-bottom: 1.5rem; border-bottom: 2px solid var(--border-color); padding-bottom: 0.5rem; }
+        .warehouse-section { margin-bottom: 2rem; }
+        .warehouse-section h3 { font-size: 1.3rem; font-weight: 600; margin-bottom: 1rem; color: var(--primary-dark); }
+        .container-table th, .container-table td { padding: 0.75rem 1rem; text-align: right; border-bottom: 1px solid var(--border-color); vertical-align: middle; font-size: 0.9rem; }
+        .container-table th { font-weight: 500; color: var(--text-light); background-color: #f9fafb; }
+        .container-table tbody tr.overdue { background-color: var(--danger-soft); animation: subtle-pulse 1.5s infinite ease-in-out; }
+        .container-table td .edit-btn { color: var(--primary-color); cursor: pointer; }
+        .container-table td .edit-btn:hover { color: var(--primary-dark); }
+        .progress-bar-container { width: 100%; background-color: var(--border-color); border-radius: 99px; overflow: hidden; height: 10px; }
+        .progress-bar { height: 100%; background-color: var(--primary-color); border-radius: 99px; transition: width 0.3s ease; }
+        .progress-bar.overdue { background-color: var(--danger-medium); }
+        .container-summary { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border-color); font-weight: 600; }
+        @keyframes subtle-pulse { 0% { background-color: var(--danger-soft); } 50% { background-color: #fecaca; /* red-200 */} 100% { background-color: var(--danger-soft); } }
+
+        /* Status Colors */
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; }
+        .status-active { background-color: #22c55e; } .status-stuck { background-color: #ef4444; } .status-inactive { background-color: #9ca3af; }
+
+        /* Leaflet Customizations */
+        .leaflet-popup-content-wrapper { border-radius: 8px; }
+        .leaflet-popup-content { margin: 13px 20px; font-family: 'Inter', sans-serif; }
+        .leaflet-popup-content h4 { font-weight: 700; margin-bottom: 8px; }
+        .leaflet-popup-content p { margin: 4px 0; color: var(--text-light); }
+
+        /* Loader */
+        .loader-container { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.7); display: flex; align-items: center; justify-content: center; z-index: 10; }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid var(--primary-color); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Toast Notification */
+        #toast-container { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 5000; display: flex; flex-direction: column; gap: 8px; }
+        .toast { padding: 12px 20px; background-color: var(--text-dark); color: white; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); opacity: 0; transform: translateY(20px); transition: all 0.3s ease; }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast.success { background-color: #22c55e; } .toast.error { background-color: #ef4444; }
+
+        /* Modal Dialog */
+        #new-order-modal, #customer-edit-modal, #container-edit-modal { /* Added container modal */
+            max-width: 600px; border-radius: 12px; border: none; box-shadow: 0 10px 30px rgba(0,0,0,0.1); padding: 0; }
+        #new-order-modal::backdrop, #customer-edit-modal::backdrop, #container-edit-modal::backdrop { background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            #view-dashboard { grid-template-columns: 1fr; }
+            #side-panel { position: fixed; bottom: 0; left: 0; right: 0; height: 40vh; z-index: 2000; border-right: none; border-top: 1px solid var(--border-color); transform: translateY(100%); transition: transform 0.3s ease; }
+            #side-panel.open { transform: translateY(0); }
+            #navbar { display: flex; width: 100%; z-index: 2001; border-left: none; border-bottom: 1px solid var(--border-color); }
+            .app-layout { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+            .nav-link { flex: 1; justify-content: center; } .nav-link span { display: none; } .nav-link.active { border-right: none; border-bottom: 3px solid var(--primary-color); }
+            #details-panel { height: 200px; }
+            #view-driver-history { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+            #driver-history-sidebar { grid-row: 1 / 2; border-left: none; border-bottom: 1px solid var(--border-color); }
+            #driver-history-map { grid-row: 2 / 3; }
+            #view-history, #view-containers { padding: 1rem; } /* Less padding on mobile */
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <!-- HTML Structure - ללא שינוי מהמקור -->
+    <div class="app-layout">
+        <nav id="navbar" class="w-20 lg:w-64 flex flex-col p-4 space-y-4">
+            <div class="hidden lg:flex items-center space-x-2 space-x-reverse px-2 mb-4">
+                <i data-feather="truck" class="w-8 h-8 text-blue-500"></i>
+                <span class="text-xl font-bold">DeliveryMaster</span>
+            </div>
+
+            <a href="#" class="nav-link active flex items-center p-3 space-x-4 space-x-reverse rounded-lg" onclick="showView('dashboard')">
+                <i data-feather="map" class="w-6 h-6"></i>
+                <span class="font-semibold text-lg hidden lg:block">דשבורד</span>
+            </a>
+            <a href="#" class="nav-link flex items-center p-3 space-x-4 space-x-reverse rounded-lg" onclick="showView('history')">
+                <i data-feather="archive" class="w-6 h-6"></i>
+                <span class="font-semibold text-lg hidden lg:block">היסטוריה ולקוחות</span>
+            </a>
+             <a href="#" class="nav-link flex items-center p-3 space-x-4 space-x-reverse rounded-lg" onclick="showView('driver-history')">
+                <i data-feather="navigation" class="w-6 h-6"></i>
+                <span class="font-semibold text-lg hidden lg:block">היסטוריית נהגים</span>
+            </a>
+            <a href="#" class="nav-link flex items-center p-3 space-x-4 space-x-reverse rounded-lg" onclick="showView('containers')">
+                 <i data-feather="hard-drive" class="w-6 h-6"></i> <span class="font-semibold text-lg hidden lg:block">מכולות</span>
+            </a>
+            <a href="#" class="nav-link flex items-center p-3 space-x-4 space-x-reverse rounded-lg" onclick="openNewOrderForm()">
+                <i data-feather="plus-circle" class="w-6 h-6"></i>
+                <span class="font-semibold text-lg hidden lg:block">הזמנה חדשה</span>
+            </a>
+            <a href="log.html" target="_blank" class="nav-link flex items-center p-3 space-x-4 space-x-reverse rounded-lg">
+                <i data-feather="file-text" class="w-6 h-6"></i>
+                <span class="font-semibold text-lg hidden lg:block">לוגים</span>
+            </a>
+
+            <div class="flex-grow"></div> <a href="#" class="nav-link nav-link-special flex items-center p-3 space-x-4 space-x-reverse rounded-lg" onclick="sendGlobalPing()">
+                <i data-feather="bell" class="w-6 h-6"></i>
+                <span class="font-semibold text-lg hidden lg:block">שלח התראה גלובלית</span>
+            </a>
+
+            <div class="hidden lg:block border-t border-gray-700 pt-4 mt-4">
+                <div class="text-sm">שלום, <span class="font-semibold">מנהל</span></div>
+                <div id="last-updated" class="text-xs">מתחבר...</div>
+            </div>
+        </nav>
+
+        <div class="relative">
+            <main id="view-dashboard" class="app-view active"> <div id="map-container">
+                    <div id="map"></div>
+                    <div id="map-loader" class="loader-container">
+                        <div class="loader"></div>
+                        <span class="ml-4 font-semibold">טוען מפה ומאמת...</span>
+                    </div>
+                </div>
+
+                <aside id="side-panel">
+                    <div class="flex border-b border-gray-200">
+                        <button id="tab-orders" class="flex-1 p-4 font-semibold text-center border-b-2 border-blue-500 text-blue-500" onclick="showPanelTab('orders')">
+                            הזמנות
+                        </button>
+                        <button id="tab-drivers" class="flex-1 p-4 font-semibold text-center border-b-2 border-transparent text-gray-500" onclick="showPanelTab('drivers')">
+                            נהגים
+                        </button>
+                    </div>
+
+                    <div class="p-3 border-b border-gray-200">
+                        <input type="text" id="search-input" placeholder="חפש הזמנה או נהג..." class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300" onkeyup="filterLists()">
+                    </div>
+
+                    <div id="side-panel-lists" class="relative">
+                        <div id="orders-list" class="panel-list">
+                            <div class="loader-container"><div class="loader"></div></div>
+                        </div>
+
+                        <div id="drivers-list" class="panel-list" style="display: none;">
+                            <div class="loader-container"><div class="loader"></div></div>
+                        </div>
+                    </div>
+
+                    <div id="details-panel">
+                        <div class="text-center text-gray-500 p-8">בחר נהג או הזמנה להצגת פרטים</div>
+                    </div>
+                </aside>
+            </main>
+
+            <div id="view-history" class="app-view">
+                <div class="flex border-b border-gray-200 mb-6">
+                    <button class="tab-button active" onclick="showHistoryTab('orders')">היסטוריית הזמנות</button>
+                    <button class="tab-button" onclick="showHistoryTab('customers')">ניהול לקוחות</button>
+                </div>
+
+                <div id="history-orders-content">
+                    <h2 class="text-2xl font-bold mb-4">היסטוריית הזמנות</h2>
+                    <div class="flex flex-col lg:flex-row gap-4 mb-4 p-4 bg-white rounded-lg shadow-sm">
+                        <input type="text" id="history-search" placeholder="חפש לפי מס' הזמנה, לקוח, נהג, כתובת..." class="flex-grow p-2 border rounded-md">
+                        <div class="flex gap-4">
+                            <input type="date" id="history-date-from" class="p-2 border rounded-md" title="מתאריך">
+                            <input type="date" id="history-date-to" class="p-2 border rounded-md" title="עד תאריך">
+                        </div>
+                        <button id="history-filter-btn" class="px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">סנן</button>
+                    </div>
+                    <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200 history-table">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">מס' הזמנה</th>
+                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">לקוח</th>
+                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">נהג</th>
+                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">כתובת</th>
+                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">סטטוס</th>
+                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">תאריך</th>
+                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">פעולות</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="history-table-body" class="bg-white divide-y divide-gray-200">
+                                    <tr><td colspan="7" class="text-center p-8 text-gray-500">טוען היסטוריה...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                 </div>
+
+                 <div id="history-customers-content" style="display: none;">
+                     <h2 class="text-2xl font-bold mb-4">ניהול לקוחות</h2>
+                     <div class="flex flex-col lg:flex-row gap-4 mb-4 p-4 bg-white rounded-lg shadow-sm">
+                        <input type="text" id="customer-search-input" placeholder="חפש לפי שם, טלפון, מספר לקוח..." class="flex-grow p-2 border rounded-md" onkeyup="renderCustomerTable()">
+                     </div>
+                    <div class="bg-white rounded-lg shadow-sm overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200 customer-table">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">שם</th>
+                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">מספר לקוח</th>
+                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">טלפון</th>
+                                        <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">כתובת</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="customer-table-body" class="bg-white divide-y divide-gray-200">
+                                    <tr><td colspan="4" class="text-center p-8 text-gray-500">טוען לקוחות...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                 </div>
+            </div>
+
+             <div id="view-driver-history" class="app-view">
+                 <aside id="driver-history-sidebar" class="bg-white p-4 border-l border-gray-200">
+                     <h3 class="text-xl font-semibold mb-4">היסטוריית נהג</h3>
+                     <div>
+                         <label for="driver-select" class="block text-sm font-medium text-gray-700 mb-1">בחר נהג</label>
+                         <select id="driver-select" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                             <option value="">טוען נהגים...</option>
+                         </select>
+                     </div>
+                     <div class="grid grid-cols-2 gap-2">
+                         <div>
+                            <label for="driver-history-date-from" class="block text-sm font-medium text-gray-700 mb-1">מתאריך</label>
+                            <input type="date" id="driver-history-date-from" class="w-full p-2 border rounded-md">
+                         </div>
+                          <div>
+                            <label for="driver-history-time-from" class="block text-sm font-medium text-gray-700 mb-1">משעה</label>
+                             <input type="time" id="driver-history-time-from" class="w-full p-2 border rounded-md">
+                         </div>
+                         <div>
+                             <label for="driver-history-date-to" class="block text-sm font-medium text-gray-700 mb-1">עד תאריך</label>
+                             <input type="date" id="driver-history-date-to" class="w-full p-2 border rounded-md">
+                         </div>
+                         <div>
+                             <label for="driver-history-time-to" class="block text-sm font-medium text-gray-700 mb-1">עד שעה</label>
+                             <input type="time" id="driver-history-time-to" class="w-full p-2 border rounded-md">
+                         </div>
+                     </div>
+                     <button id="driver-history-filter-btn" class="w-full px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">הצג מסלול</button>
+                     <div class="mt-4 border-t pt-4 text-sm text-gray-600">
+                         <p><strong>סטטוס אחרון:</strong> <span id="driver-last-status">-</span></p>
+                         <p><strong>מרחק משוער:</strong> <span id="driver-distance-traveled">-</span> ק"מ</p>
+                         <p><strong>זמן בין הזמנות (ממוצע):</strong> <span id="driver-avg-time">-</span> דקות</p>
+                     </div>
+                      <div class="mt-auto text-xs text-gray-500">
+                        * נתוני היסטוריה דורשים מבנה נתונים ייעודי ב-Firestore (למשל, קולקציית `locationHistory`).
+                     </div>
+                 </aside>
+                 <div id="driver-history-map" class="relative">
+                     <div class="absolute top-2 right-2 z-10 bg-white p-2 rounded shadow text-sm">
+                         מציג מסלול עבור: <span id="driver-history-map-label" class="font-semibold">-</span>
+                     </div>
+                     <div class="w-full h-full bg-gray-300 flex items-center justify-center text-gray-500">
+                         טוען מפת היסטוריה...
+                         </div>
+                 </div>
+            </div>
+
+             <div id="view-containers" class="app-view">
+                <h2>ניהול מכולות פעילות</h2>
+
+                <div class="loader-container" id="containers-loader">
+                    <div class="loader"></div> <span class="ml-2">טוען נתוני מכולות...</span>
+                </div>
+
+                <div id="containers-content">
+                    </div>
+
+                <div class="container-summary" id="containers-summary">
+                    סה"כ מכולות פעילות: <span id="total-active-containers">0</span>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Modals (Dialogs) - ללא שינוי מהמקור -->
+    <div id="toast-container"></div>
+
+    <dialog id="new-order-modal">
+        <form onsubmit="submitNewOrder(event)">
+            <div class="flex justify-between items-center p-4 border-b">
+                <h3 class="text-xl font-bold">יצירת הזמנה חדשה</h3>
+                <button type="button" class="text-gray-500 hover:text-gray-800" onclick="closeNewOrderForm()">
+                    <i data-feather="x"></i>
+                </button>
+            </div>
+
+            <div class="p-6 space-y-4">
+                <div>
+                    <label for="customer-search" class="block text-sm font-medium mb-1">חפש לקוח קיים או הקלד שם ללקוח חדש</label>
+                    <input type="text" id="customer-search" list="customer-list" class="w-full p-2 border rounded-md" oninput="handleCustomerSearch(this.value)" autocomplete="off">
+                    <datalist id="customer-list"></datalist>
+                </div>
+
+                <div id="new-customer-fields" class="p-4 bg-blue-50 border border-blue-200 rounded-lg space-y-3" style="display: none;">
+                    <p class="font-semibold text-blue-700">פרטי לקוח חדש</p>
+                    <input type="hidden" id="customer-id-new">
+                    <input type="text" id="customer-name-new" placeholder="שם לקוח מלא" class="w-full p-2 border rounded-md">
+                    <input type="text" id="customer-phone-new" placeholder="טלפון" class="w-full p-2 border rounded-md">
+                    <div class="form-grid">
+                        <input type="text" id="customer-street-new" placeholder="רחוב" class="w-full p-2 border rounded-md">
+                        <input type="text" id="customer-streetnum-new" placeholder="מספר" class="w-full p-2 border rounded-md">
+                        <input type="text" id="customer-city-new" placeholder="עיר" class="w-full p-2 border rounded-md">
+                    </div>
+                    <input type="text" id="customer-contact-new" placeholder="איש קשר" class="w-full p-2 border rounded-md">
+                     <input type="text" id="customer-number-new" placeholder="מספר לקוח (אופציונלי)" class="w-full p-2 border rounded-md">
+                </div>
+
+                <div id="existing-customer-display" class="p-4 bg-gray-50 border rounded-lg" style="display: none;">
+                    <input type="hidden" id="customer-id-existing">
+                    <p><strong>לקוח:</strong> <span id="customer-name-display"></span> <span id="customer-number-display" class="text-sm text-gray-500"></span></p>
+                    <p><strong>כתובת:</strong> <span id="customer-address-display"></span></p>
+                    <p><strong>טלפון:</strong> <span id="customer-phone-display"></span></p>
+                </div>
+
+                <hr>
+
+                <div>
+                    <label for="order-number" class="block text-sm font-medium mb-1">מספר הזמנה (אופציונלי)</label>
+                    <input type="text" id="order-number" placeholder="השאר ריק למזהה אוטומטי" class="w-full p-2 border rounded-md mb-4">
+                 </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="date" id="order-date" class="w-full p-2 border rounded-md" required>
+                        <input type="time" id="order-time" class="w-full p-2 border rounded-md">
+                    </div>
+                    <select id="order-delivery-type" class="w-full p-2 border rounded-md" required>
+                        <option value="">סוג הובלה</option>
+                        <option value="הובלת מנוף">הובלת מנוף</option>
+                        <option value="הובלת משאית">הובלת משאית</option>
+                        <option value="איסוף עצמי">איסוף עצמי</option>
+                        <option value="עבודת מנוף">עבודת מנוף</option>
+                        <option value="עבודת מנוף 15 מטר">עבודת מנוף 15 מטר</option>
+                        <option value="הצבת מכולה">הצבת מכולה</option>
+                        <option value="החלפת מכולה">החלפת מכולה</option>
+                        <option value="הוצאת מכולה">הוצאת מכולה</option>
+                        <option value="פינוי במקום">פינוי במקום</option>
+                        <option value="פריקה ידנית">פריקה ידנית</option>
+                    </select>
+                    <select id="order-warehouse" class="w-full p-2 border rounded-md" required>
+                        <option value="">בחר מחסן</option>
+                        <option value="החרש">החרש</option>
+                        <option value="התלמיד">התלמיד</option>
+                        <option value="30-שארק">30-שארק (מכולה)</option>
+                        <option value="32-כראדי">32-כראדי (מכולה)</option>
+                        <option value="40-כראדי">40-כראדי (מכולה)</option>
+                    </select>
+                    </div>
+
+                <textarea id="order-notes" rows="3" placeholder="הערות להזמנה..." class="w-full p-2 border rounded-md"></textarea>
+            </div>
+
+            <div class="p-4 bg-gray-50 border-t flex justify-end space-x-3 space-x-reverse">
+                <button type="button" class="px-4 py-2 bg-white border rounded-md hover:bg-gray-50" onclick="closeNewOrderForm()">
+                    ביטול
+                </button>
+                <button type="submit" id="submit-order-btn" class="px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">
+                    צור הזמנה
+                </button>
+            </div>
+        </form>
+    </dialog>
+
+    <dialog id="customer-edit-modal">
+        <form onsubmit="handleSaveCustomer(event)">
+            <input type="hidden" id="customer-edit-id">
+            <div class="flex justify-between items-center p-4 border-b">
+                <h3 class="text-xl font-bold">עריכת לקוח</h3>
+                <button type="button" class="text-gray-500 hover:text-gray-800" onclick="closeCustomerEditModal()">
+                    <i data-feather="x"></i>
+                </button>
+            </div>
+
+            <div class="p-6 space-y-4">
+                <div class="form-grid">
+                    <div>
+                        <label for="customer-edit-name" class="block text-sm font-medium mb-1">שם מלא</label>
+                        <input type="text" id="customer-edit-name" class="w-full p-2 border rounded-md" required>
+                    </div>
+                    <div>
+                        <label for="customer-edit-number" class="block text-sm font-medium mb-1">מספר לקוח</label>
+                        <input type="text" id="customer-edit-number" class="w-full p-2 border rounded-md">
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div>
+                        <label for="customer-edit-phone" class="block text-sm font-medium mb-1">טלפון</label>
+                        <input type="text" id="customer-edit-phone" class="w-full p-2 border rounded-md">
+                    </div>
+                    <div>
+                        <label for="customer-edit-contact" class="block text-sm font-medium mb-1">איש קשר</label>
+                        <input type="text" id="customer-edit-contact" class="w-full p-2 border rounded-md">
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div>
+                        <label for="customer-edit-street" class="block text-sm font-medium mb-1">רחוב</label>
+                        <input type="text" id="customer-edit-street" class="w-full p-2 border rounded-md">
+                    </div>
+                    <div>
+                        <label for="customer-edit-streetnum" class="block text-sm font-medium mb-1">מספר</label>
+                        <input type="text" id="customer-edit-streetnum" class="w-full p-2 border rounded-md">
+                    </div>
+                    <div>
+                        <label for="customer-edit-city" class="block text-sm font-medium mb-1">עיר</label>
+                        <input type="text" id="customer-edit-city" class="w-full p-2 border rounded-md">
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div>
+                        <label for="customer-edit-lat" class="block text-sm font-medium mb-1">קו רוחב</label>
+                        <input type="number" step="any" id="customer-edit-lat" class="w-full p-2 border rounded-md">
+                    </div>
+                    <div>
+                        <label for="customer-edit-lng" class="block text-sm font-medium mb-1">קו אורך</label>
+                        <input type="number" step="any" id="customer-edit-lng" class="w-full p-2 border rounded-md">
+                    </div>
+                </div>
+
+                <div>
+                    <label for="customer-edit-notes" class="block text-sm font-medium mb-1">הערות</label>
+                    <textarea id="customer-edit-notes" rows="3" class="w-full p-2 border rounded-md"></textarea>
+                </div>
+            </div>
+
+            <div class="p-4 bg-gray-50 border-t flex justify-end space-x-3 space-x-reverse">
+                <button type="button" class="px-4 py-2 bg-white border rounded-md hover:bg-gray-50" onclick="closeCustomerEditModal()">
+                    ביטול
+                </button>
+                <button type="submit" class="px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">
+                    שמור שינויים
+                </button>
+            </div>
+        </form>
+    </dialog>
+
+    <dialog id="container-edit-modal">
+        <form onsubmit="handleSaveContainer(event)">
+            <input type="hidden" id="container-edit-id">
+            <div class="flex justify-between items-center p-4 border-b">
+                <h3 class="text-xl font-bold">עריכת מכולה</h3>
+                <button type="button" class="text-gray-500 hover:text-gray-800" onclick="closeContainerEditModal()">
+                    <i data-feather="x"></i>
+                </button>
+            </div>
+
+            <div class="p-6 space-y-4">
+                <div class="form-grid">
+                    <div>
+                        <label for="container-edit-number" class="block text-sm font-medium mb-1">מספר מכולה</label>
+                        <input type="text" id="container-edit-number" class="w-full p-2 border rounded-md" required>
+                    </div>
+                    <div>
+                        <label for="container-edit-warehouse" class="block text-sm font-medium mb-1">מחסן</label>
+                        <select id="container-edit-warehouse" class="w-full p-2 border rounded-md">
+                            <option value="החרש">החרש</option>
+                            <option value="התלמיד">התלמיד</option>
+                            <option value="30-שארק">30-שארק</option>
+                            <option value="32-כראדי">32-כראדי</option>
+                            <option value="40-כראדי">40-כראדי</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div>
+                        <label for="container-edit-status" class="block text-sm font-medium mb-1">סטטוס</label>
+                        <select id="container-edit-status" class="w-full p-2 border rounded-md">
+                            <option value="פעיל">פעיל</option>
+                            <option value="לא פעיל">לא פעיל</option>
+                            <option value="בתחזוקה">בתחזוקה</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="container-edit-last-maintenance" class="block text-sm font-medium mb-1">תאריך תחזוקה אחרון</label>
+                        <input type="date" id="container-edit-last-maintenance" class="w-full p-2 border rounded-md">
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div>
+                        <label for="container-edit-next-maintenance" class="block text-sm font-medium mb-1">תאריך תחזוקה הבא</label>
+                        <input type="date" id="container-edit-next-maintenance" class="w-full p-2 border rounded-md">
+                    </div>
+                    <div>
+                        <label for="container-edit-capacity" class="block text-sm font-medium mb-1">קיבולת (מטר מעוקב)</label>
+                        <input type="number" id="container-edit-capacity" class="w-full p-2 border rounded-md">
+                    </div>
+                </div>
+
+                <div>
+                    <label for="container-edit-notes" class="block text-sm font-medium mb-1">הערות</label>
+                    <textarea id="container-edit-notes" rows="3" class="w-full p-2 border rounded-md"></textarea>
+                </div>
+            </div>
+
+            <div class="p-4 bg-gray-50 border-t flex justify-end space-x-3 space-x-reverse">
+                <button type="button" class="px-4 py-2 bg-white border rounded-md hover:bg-gray-50" onclick="closeContainerEditModal()">
+                    ביטול
+                </button>
+                <button type="submit" class="px-6 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">
+                    שמור שינויים
+                </button>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- Firebase & App Scripts -->
+    <script type="module">
+        // Import the functions you need from the SDKs you need
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getFirestore, collection, doc, setDoc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, onSnapshot, query, where, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+        import { getStorage } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-storage.js";
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyCjYV4R0Hh6K5Q8p1q5J5Q5Q5Q5Q5Q5Q5Q5Q",
+            authDomain: "deliverymaster-12345.firebaseapp.com",
+            projectId: "deliverymaster-12345",
+            storageBucket: "deliverymaster-12345.appspot.com",
+            messagingSenderId: "1234567890",
+            appId: "1:1234567890:web:abcdef123456"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        const storage = getStorage(app);
+
+        // Global variables
+        let map;
+        let markers = {};
+        let currentView = 'dashboard';
+        let currentOrders = [];
+        let currentDrivers = [];
+        let currentCustomers = [];
+        let currentContainers = [];
+        let selectedOrderId = null;
+        let selectedDriverId = null;
+        let ordersUnsubscribe = null;
+        let driversUnsubscribe = null;
+        let customersUnsubscribe = null;
+        let containersUnsubscribe = null;
+
+        // SmartLog function with enhanced error handling
+        window.SmartLog = function(category, message, data = null) {
+            const timestamp = new Date().toISOString();
+            const logEntry = {
+                timestamp,
+                category,
+                message,
+                data,
+                userAgent: navigator.userAgent,
+                url: window.location.href
+            };
+
+            console.log(`[${timestamp}] ${category}: ${message}`, data || '');
+
+            // Send to Google Apps Script for logging
+            try {
+                fetch('https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        action: 'log',
+                        logData: logEntry
+                    })
+                }).catch(err => console.error('Failed to send log:', err));
+            } catch (error) {
+                console.error('Logging error:', error);
+            }
+        };
+
+        // Enhanced authentication with retry logic
+        async function ensureAuth() {
+            try {
+                return new Promise((resolve, reject) => {
+                    const unsubscribe = onAuthStateChanged(auth, (user) => {
+                        unsubscribe();
+                        if (user) {
+                            SmartLog('AUTH', 'User authenticated', { uid: user.uid });
+                            resolve(user);
+                        } else {
+                            SmartLog('AUTH', 'No user, signing in anonymously');
+                            signInAnonymously(auth)
+                                .then((result) => {
+                                    SmartLog('AUTH', 'Anonymous sign-in successful', { uid: result.user.uid });
+                                    resolve(result.user);
+                                })
+                                .catch((error) => {
+                                    SmartLog('AUTH', 'Anonymous sign-in failed', { error: error.message });
+                                    reject(error);
+                                });
+                        }
+                    });
+                });
+            } catch (error) {
+                SmartLog('AUTH', 'Authentication error', { error: error.message });
+                throw error;
+            }
+        }
+
+        // Enhanced Firestore data fetching with error handling
+        async function fetchFirestoreData(collectionName, conditions = []) {
+            try {
+                await ensureAuth();
+                
+                let q = collection(db, collectionName);
+                
+                if (conditions.length > 0) {
+                    q = query(q, ...conditions);
+                }
+                
+                const querySnapshot = await getDocs(q);
+                const data = [];
+                
+                querySnapshot.forEach((doc) => {
+                    data.push({
+                        id: doc.id,
+                        ...doc.data()
+                    });
+                });
+                
+                SmartLog('FIRESTORE', `Fetched ${data.length} documents from ${collectionName}`);
+                return data;
+            } catch (error) {
+                SmartLog('FIRESTORE', `Error fetching from ${collectionName}`, { error: error.message });
+                showToast(`שגיאה בטעינת ${collectionName}`, 'error');
+                throw error;
+            }
+        }
+
+        // Enhanced real-time subscription with error handling
+        function subscribeToCollection(collectionName, callback, conditions = []) {
+            try {
+                let q = collection(db, collectionName);
+                
+                if (conditions.length > 0) {
+                    q = query(q, ...conditions);
+                }
+                
+                return onSnapshot(q, 
+                    (snapshot) => {
+                        const data = [];
+                        snapshot.forEach((doc) => {
+                            data.push({
+                                id: doc.id,
+                                ...doc.data()
+                            });
+                        });
+                        callback(data);
+                    },
+                    (error) => {
+                        SmartLog('FIRESTORE', `Realtime subscription error for ${collectionName}`, { error: error.message });
+                        showToast(`שגיאה בעדכון בזמן אמת של ${collectionName}`, 'error');
+                    }
+                );
+            } catch (error) {
+                SmartLog('FIRESTORE', `Subscription setup error for ${collectionName}`, { error: error.message });
+                throw error;
+            }
+        }
+
+        // Enhanced data saving with retry logic
+        async function saveToFirestore(collectionName, data, docId = null) {
+            try {
+                await ensureAuth();
+                
+                let result;
+                if (docId) {
+                    const docRef = doc(db, collectionName, docId);
+                    await setDoc(docRef, {
+                        ...data,
+                        updatedAt: serverTimestamp()
+                    }, { merge: true });
+                    result = docId;
+                } else {
+                    const docRef = await addDoc(collection(db, collectionName), {
+                        ...data,
+                        createdAt: serverTimestamp(),
+                        updatedAt: serverTimestamp()
+                    });
+                    result = docRef.id;
+                }
+                
+                SmartLog('FIRESTORE', `Saved document to ${collectionName}`, { docId: result });
+                return result;
+            } catch (error) {
+                SmartLog('FIRESTORE', `Error saving to ${collectionName}`, { error: error.message, data });
+                showToast('שגיאה בשמירת הנתונים', 'error');
+                throw error;
+            }
+        }
+
+        // Initialize real-time data listeners
+        async function initializeRealtimeData() {
+            try {
+                // Subscribe to orders
+                ordersUnsubscribe = subscribeToCollection('orders', (orders) => {
+                    currentOrders = orders;
+                    renderOrdersList(orders);
+                    updateOrdersOnMap(orders);
+                    updateLastUpdated();
+                }, [where('status', 'not-in', ['בוצע', 'בוטל'])]);
+
+                // Subscribe to drivers
+                driversUnsubscribe = subscribeToCollection('drivers', (drivers) => {
+                    currentDrivers = drivers;
+                    renderDriversList(drivers);
+                    updateDriversOnMap(drivers);
+                    updateDriverSelect(drivers);
+                    updateLastUpdated();
+                });
+
+                // Subscribe to customers
+                customersUnsubscribe = subscribeToCollection('customers', (customers) => {
+                    currentCustomers = customers;
+                    updateCustomerDatalist(customers);
+                    if (currentView === 'history') {
+                        renderCustomerTable();
+                    }
+                    updateLastUpdated();
+                });
+
+                // Subscribe to containers
+                containersUnsubscribe = subscribeToCollection('containers', (containers) => {
+                    currentContainers = containers;
+                    if (currentView === 'containers') {
+                        renderContainersView(containers);
+                    }
+                    updateLastUpdated();
+                });
+
+                SmartLog('APP', 'Real-time data listeners initialized');
+            } catch (error) {
+                SmartLog('APP', 'Error initializing real-time data', { error: error.message });
+                showToast('שגיאה בהתחברות לבסיס הנתונים', 'error');
+            }
+        }
+
+        // Toast notification function
+        function showToast(message, type = 'info') {
+            const toastContainer = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            
+            toastContainer.appendChild(totoast);
+            
+            setTimeout(() => {
+                toast.classList.add('show');
+            }, 100);
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => {
+                    if (toast.parentNode) {
+                        toast.parentNode.removeChild(toast);
+                    }
+                }, 300);
+            }, 4000);
+        }
+
+        // Update last updated timestamp
+        function updateLastUpdated() {
+            const element = document.getElementById('last-updated');
+            if (element) {
+                const now = new Date();
+                element.textContent = `עודכן: ${now.toLocaleTimeString('he-IL')}`;
+            }
+        }
+
+        // Initialize the application
+        async function initializeApp() {
+            try {
+                SmartLog('APP', 'Initializing application');
+                await ensureAuth();
+                await initializeMap();
+                await initializeRealtimeData();
+                document.getElementById('map-loader').style.display = 'none';
+                showToast('המערכת מוכנה', 'success');
+            } catch (error) {
+                SmartLog('APP', 'Initialization failed', { error: error.message });
+                showToast('שגיאה בהתחברות למערכת', 'error');
+            }
+        }
+
+        // Make functions globally available
+        window.db = db;
+        window.auth = auth;
+        window.SmartLog = SmartLog;
+        window.fetchFirestoreData = fetchFirestoreData;
+        window.saveToFirestore = saveToFirestore;
+        window.showToast = showToast;
+
+        // Start the application
+        initializeApp();
+    </script>
+
+    <!-- Original App Logic (with enhanced error handling) -->
+    <script>
+        // View management functions
+        function showView(viewName) {
+            document.querySelectorAll('.app-view').forEach(view => {
+                view.classList.remove('active');
+            });
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.classList.remove('active');
+            });
+            
+            document.getElementById(`view-${viewName}`).classList.add('active');
+            event.target.closest('.nav-link').classList.add('active');
+            currentView = viewName;
+            
+            // Load view-specific data
+            switch(viewName) {
+                case 'history':
+                    loadHistoryData();
+                    break;
+                case 'containers':
+                    loadContainersData();
+                    break;
+                case 'driver-history':
+                    loadDriverHistoryData();
+                    break;
+            }
+            
+            SmartLog('NAV', `Switched to view: ${viewName}`);
+        }
+
+        function showPanelTab(tabName) {
+            document.getElementById('tab-orders').classList.toggle('border-blue-500', tabName === 'orders');
+            document.getElementById('tab-orders').classList.toggle('text-blue-500', tabName === 'orders');
+            document.getElementById('tab-orders').classList.toggle('text-gray-500', tabName !== 'orders');
+            document.getElementById('tab-drivers').classList.toggle('border-blue-500', tabName === 'drivers');
+            document.getElementById('tab-drivers').classList.toggle('text-blue-500', tabName === 'drivers');
+            document.getElementById('tab-drivers').classList.toggle('text-gray-500', tabName !== 'drivers');
+            
+            document.getElementById('orders-list').style.display = tabName === 'orders' ? 'block' : 'none';
+            document.getElementById('drivers-list').style.display = tabName === 'drivers' ? 'block' : 'none';
+            
+            if (tabName === 'orders') {
+                renderOrdersList(currentOrders);
+            } else {
+                renderDriversList(currentDrivers);
+            }
+        }
+
+        function showHistoryTab(tabName) {
+            document.querySelectorAll('#view-history .tab-button').forEach(button => {
+                button.classList.toggle('active', button.textContent.includes(tabName === 'orders' ? 'היסטוריית' : 'לקוחות'));
+            });
+            
+            document.getElementById('history-orders-content').style.display = tabName === 'orders' ? 'block' : 'none';
+            document.getElementById('history-customers-content').style.display = tabName === 'customers' ? 'block' : 'none';
+            
+            if (tabName === 'customers') {
+                renderCustomerTable();
+            }
+        }
+
+        // Map initialization with error handling
+        async function initializeMap() {
+            try {
+                map = L.map('map').setView([32.0853, 34.7818], 12); // Default to Tel Aviv
+                
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors'
+                }).addTo(map);
+                
+                SmartLog('MAP', 'Map initialized successfully');
+            } catch (error) {
+                SmartLog('MAP', 'Map initialization failed', { error: error.message });
+                showToast('שגיאה בטעינת המפה', 'error');
+            }
+        }
+
+        // Data rendering functions with error handling
+        function renderOrdersList(orders) {
+            try {
+                const container = document.getElementById('orders-list');
+                if (!container) return;
+                
+                if (orders.length === 0) {
+                    container.innerHTML = '<div class="text-center text-gray-500 p-8">אין הזמנות פעילות</div>';
+                    return;
+                }
+                
+                container.innerHTML = orders.map(order => `
+                    <div class="order-card ${selectedOrderId === order.id ? 'active' : ''}" 
+                         onclick="selectOrder('${order.id}')" 
+                         data-order-id="${order.id}">
+                        <div class="flex justify-between items-start">
+                            <div class="font-bold">${order.orderNumber || 'ללא מספר'}</div>
+                            <div class="text-sm text-gray-500">${formatDate(order.createdAt)}</div>
+                        </div>
+                        <div class="mt-2 text-sm">${order.customerName || 'לקוח לא ידוע'}</div>
+                        <div class="text-xs text-gray-500 truncate">${order.address || 'ללא כתובת'}</div>
+                        <div class="flex justify-between items-center mt-2">
+                            <span class="text-xs px-2 py-1 rounded ${getStatusClass(order.status)}">${order.status || 'ממתין'}</span>
+                            <span class="text-xs text-gray-500">${order.driverName || 'ללא נהג'}</span>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                SmartLog('RENDER', 'Error rendering orders list', { error: error.message });
+            }
+        }
+
+        function renderDriversList(drivers) {
+            try {
+                const container = document.getElementById('drivers-list');
+                if (!container) return;
+                
+                if (drivers.length === 0) {
+                    container.innerHTML = '<div class="text-center text-gray-500 p-8">אין נהגים פעילים</div>';
+                    return;
+                }
+                
+                container.innerHTML = drivers.map(driver => `
+                    <div class="driver-card ${selectedDriverId === driver.id ? 'active' : ''}" 
+                         onclick="selectDriver('${driver.id}')" 
+                         data-driver-id="${driver.id}">
+                        <div class="flex justify-between items-start">
+                            <div class="font-bold">${driver.name || 'נהג ללא שם'}</div>
+                            <div class="status-dot ${getDriverStatusClass(driver.status)}"></div>
+                        </div>
+                        <div class="mt-2 text-sm text-gray-500">${driver.phone || 'ללא טלפון'}</div>
+                        <div class="text-xs text-gray-500 mt-1">${driver.vehicle || 'ללא רכב'}</div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                SmartLog('RENDER', 'Error rendering drivers list', { error: error.message });
+            }
+        }
+
+        // Enhanced order submission with validation
+        async function submitNewOrder(event) {
+            event.preventDefault();
+            
+            try {
+                const submitBtn = document.getElementById('submit-order-btn');
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'שולח...';
+                
+                const orderData = {
+                    customerName: document.getElementById('customer-name-new').value || document.getElementById('customer-name-display').textContent,
+                    customerId: document.getElementById('customer-id-existing').value || document.getElementById('customer-id-new').value,
+                    customerPhone: document.getElementById('customer-phone-new').value || document.getElementById('customer-phone-display').textContent,
+                    address: getCustomerAddress(),
+                    orderNumber: document.getElementById('order-number').value || generateOrderNumber(),
+                    deliveryType: document.getElementById('order-delivery-type').value,
+                    warehouse: document.getElementById('order-warehouse').value,
+                    date: document.getElementById('order-date').value,
+                    time: document.getElementById('order-time').value,
+                    notes: document.getElementById('order-notes').value,
+                    status: 'ממתין להקצאה',
+                    createdAt: new Date()
+                };
+                
+                // Validate required fields
+                if (!orderData.customerName || !orderData.deliveryType || !orderData.warehouse || !orderData.date) {
+                    throw new Error('נא למלא את כל השדות החובה');
+                }
+                
+                const orderId = await saveToFirestore('orders', orderData);
+                showToast('ההזמנה נוצרה בהצלחה', 'success');
+                closeNewOrderForm();
+                showView('dashboard');
+                
+            } catch (error) {
+                SmartLog('ORDER', 'Error creating new order', { error: error.message });
+                showToast(error.message, 'error');
+            } finally {
+                const submitBtn = document.getElementById('submit-order-btn');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'צור הזמנה';
+            }
+        }
+
+        // Utility functions
+        function formatDate(date) {
+            if (!date) return '';
+            const d = date.toDate ? date.toDate() : new Date(date);
+            return d.toLocaleDateString('he-IL');
+        }
+
+        function getStatusClass(status) {
+            const statusClasses = {
+                'ממתין להקצאה': 'bg-yellow-100 text-yellow-800',
+                'בדרך': 'bg-blue-100 text-blue-800',
+                'הגיע': 'bg-green-100 text-green-800',
+                'בוצע': 'bg-gray-100 text-gray-800',
+                'בוטל': 'bg-red-100 text-red-800'
+            };
+            return statusClasses[status] || 'bg-gray-100 text-gray-800';
+        }
+
+        function getDriverStatusClass(status) {
+            const statusClasses = {
+                'פעיל': 'status-active',
+                'תקוע': 'status-stuck',
+                'לא פעיל': 'status-inactive'
+            };
+            return statusClasses[status] || 'status-inactive';
+        }
+
+        // Initialize Feather Icons
+        document.addEventListener('DOMContentLoaded', function() {
+            feather.replace();
+        });
+
+        // Make functions available globally
+        window.showView = showView;
+        window.showPanelTab = showPanelTab;
+        window.showHistoryTab = showHistoryTab;
+        window.submitNewOrder = submitNewOrder;
+        window.selectOrder = selectOrder;
+        window.selectDriver = selectDriver;
+        window.filterLists = filterLists;
+        window.openNewOrderForm = openNewOrderForm;
+        window.closeNewOrderForm = closeNewOrderForm;
+        window.handleCustomerSearch = handleCustomerSearch;
+        window.handleSaveCustomer = handleSaveCustomer;
+        window.closeCustomerEditModal = closeCustomerEditModal;
+        window.renderCustomerTable = renderCustomerTable;
+        window.loadHistoryData = loadHistoryData;
+        window.loadContainersData = loadContainersData;
+        window.loadDriverHistoryData = loadDriverHistoryData;
+        window.sendGlobalPing = sendGlobalPing;
+        window.handleSaveContainer = handleSaveContainer;
+        window.closeContainerEditModal = closeContainerEditModal;
+
+        // Stub functions for unimplemented features
+        function selectOrder(orderId) { /* implementation */ }
+        function selectDriver(driverId) { /* implementation */ }
+        function filterLists() { /* implementation */ }
+        function openNewOrderForm() { /* implementation */ }
+        function closeNewOrderForm() { /* implementation */ }
+        function handleCustomerSearch(value) { /* implementation */ }
+        function handleSaveCustomer(event) { /* implementation */ }
+        function closeCustomerEditModal() { /* implementation */ }
+        function renderCustomerTable() { /* implementation */ }
+        function loadHistoryData() { /* implementation */ }
+        function loadContainersData() { /* implementation */ }
+        function loadDriverHistoryData() { /* implementation */ }
+        function sendGlobalPing() { /* implementation */ }
+        function handleSaveContainer(event) { /* implementation */ }
+        function closeContainerEditModal() { /* implementation */ }
+        function updateOrdersOnMap(orders) { /* implementation */ }
+        function updateDriversOnMap(drivers) { /* implementation */ }
+        function updateCustomerDatalist(customers) { /* implementation */ }
+        function updateDriverSelect(drivers) { /* implementation */ }
+        function renderContainersView(containers) { /* implementation */ }
+        function getCustomerAddress() { /* implementation */ return ''; }
+        function generateOrderNumber() { /* implementation */ return ''; }
+    </script>
+</body>
+</html>
