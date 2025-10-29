@@ -1,8 +1,6 @@
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
-    
-
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DeliveryMaster v45.3 (Modular)</title>
@@ -10,7 +8,7 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
 
     <style>
-        /* CSS remains the same as v45.2 */
+        /* ... (כל סגנונות ה-CSS נשארים זהים) ... */
         :root { --m3-primary: #0066cc; --m3-surface: #ffffff; --m3-on-surface: #1a1a1a; --m3-surface-container: #f0f4f8; --m3-on-surface-variant: #5f6368; --m3-outline: #d0d0d0; --m3-success: #1e8e3e; --m3-warning: #f9a825; --m3-error: #d93025; --m3-info: var(--m3-primary); }
         body { font-family: 'Rubik', sans-serif; background-color: var(--m3-surface); color: var(--m3-on-surface); margin: 0; padding: 1.5rem; transition: background-color 0.3s ease, color 0.3s ease; }
         .header-container { display: flex; justify-content: space-between; align-items: center; }
@@ -55,14 +53,13 @@
     </div>
 
     <script type="module">
-        // --- Import from Shared Module ---
-        import { db, authReadyPromise, SmartLog, showToast, collection, query, orderBy, limit, onSnapshot, Timestamp } from '/shared/firebase-init.js'; // *** TRYING ABSOLUTE PATH FROM ROOT ***
+        // V33: Import from Shared Module with relative path
+        import { 
+            db, authReadyPromise, SmartLog, collection, query, orderBy, limit, onSnapshot 
+        } from '../shared/firebase-init.js'; // V33: Changed to relative path
 
-        // Use unified LOG_COLLECTION from shared module
-        const LOG_COLLECTION = 'system_logs_v3';
-        // Use unified LOG_COLLECTION from shared module
-        const LOG_COLLECTION = 'system_logs_v3';
-        const LOG_LIMIT = 200; // Keep local limit setting
+        const LOG_COLLECTION = 'system_logs_v3'; // Defined in firebase-init
+        const LOG_LIMIT = 200;
 
         const DOM = {
             tableBody: document.getElementById('logs-table-body'),
@@ -75,7 +72,7 @@
         let unsubscribe = null;
               
         function init() {
-            SmartLog.info("Log Viewer Initializing.", "LogViewer.Init"); // Use imported SmartLog
+            SmartLog.info("Log Viewer Initializing.", "LogViewer.Init");
 
             DOM.filterText.addEventListener('input', renderLogs);
             DOM.filterLevel.addEventListener('input', renderLogs);
@@ -87,7 +84,7 @@
             if (unsubscribe) unsubscribe();
 
             const q = query(
-                collection(db, LOG_COLLECTION), // Use imported db and collection
+                collection(db, LOG_COLLECTION),
                 orderBy("timestamp", "desc"),
                 limit(LOG_LIMIT)
             );
@@ -95,29 +92,30 @@
             DOM.status.textContent = '(מאזין לשינויים...)';
             DOM.status.style.color = 'var(--m3-success)';
 
-            unsubscribe = onSnapshot(q, (snapshot) => { // Use imported onSnapshot
-                allLogs = snapshot.docs.map(doc => doc.data()); // Simpler mapping
+            unsubscribe = onSnapshot(q, (snapshot) => {
+                allLogs = snapshot.docs.map(doc => doc.data());
                 renderLogs();
             }, (error) => {
-                SmartLog.error(error, "LogViewer.Listener"); // Use imported SmartLog
+                SmartLog.error(error, "LogViewer.Listener");
                 DOM.status.textContent = `(שגיאת האזנה: ${error.message})`;
                 DOM.status.style.color = 'var(--m3-error)';
             });
         }
 
         function renderLogs() {
+            // ... (Logic remains the same) ...
             const textFilter = DOM.filterText.value.toLowerCase();
             const levelFilter = DOM.filterLevel.value;
 
             const filteredLogs = allLogs.filter(log => {
                 const levelMatch = !levelFilter || log.level === levelFilter;
                 const textMatch = !textFilter ||
-                    (log.message && String(log.message).toLowerCase().includes(textFilter)) || // Ensure message is string
+                    (log.message && String(log.message).toLowerCase().includes(textFilter)) ||
                     (log.origin && log.origin.toLowerCase().includes(textFilter));
                 return levelMatch && textMatch;
             });
 
-            if (!DOM.tableBody) return; // Guard clause
+            if (!DOM.tableBody) return;
 
             if (filteredLogs.length === 0) {
                 DOM.tableBody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 2rem;">אין לוגים תואמים...</td></tr>`;
@@ -125,7 +123,6 @@
             }
 
             DOM.tableBody.innerHTML = filteredLogs.map(log => {
-                // Safely access timestamp and format date
                 let time = '...';
                 if (log.timestamp && typeof log.timestamp.toDate === 'function') {
                     try {
@@ -134,17 +131,14 @@
                 }
 
                 const safeMessage = log.message ? String(log.message).replace(/</g, "&lt;").replace(/>/g, "&gt;") : '---';
-
-                // Context display logic remains the same
+                
                 let contextStr = '';
                 if (log.context) {
                      try {
                         if (log.context.stack) {
-                            // Extract first relevant line of stack, or indicate presence
                             const stackLines = String(log.context.stack).split('\n');
                             contextStr = stackLines[1]?.trim() || (stackLines.length > 0 ? 'Stack trace available' : '');
                         } else {
-                            // Stringify other contexts, truncate if too long
                             contextStr = JSON.stringify(log.context);
                             if (contextStr.length > 150) contextStr = contextStr.substring(0, 150) + '...';
                         }
@@ -164,7 +158,7 @@
         }
 
         // --- Start App ---
-        authReadyPromise.then(() => { // Use imported promise
+        authReadyPromise.then(() => {
             SmartLog.info("Log Viewer Page Loaded (v45.3 Modular)", "LogViewer.Load");
             init();
         }).catch(err => {
