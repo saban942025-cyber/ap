@@ -1,0 +1,131 @@
+// DeliveryMaster V33.0 - Shared Map and Geocoding Utilities
+
+// --- Leaflet Map Constants and Icons ---
+export const ISRAEL_CENTER = [32.0853, 34.7818];
+export const WAREHOUSE_LOCATIONS = {
+    "החרש": [32.13266165049073, 34.898196599998755],
+    "התלמיד": [32.16303427408473, 34.894926705310006]
+};
+
+// Standardized Leaflet Icons (ensure Leaflet is loaded before using these)
+const createIcon = (color) => {
+    if (typeof L === 'undefined') {
+        console.error("Leaflet (L) is not defined. Cannot create icons.");
+        return null; // Return null or a default object if Leaflet isn't loaded
+    }
+    return L.icon({
+        iconUrl: `https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-${color}.png`,
+        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowSize: [41, 41]
+    });
+};
+
+export const driverIconActive = createIcon('green');
+export const driverIconStuck = createIcon('red');
+export const driverIconInactive = createIcon('grey'); // Added for warehouse/viewer
+export const driverIconLoading = createIcon('yellow'); // Added for warehouse
+
+export const orderIconNew = createIcon('blue');
+export const orderIconActive = createIcon('blue'); // Same as new for now
+// Add other order icons if needed (e.g., completed - grey?)
+
+export const warehouseIcon = createIcon('red'); // For marking warehouses
+
+
+// --- Basic Map Initialization Helper ---
+/**
+ * Initializes a Leaflet map in the specified container.
+ * @param {string} mapId - The ID of the HTML element to contain the map.
+ * @param {Array<number>} initialCenter - The initial center coordinates [lat, lng].
+ * @param {number} initialZoom - The initial zoom level.
+ * @returns {object|null} The Leaflet map instance or null on error.
+ */
+export function initMapInstance(mapId, initialCenter = ISRAEL_CENTER, initialZoom = 9) {
+    if (typeof L === 'undefined') {
+        console.error(`[Map Utils] Leaflet (L) is not defined. Cannot initialize map '${mapId}'.`);
+        return null;
+    }
+    try {
+        const mapContainer = document.getElementById(mapId);
+        if (!mapContainer) throw new Error(`Map container #${mapId} not found`);
+
+        // If map instance exists on this element, remove it first
+        if (mapContainer._leaflet_id) {
+            const existingMap = L.DomUtil.get(mapId);
+            if (existingMap && existingMap.leaflet_map) {
+                existingMap.leaflet_map.remove();
+            }
+        }
+
+        const map = L.map(mapId).setView(initialCenter, initialZoom);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        }).addTo(map);
+        console.log(`[Map Utils] Map '${mapId}' initialized.`);
+        return map;
+    } catch (error) {
+        console.error(`[Map Utils] Error initializing map '${mapId}':`, error);
+        const mapContainer = document.getElementById(mapId);
+        if(mapContainer) mapContainer.innerHTML = `<div class="p-4 text-center text-red-500">שגיאה בטעינת המפה.</div>`;
+        return null;
+    }
+}
+
+
+// --- Geocoding Function (using Nominatim) ---
+/**
+ * Geocodes an address using the Nominatim API.
+ * @param {string} address - The address string to geocode.
+ * @param {Function} [logger=console.log] - Optional logging function (e.g., SmartLog.info).
+ * @returns {Promise<Array<number>|null>} A promise resolving to [lat, lng] or null.
+ */
+export async function geocodeAddress(address, logger = console.log) {
+    if (!address) return null;
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1&countrycodes=il`; // Limit to Israel
+    logger(`[Geocode] Geocoding address: ${address}`);
+    try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`Nominatim API failed: ${response.status}`);
+        const data = await response.json();
+        if (data && data.length > 0) {
+            const { lat, lon } = data[0];
+            const coords = [parseFloat(lat), parseFloat(lon)];
+            logger(`[Geocode] Success: [${coords.join(', ')}] for "${address}"`);
+            return coords;
+        } else {
+            logger(`[Geocode] No results found for: ${address}`);
+            return null;
+        }
+    } catch (error) {
+        console.error(`[Geocode] Error geocoding "${address}":`, error); // Use console.error for fetch errors
+        return null;
+    }
+}
+
+// --- Distance Calculation Helper ---
+/**
+ * Calculates the distance between two LatLng points using Leaflet.
+ * Returns distance in meters.
+ * @param {Array<number>} point1 [lat, lng]
+ * @param {Array<number>} point2 [lat, lng]
+ * @returns {number|null} Distance in meters or null if invalid input or Leaflet not available.
+ */
+export function calculateDistance(point1, point2) {
+     if (typeof L === 'undefined' || !point1 || !point2 || point1.length !== 2 || point2.length !== 2) {
+         return null;
+     }
+     try {
+         const latLng1 = L.latLng(point1);
+         const latLng2 = L.latLng(point2);
+         return latLng1.distanceTo(latLng2); // Returns meters
+     } catch (e) {
+         console.error("[Map Utils] Error calculating distance:", e);
+         return null;
+     }
+ }
+
+console.log("[Map Utils Module] Loaded.");
