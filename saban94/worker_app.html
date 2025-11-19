@@ -33,6 +33,12 @@
         .template-item { padding: 12px; border-bottom: 1px solid #f0f0f0; cursor: pointer; transition: background 0.2s; }
         .template-item:hover { background-color: #f0f9ff; }
         .template-item:last-child { border-bottom: none; }
+
+        /* New Message Indicator */
+        .new-msg-indicator {
+            position: absolute; top: -5px; right: -5px; width: 12px; height: 12px;
+            background-color: #ef4444; border-radius: 50%; border: 2px solid white;
+        }
     </style>
 </head>
 <body>
@@ -76,7 +82,7 @@
             <div class="flex gap-2">
                 <button onclick="toggleChat()" class="relative p-2 text-gray-600 hover:bg-gray-100 rounded-full transition-colors">
                     <i data-feather="message-square"></i>
-                    <span id="unread-badge" class="absolute top-1 right-1 w-3 h-3 bg-red-500 rounded-full hidden border-2 border-white"></span>
+                    <span id="unread-badge" class="new-msg-indicator hidden"></span>
                 </button>
                 <button onclick="logout()" class="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors"><i data-feather="log-out"></i></button>
             </div>
@@ -84,31 +90,36 @@
 
         <main class="flex-1 p-4 overflow-y-auto pb-20">
             
-            <!-- Last Interaction Box -->
-            <div id="last-interaction-box" class="bg-white p-4 rounded-xl shadow-sm border border-blue-100 mb-6 hidden">
+            <!-- Last Interaction Box (Live Updates) -->
+            <div id="last-interaction-box" class="bg-white p-4 rounded-xl shadow-sm border border-blue-100 mb-6 hidden cursor-pointer hover:bg-blue-50 transition-colors" onclick="toggleChat()">
                 <div class="flex justify-between items-start mb-2">
-                    <h3 class="text-sm font-bold text-blue-800 flex items-center gap-2"><i data-feather="activity" class="w-4 h-4"></i> עדכון אחרון</h3>
+                    <h3 class="text-sm font-bold text-blue-800 flex items-center gap-2">
+                        <span class="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span> עדכון אחרון
+                    </h3>
                     <span class="text-xs text-gray-400" id="last-interaction-time">--:--</span>
                 </div>
-                <p class="text-sm text-gray-700" id="last-interaction-text">ממתין לעדכונים...</p>
-                <div class="mt-2 text-xs text-blue-600 font-medium cursor-pointer" onclick="toggleChat()">פתח שיחה &larr;</div>
+                <p class="text-sm text-gray-700 font-medium" id="last-interaction-sender">...</p>
+                <p class="text-sm text-gray-600 mt-1 truncate" id="last-interaction-text">...</p>
+                <div class="mt-2 text-xs text-blue-600 font-bold flex items-center gap-1">
+                    השב מיד <i data-feather="arrow-left" class="w-3 h-3"></i>
+                </div>
             </div>
 
-            <h2 class="text-lg font-bold text-gray-800 mb-4 px-1">משימות והזמנות</h2>
+            <h2 class="text-lg font-bold text-gray-800 mb-4 px-1 flex items-center gap-2"><i data-feather="list" class="w-4 h-4"></i> משימות והזמנות</h2>
             <div id="orders-list" class="space-y-4"></div>
         </main>
     </div>
 
     <!-- Chat Sidebar -->
     <div id="chat-overlay" onclick="toggleChat()" class="fixed inset-0 bg-black/30 z-20 hidden transition-opacity opacity-0 backdrop-blur-sm"></div>
-    <div id="chat-window" class="fixed top-0 left-0 bottom-0 w-[85%] max-w-md bg-[#efeae2] z-30 shadow-2xl flex flex-col border-r border-white/20">
+    <div id="chat-window" class="fixed top-0 left-0 bottom-0 w-[90%] max-w-md bg-[#efeae2] z-30 shadow-2xl flex flex-col border-r border-white/20">
         
         <div class="p-4 bg-[#008069] text-white flex justify-between items-center shadow-md">
             <div class="flex items-center gap-3">
                 <button onclick="toggleChat()"><i data-feather="arrow-right"></i></button>
                 <div>
                     <h3 class="font-bold text-sm">צ'אט לקוחות</h3>
-                    <p class="text-[10px] opacity-80" id="chat-status">מחובר</p>
+                    <p class="text-[10px] opacity-80" id="chat-status">מחובר • חדר סידור</p>
                 </div>
             </div>
             <i data-feather="more-vertical" class="opacity-80"></i>
@@ -116,8 +127,9 @@
 
         <div id="chat-messages" class="flex-1 p-4 overflow-y-auto flex flex-col gap-3" style="background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); background-repeat: repeat;"></div>
         
-        <!-- Templates Menu -->
+        <!-- Templates Menu (Quick Reply) -->
         <div id="templates-menu">
+            <div class="bg-gray-100 p-2 text-xs text-gray-500 font-bold border-b">תגובות מהירות</div>
             <div class="template-item" onclick="useTemplate('הזמנה התקבלה ונשלחה למחלקת הזמנות.')">📦 הזמנה התקבלה</div>
             <div class="template-item" onclick="useTemplate('הפנייה בטיפול, נעדכן בהקדם.')">⏳ בטיפול</div>
             <div class="template-item" onclick="useTemplate('התוספת התקבלה, תעודכן כשיטופל.')">➕ תוספת להזמנה</div>
@@ -125,8 +137,8 @@
             <div class="template-item" onclick="useTemplate('כרגע עמוס, אשלח שוב עוד מס\' דקות.')">⚠️ עומס</div>
         </div>
 
-        <form id="chat-form" class="p-2 bg-[#f0f2f5] flex items-center gap-2">
-            <div class="flex-1 bg-white rounded-full flex items-center px-4 py-2 shadow-sm">
+        <form id="chat-form" class="p-2 bg-[#f0f2f5] flex items-center gap-2 pb-safe">
+            <div class="flex-1 bg-white rounded-full flex items-center px-4 py-2 shadow-sm relative">
                 <input type="text" id="chat-input" placeholder="הקלד '/' לתבניות..." class="flex-1 bg-transparent border-none focus:ring-0 outline-none text-sm" autocomplete="off">
             </div>
             <button type="submit" class="p-3 bg-[#00a884] text-white rounded-full shadow-md hover:scale-105 transition-transform flex items-center justify-center">
@@ -156,19 +168,19 @@
         let userProfile = null;
         let currentChatRoomId = null;
         let blinkInterval = null;
+        let originalTitle = document.title;
 
         // --- Sound & Notification Logic ---
         const notifySound = document.getElementById('notif-sound');
         
         function playSound() {
             notifySound.currentTime = 0;
-            notifySound.play().catch(e => console.log("Audio play failed (user didn't interact yet)", e));
+            notifySound.play().catch(e => console.log("Audio play failed (user interaction needed)", e));
         }
 
         function startBlinking(isUrgent = false) {
             if (blinkInterval) clearInterval(blinkInterval);
             let isOriginalTitle = true;
-            const originalTitle = document.title;
             const alertTitle = isUrgent ? "🔴 דחוף! הודעה" : "🔔 הודעה חדשה";
             
             blinkInterval = setInterval(() => {
@@ -177,17 +189,19 @@
             }, 1000);
             
             document.getElementById('unread-badge').classList.remove('hidden');
-            if(isUrgent) document.getElementById('chat-window').classList.add('urgent-blink');
+            if(isUrgent) {
+                document.getElementById('last-interaction-box').classList.add('urgent-blink');
+            }
         }
 
         function stopBlinking() {
             if (blinkInterval) {
                 clearInterval(blinkInterval);
                 blinkInterval = null;
-                document.title = "Sidor | עובדים";
+                document.title = originalTitle;
             }
             document.getElementById('unread-badge').classList.add('hidden');
-            document.getElementById('chat-window').classList.remove('urgent-blink');
+            document.getElementById('last-interaction-box').classList.remove('urgent-blink');
         }
 
         // --- UI Helpers ---
@@ -205,8 +219,9 @@
                 win.classList.add('open');
                 stopBlinking(); // Stop blinking when chat opens
                 
+                // Scroll to bottom
                 const list = document.getElementById('chat-messages');
-                list.scrollTop = list.scrollHeight;
+                setTimeout(() => list.scrollTop = list.scrollHeight, 100);
             }
         };
         
@@ -227,7 +242,9 @@
         window.useTemplate = (text) => {
             input.value = text;
             menu.style.display = 'none';
-            input.focus();
+            
+            // Auto send
+            document.getElementById('chat-form').dispatchEvent(new Event('submit'));
         };
 
         // --- Auth Logic ---
@@ -335,11 +352,13 @@
                 const list = document.getElementById('chat-messages');
                 
                 // Check for new messages to alert
+                let isFirstLoad = list.innerHTML === "";
+                
                 snap.docChanges().forEach((change) => {
                     if (change.type === "added") {
                         const msg = change.doc.data();
                         // If message is NOT from me (the worker)
-                        if (msg.senderId !== userProfile.uid) {
+                        if (msg.senderId !== userProfile.uid && !isFirstLoad) {
                             // Update "Last Interaction" box
                             updateDashboardBox(msg.senderName, msg.text, change.doc.data().createdAt);
                             
@@ -347,7 +366,8 @@
                             const isChatOpen = document.getElementById('chat-window').classList.contains('open');
                             if (!isChatOpen) {
                                 playSound();
-                                startBlinking(msg.text.includes('דחוף') || msg.text.includes('NUDGE'));
+                                const isUrgent = msg.text.includes('דחוף') || msg.text.includes('NUDGE');
+                                startBlinking(isUrgent);
                             }
                         }
                     }
@@ -376,11 +396,13 @@
         
         function updateDashboardBox(sender, text, timestamp) {
             const box = document.getElementById('last-interaction-box');
+            const senderEl = document.getElementById('last-interaction-sender');
             const txtEl = document.getElementById('last-interaction-text');
             const timeEl = document.getElementById('last-interaction-time');
             
             box.classList.remove('hidden');
-            txtEl.innerHTML = `<strong>${sender}:</strong> ${text.substring(0, 50)}${text.length>50?'...':''}`;
+            senderEl.innerText = sender || 'מערכת';
+            txtEl.innerText = text.substring(0, 50) + (text.length > 50 ? '...' : '');
             if(timestamp) timeEl.innerText = new Date(timestamp.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
             
             // Visual flare
