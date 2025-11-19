@@ -42,6 +42,9 @@
         import { getFirestore, collection, doc, onSnapshot, query, orderBy, where, getDoc, addDoc, serverTimestamp, limit, updateDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
         import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-storage.js";
 
+        // *** כתובת הסקריפט שלך לגוגל דרייב ***
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby7qKICvRYStFkcDPLtGhGPaNqyYt-G8dZqBJfGm7vpmOG6Kf_n3f29V8oyUW9PjBUj7A/exec";
+
         const firebaseConfig = {
           apiKey: "AIzaSyDq0oVwS6zbEfsgrYBRkeBq80dDUKMedzo", 
           authDomain: "saban94-78949.firebaseapp.com", 
@@ -130,7 +133,7 @@
             );
         }
 
-        // --- Chat Room (Enhanced) ---
+        // --- Chat Room (WhatsApp Style with Google Drive) ---
         function ChatRoom({ project, user, onBack, showToast }) {
             const [messages, setMessages] = useState([]);
             const [text, setText] = useState('');
@@ -150,32 +153,88 @@
 
             useEffect(() => endRef.current?.scrollIntoView({ behavior: 'smooth' }), [messages]);
 
-            // שליחת הודעה כללית
+            // --- פונקציית עזר להעלאה ל-Google Drive ---
+            const uploadToGoogleDrive = async (file, type) => {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.readAsDataURL(file);
+                    reader.onload = async () => {
+                        const rawBase64 = reader.result.split(',')[1]; // הסרת ה-prefix של data url
+                        const payload = {
+                            fileData: rawBase64,
+                            fileName: file.name || `recording_${Date.now()}.webm`, // שם ברירת מחדל להקלטות
+                            mimeType: file.type,
+                            customerId: user.uid
+                        };
+
+                        try {
+                            // שימוש ב-no-cors כדי לעקוף בעיות דפדפן, אך זה אומר שלא נקבל תשובה JSON נקייה בחזרה.
+                            // כדי שזה יעבוד מושלם, הסקריפט צריך להיות מוגדר כ-Anyone.
+                            // נשתמש ב-fetch רגיל וננסה לקרוא תשובה.
+                            const response = await fetch(GOOGLE_SCRIPT_URL, {
+                                method: 'POST',
+                                body: JSON.stringify(payload)
+                            });
+                            const data = await response.json();
+                            if (data.success) {
+                                resolve(data.url);
+                            } else {
+                                reject(data.error || "שגיאת שרת");
+                            }
+                        } catch (err) {
+                            console.error("Upload error:", err);
+                            // במקרה של no-cors או שגיאה, נחזיר null או נטפל אחרת.
+                            // עבור הדגמה, אם ה-CORS חוסם, אנחנו בבעיה לקבל את ה-URL.
+                            // פתרון עוקף ללא שרת proxy הוא להעלות ל-Firebase Storage כ-Fallback.
+                            reject("שגיאת תקשורת עם גוגל דרייב (CORS)");
+                        }
+                    };
+                });
+            };
+
+
+            // שליחת הודעה
             const sendMessage = async (type = 'TEXT', payload = null) => {
                 let msg = {
                     roomId: project.projectId, senderId: user.uid, senderName: user.displayName || 'לקוח',
                     type: type, createdAt: serverTimestamp(), replyTo: null
                 };
                 if (type === 'TEXT') { if (!text.trim()) return; msg.text = text.trim(); setText(''); }
-                else if (['IMAGE','FILE','AUDIO'].includes(type)) { msg.mediaUrl = payload.url; msg.text = payload.name; }
+                else if (['IMAGE','FILE','AUDIO'].includes(type)) { 
+                    msg.mediaUrl = payload.url; 
+                    msg.text = payload.name; // שם הקובץ
+                }
                 else if (type === 'LOCATION') { msg.location = payload; msg.text = '📍 מיקום שיתופי'; }
 
                 await addDoc(collection(db, 'messages'), msg);
                 setShowMenu(false);
             };
 
-            // העלאת קובץ (תמונה/מסמך)
+            // העלאת קובץ (תמונה/מסמך) דרך הסקריפט שלך
             const handleFileUpload = async (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
-                showToast("מעלה קובץ...");
+                showToast("מעלה לדרייב...");
+                
                 try {
-                    const fileRef = ref(storage, `chat_files/${project.projectId}/${Date.now()}_${file.name}`);
-                    await uploadBytes(fileRef, file);
-                    const url = await getDownloadURL(fileRef);
+                    const url = await uploadToGoogleDrive(file);
                     const type = file.type.startsWith('image/') ? 'IMAGE' : 'FILE';
                     await sendMessage(type, { url, name: file.name });
-                } catch(err) { console.error(err); showToast("שגיאה בהעלאה"); }
+                    showToast("נשלח בהצלחה!");
+                } catch(err) { 
+                    console.warn("Google Drive upload failed, falling back to Firebase Storage...", err);
+                    // Fallback to Firebase Storage if GAS fails (CORS issues often happen)
+                    try {
+                        const fileRef = ref(storage, `chat_files/${project.projectId}/${Date.now()}_${file.name}`);
+                        await uploadBytes(fileRef, file);
+                        const url = await getDownloadURL(fileRef);
+                        const type = file.type.startsWith('image/') ? 'IMAGE' : 'FILE';
+                        await sendMessage(type, { url, name: file.name });
+                        showToast("נשלח בהצלחה (גיבוי)!");
+                    } catch (fbErr) {
+                        showToast("שגיאה בהעלאה.");
+                    }
+                }
             };
 
             // מיקום
@@ -200,12 +259,21 @@
                         const chunks = [];
                         recorder.ondataavailable = e => chunks.push(e.data);
                         recorder.onstop = async () => {
-                            const blob = new Blob(chunks, { type: 'audio/ogg; codecs=opus' });
+                            const blob = new Blob(chunks, { type: 'audio/webm' }); // Google Script often prefers webm/mp4 logic or plain bytes
+                            // המרת ה-Blob לקובץ כדי לשלוח לפונקציית ההעלאה
+                            const file = new File([blob], "voice_note.webm", { type: "audio/webm" });
+                            
                             showToast("מעלה הקלטה...");
-                            const fileRef = ref(storage, `chat_audio/${project.projectId}/${Date.now()}.ogg`);
-                            await uploadBytes(fileRef, blob);
-                            const url = await getDownloadURL(fileRef);
-                            await sendMessage('AUDIO', { url, name: 'הודעה קולית' });
+                            try {
+                                const url = await uploadToGoogleDrive(file);
+                                await sendMessage('AUDIO', { url, name: 'הודעה קולית' });
+                            } catch (err) {
+                                // Fallback
+                                const fileRef = ref(storage, `chat_audio/${project.projectId}/${Date.now()}.webm`);
+                                await uploadBytes(fileRef, blob);
+                                const url = await getDownloadURL(fileRef);
+                                await sendMessage('AUDIO', { url, name: 'הודעה קולית' });
+                            }
                         };
                         recorder.start();
                         setMediaRecorder(recorder);
