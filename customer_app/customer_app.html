@@ -130,14 +130,13 @@
             );
         }
 
-        // --- Chat Room (The WhatsApp Clone) ---
+        // --- Chat Room (Enhanced) ---
         function ChatRoom({ project, user, onBack, showToast }) {
             const [messages, setMessages] = useState([]);
             const [text, setText] = useState('');
             const [showMenu, setShowMenu] = useState(false);
             const [isRecording, setIsRecording] = useState(false);
             const [mediaRecorder, setMediaRecorder] = useState(null);
-            const [audioChunks, setAudioChunks] = useState([]);
             
             const endRef = useRef(null);
             const fileInputRef = useRef(null);
@@ -241,7 +240,7 @@
 
                     <div className="p-2 bg-[#f0f2f5] flex items-center gap-2 pb-4 relative">
                         {showMenu && (
-                            <div className="absolute bottom-16 right-4 bg-white rounded-xl shadow-xl p-2 flex flex-col gap-2 animate-fade-in">
+                            <div className="absolute bottom-16 right-4 bg-white rounded-xl shadow-xl p-2 flex flex-col gap-2 animate-fade-in z-30">
                                 <button onClick={() => fileInputRef.current.click()} className="flex items-center gap-3 p-3 hover:bg-gray-100 rounded-lg text-gray-700"><Icon name="FileText" className="text-purple-500"/> מסמך/תמונה</button>
                                 <button onClick={handleLocation} className="flex items-center gap-3 p-3 hover:bg-gray-100 rounded-lg text-gray-700"><Icon name="MapPin" className="text-red-500"/> מיקום</button>
                             </div>
@@ -262,7 +261,7 @@
             );
         }
 
-        // --- Catalog Page (Live) ---
+        // --- Knowledge Page (Live Catalog) ---
         function KnowledgePage({ showToast }) {
             const [term, setTerm] = useState('');
             const [products, setProducts] = useState([]);
