@@ -5,19 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>ח. סבן | פורטל לקוחות</title>
     
-    <!-- OneSignal SDK -->
-    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
-    <script>
-      window.OneSignalDeferred = window.OneSignalDeferred || [];
-      OneSignalDeferred.push(async function(OneSignal) {
-        await OneSignal.init({
-          appId: "de3834d3-1e11-40af-96d2-b25eda821c8f",
-        });
-        // תיוג המשתמש כלקוח
-        OneSignal.User.addTag("role", "customer");
-      });
-    </script>
-    
     <!-- טעינת ספריות -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
@@ -25,7 +12,7 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
     <!-- Manifest -->
-    <link rel="manifest" href='data:application/manifest+json;charset=utf-8,%7B%22name%22%3A%22%D7%97.%20%D7%A1%D7%91%D7%9F%20%D7%97%D7%95%D7%9E%D7%A8%D7%99%20%D7%91%D7%A0%D7%99%D7%99%D7%9F%22%2C%22short_name%22%3A%22%D7%97.%20%D7%A1%D7%91%D7%9F%22%2C%22start_url%22%3A%22%2Fcustomer_app.html%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23f3f4f6%22%2C%22theme_color%22%3A%22%232563eb%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22https%3A%2F%2Fi.postimg.cc%2FryPT3r29%2Fhwrdh.png%22%2C%22sizes%22%3A%22192x192%22%2C%22type%22%3A%22image%2Fpng%22%7D%2C%7B%22src%22%3A%22https%3A%2F%2Fi.postimg.cc%2FryPT3r29%2Fhwrdh.png%22%2C%22sizes%22%3A%22512x512%22%2C%22type%22%3A%22image%2Fpng%22%7D%5D%7D'>
+    <link rel="manifest" href='data:application/manifest+json;charset=utf-8,%7B%22name%22%3A%22%D7%97.%20%D7%A1%D7%91%D7%9F%20%D7%97%D7%95%D7%9E%D7%A8%D7%99%20%D7%91%D7%A0%D7%99%D7%99%D7%9F%22%2C%22short_name%22%3A%22%D7%97.%20%D7%A1%D7%91%D7%9F%22%2C%22start_url%22%3A%22%2Fcustomer_app.html%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23f3f4f6%22%2C%22theme_color%22%3A%22%232563eb%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22https%3A%2F%2Fi.postimg.cc%2FryPT3r29%2Fhwrdh.png%22%2C%22sizes%22%3A%22192x192%22%2C%22type%22%3A%22image%2Fpng%22%7D%5D%7D'>
     <meta name="theme-color" content="#2563eb">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -55,7 +42,7 @@
         import { getFirestore, collection, doc, onSnapshot, query, orderBy, where, getDoc, addDoc, serverTimestamp, limit, updateDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
         import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-storage.js";
 
-        // *** כתובת הסקריפט שלך ***
+        // *** ה-URL של הסקריפט שלך ***
         const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby7qKICvRYStFkcDPLtGhGPaNqyYt-G8dZqBJfGm7vpmOG6Kf_n3f29V8oyUW9PjBUj7A/exec";
 
         const firebaseConfig = {
@@ -107,7 +94,6 @@
 
         const KnowledgeBase = {
             search: function(term, liveProducts) {
-                // שילוב של המוצרים הקבועים והחיים
                 const allProducts = [...DEFAULT_PRODUCTS, ...liveProducts];
                 if (!term) return allProducts;
                 return allProducts.filter(p => p.name.includes(term) || p.sku?.includes(term));
@@ -170,29 +156,22 @@
 
             useEffect(() => endRef.current?.scrollIntoView({ behavior: 'smooth' }), [messages]);
 
-            // --- העלאה (משופרת עם תצוגה מקומית מיידית) ---
+            // --- העלאה ל-Google Drive ---
             const handleFileUpload = async (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
                 
-                // 1. הצגה מיידית (Optimistic UI)
-                const localUrl = URL.createObjectURL(file);
-                const type = file.type.startsWith('image/') ? 'IMAGE' : 'FILE';
+                showToast("מעלה לדרייב...");
                 
-                // שולחים הודעה "זמנית" עם URL מקומי כדי שהמשתמש יראה מיד
-                // במקביל מעלים לדרייב
-                showToast("מעלה...");
-                
-                // המרה ל-Base64 לשליחה לסקריפט
                 const reader = new FileReader();
                 reader.readAsDataURL(file);
                 reader.onload = async () => {
                     const base64 = reader.result.split(',')[1];
                     
-                    // שליחה אסינכרונית לסקריפט (לא מחכים לתשובה כדי לא לתקוע)
+                    // שליחה לסקריפט (Google Drive)
                     fetch(GOOGLE_SCRIPT_URL, {
                         method: 'POST',
-                        mode: 'no-cors', // קריטי למניעת שגיאות CORS
+                        mode: 'no-cors', 
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             fileData: base64,
@@ -200,15 +179,22 @@
                             mimeType: file.type,
                             customerId: user.uid
                         })
-                    }).catch(err => console.error("Upload error (bg):", err));
+                    }).then(() => {
+                        showToast("הקובץ עלה לדרייב!");
+                    }).catch(err => console.error("Upload error (Drive):", err));
 
-                    // שליחת ההודעה ל-Firestore (עם ה-URL המקומי בינתיים, או placeholder)
-                    // בפתרון אידיאלי היינו מחכים ל-URL אמיתי, אבל בגלל מגבלות הסקריפט, נשתמש ב-DataURL או Base64 קצר אם אפשר
-                    // כאן נשמור את ה-DataURL ישירות ב-Firestore אם הוא קטן, או נסתפק בהודעת טקסט "קובץ נשלח"
-                    
-                    await sendMessage(type, { url: reader.result, name: file.name }); // שומר DataURL מלא (זהירות עם גודל)
-                    showToast("נשלח!");
-                    setShowMenu(false);
+                    // גיבוי ב-Firebase (כדי שיוצג מיד בצ'אט)
+                    try {
+                        const fileRef = ref(storage, `chat_files/${project.projectId}/${Date.now()}_${file.name}`);
+                        await uploadBytes(fileRef, file);
+                        const url = await getDownloadURL(fileRef);
+                        
+                        const type = file.type.startsWith('image/') ? 'IMAGE' : 'FILE';
+                        await sendMessage(type, { url, name: file.name });
+                        setShowMenu(false);
+                    } catch (err) {
+                        showToast("שגיאה בשליחה לצ'אט.");
+                    }
                 };
             };
 
@@ -250,11 +236,16 @@
                         recorder.ondataavailable = e => chunks.push(e.data);
                         recorder.onstop = async () => {
                             const blob = new Blob(chunks, { type: 'audio/webm' });
-                            const url = URL.createObjectURL(blob);
-                            // שליחה מיידית עם URL מקומי
-                            await sendMessage('AUDIO', { url: url, name: 'הודעה קולית' });
                             
-                            // העלאה ברקע (אופציונלי)
+                            showToast("מעלה הקלטה...");
+                            
+                            // העלאה ל-Firebase Storage (מהיר ואמין לצ'אט)
+                            const fileRef = ref(storage, `chat_audio/${project.projectId}/${Date.now()}.webm`);
+                            await uploadBytes(fileRef, blob);
+                            const url = await getDownloadURL(fileRef);
+                            await sendMessage('AUDIO', { url, name: 'הודעה קולית' });
+
+                            // שליחה לדרייב ברקע
                             const reader = new FileReader();
                             reader.readAsDataURL(blob);
                             reader.onload = () => {
@@ -276,8 +267,8 @@
                 <div className="flex flex-col h-full bg-[#e5ded8]">
                     <header className="bg-white p-3 flex items-center shadow-sm sticky top-0 z-20">
                         <button onClick={onBack} className="p-2 text-gray-600"><Icon name="ArrowRight" /></button>
-                        <img src={project.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(project.name)}`} className="w-10 h-10 rounded-full object-cover ml-2 mr-1" />
-                        <div className="flex-1"><div className="font-bold text-gray-800 text-sm">{project.name}</div></div>
+                        <img src={project.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(project.name)}`} className="w-10 h-10 rounded-full object-cover ml-2 mr-1 bg-white" />
+                        <div className="flex-1"><div className="font-bold text-sm">{project.name}</div></div>
                     </header>
                     
                     <div className="flex-1 overflow-y-auto p-4 space-y-3" style={{backgroundImage: "url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')"}}>
@@ -356,36 +347,13 @@
             const [page, setPage] = useState('chats'); 
             const [activeProject, setActiveProject] = useState(null);
             const [toast, setToast] = useState({ visible: false, message: '' });
-            const [greeting, setGreeting] = useState('');
-            const [askedPerms, setAskedPerms] = useState(false);
 
             useEffect(() => {
                 return onAuthStateChanged(auth, async (u) => {
                     if (u) {
                         const snap = await getDoc(doc(db, 'customers', u.uid));
-                        if (snap.exists()) { 
-                            setUser(u); 
-                            setProfile({uid: u.uid, ...snap.data()}); 
-                            const h = new Date().getHours();
-                            setGreeting(h < 12 ? "בוקר טוב" : h < 18 ? "צהריים טובים" : "ערב טוב");
-
-                            // OneSignal Initialization
-                            if (window.OneSignalDeferred) {
-                                window.OneSignalDeferred.push(function(OneSignal) {
-                                    OneSignal.login(u.uid);
-                                    OneSignal.User.addTag("role", "customer");
-                                    
-                                    // Request permission if not already granted
-                                    if (Notification.permission === "default" && !askedPerms) {
-                                        setTimeout(() => {
-                                            OneSignal.Slidedown.promptPush();
-                                            setAskedPerms(true);
-                                        }, 2000);
-                                    }
-                                });
-                            }
-
-                        } else { signOut(auth); }
+                        if (snap.exists()) { setUser(u); setProfile({uid: u.uid, ...snap.data()}); } 
+                        else { signOut(auth); }
                     } else { setUser(null); setProfile(null); }
                     setLoading(false);
                 });
