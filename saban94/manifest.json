@@ -1,7 +1,7 @@
 {
   "name": "ח. סבן חומרי בניין",
-  "short_name": "ח. סבן",
-  "start_url": "/customer_app.html",
+  "short_name": "נציג ח.סבן",
+  "start_url": "/worker_app.html",
   "display": "standalone",
   "background_color": "#f3f4f6",
   "theme_color": "#2563eb",
