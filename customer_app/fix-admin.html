@@ -2,16 +2,48 @@
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>תיקון משתמש מנהל</title>
-    <style>body { font-family: sans-serif; text-align: center; padding: 50px; direction: rtl; }</style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saban 360 | מוקד ניהול ושליטה</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+
+    <style>
+        body { background-color: #f1f5f9; font-family: 'Segoe UI', system-ui, sans-serif; color: #1e293b; }
+        .glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.5); }
+        .nav-item.active { background-color: #e0f2fe; color: #0284c7; border-right: 4px solid #0284c7; font-weight: 700; }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        
+        /* Animations */
+        .fade-in { animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Priority Badges */
+        .badge-high { background-color: #fee2e2; color: #991b1b; }
+        .badge-medium { background-color: #ffedd5; color: #9a3412; }
+        .badge-low { background-color: #dcfce7; color: #166534; }
+    </style>
 </head>
 <body>
-    <h2>🛠️ מתקן פרופיל למשתמש ראמי...</h2>
-    <div id="status">מתחבר למסד נתונים...</div>
+    <div id="root"></div>
 
-    <script type="module">
+    <script type="text/babel" data-type="module">
+        const { useState, useEffect, useRef } = React;
+        const { createRoot } = ReactDOM;
+
+        // --- Firebase Logic ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-        import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+        import { getFirestore, collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc, serverTimestamp, query, orderBy, where } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
         const firebaseConfig = {
           apiKey: "AIzaSyDq0oVwS6zbEfsgrYBRkeBq80dDUKMedzo", 
@@ -23,38 +55,351 @@
         };
 
         const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // הנתונים שביקשת להגדיר
-        const TARGET_UID = "Z96CCdBxGXfrPMXlMjrQMnv55qA3";
-        
-        const profileData = {
-            name: "ראמי-מחלקת הזמנות",
-            email: "ramims@saban94.co.il",
-            role: "admin",       // הרשאת מנהל
-            phone: "",           // אפשר לערוך אח"כ
-            projects: [],        // מערך ריק למניעת שגיאות
-            createdAt: serverTimestamp()
+        // --- Logger Service ---
+        const logAction = async (user, action, details, type = 'INFO') => {
+            if (!user) return;
+            try {
+                await addDoc(collection(db, 'audit_logs'), {
+                    executorId: user.uid,
+                    executorName: user.email,
+                    action, details, type,
+                    timestamp: serverTimestamp()
+                });
+            } catch (e) { console.error("Log failed", e); }
         };
 
-        async function fixUser() {
-            try {
-                // כותב ישירות לנתיב customers/UID
-                await setDoc(doc(db, "customers", TARGET_UID), profileData);
+        // --- Call Center Component (New!) ---
+        function CallCenterPanel({ user }) {
+            const [logs, setLogs] = useState([]);
+            const [isFormOpen, setIsFormOpen] = useState(false);
+            
+            useEffect(() => {
+                const q = query(collection(db, 'call_logs'), orderBy('timestamp', 'desc'));
+                const unsub = onSnapshot(q, (snap) => {
+                    setLogs(snap.docs.map(d => ({id: d.id, ...d.data()})));
+                });
+                return () => unsub();
+            }, []);
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                const form = e.target;
+                const data = {
+                    contactName: form.contactName.value,
+                    contactRole: form.contactRole.value, // Client / Staff / Supplier
+                    phone: form.phone.value,
+                    type: form.type.value, // Incoming / Outgoing
+                    priority: form.priority.value,
+                    subject: form.subject.value,
+                    summary: form.summary.value,
+                    status: 'open', // open / closed
+                    timestamp: serverTimestamp(),
+                    takenBy: user.email
+                };
                 
-                document.getElementById('status').innerHTML = 
-                    `<h3 style="color:green">✅ בוצע בהצלחה!</h3>
-                     <p>הפרופיל של ראמי נוצר במאגר.</p>
-                     <p>כעת ניתן להיכנס לאפליקציה.</p>`;
-            } catch (error) {
-                document.getElementById('status').innerHTML = 
-                    `<h3 style="color:red">❌ שגיאה:</h3>
-                     <p>${error.message}</p>`;
-                console.error(error);
-            }
+                await addDoc(collection(db, 'call_logs'), data);
+                logAction(user, 'LOG_CALL', `תועדה שיחה עם ${data.contactName}`);
+                setIsFormOpen(false);
+                form.reset();
+            };
+
+            const closeTicket = async (id) => {
+                await updateDoc(doc(db, 'call_logs', id), { status: 'closed' });
+            };
+
+            return (
+                <div className="grid grid-cols-12 gap-6 h-full fade-in">
+                    {/* Sidebar Form */}
+                    <div className={`${isFormOpen ? 'col-span-4' : 'hidden'} bg-white rounded-xl shadow-md border border-slate-200 flex flex-col h-fit transition-all duration-300`}>
+                        <div className="p-4 border-b bg-slate-50 flex justify-between items-center">
+                            <h3 className="font-bold text-slate-700">תיעוד שיחה חדשה</h3>
+                            <button onClick={()=>setIsFormOpen(false)} className="text-slate-400 hover:text-red-500"><i className="fa-solid fa-times"></i></button>
+                        </div>
+                        <form onSubmit={handleSubmit} className="p-4 space-y-3">
+                            <div className="grid grid-cols-2 gap-2">
+                                <select name="type" className="p-2 border rounded text-sm">
+                                    <option value="incoming">נכנסת 📥</option>
+                                    <option value="outgoing">יוצאת 📤</option>
+                                </select>
+                                <select name="priority" className="p-2 border rounded text-sm">
+                                    <option value="low">רגיל</option>
+                                    <option value="medium">דחוף</option>
+                                    <option value="high">קריטי 🔥</option>
+                                </select>
+                            </div>
+                            <input name="contactName" placeholder="שם איש הקשר" className="w-full p-2 border rounded text-sm" required />
+                            <div className="grid grid-cols-2 gap-2">
+                                <select name="contactRole" className="p-2 border rounded text-sm">
+                                    <option value="client">לקוח</option>
+                                    <option value="staff">עובד</option>
+                                    <option value="supplier">ספק</option>
+                                </select>
+                                <input name="phone" placeholder="טלפון" className="p-2 border rounded text-sm" />
+                            </div>
+                            <input name="subject" placeholder="נושא השיחה" className="w-full p-2 border rounded text-sm font-bold" required />
+                            <textarea name="summary" placeholder="סיכום השיחה ופעולות לביצוע..." rows="4" className="w-full p-2 border rounded text-sm" required></textarea>
+                            <button className="w-full bg-blue-600 text-white py-2 rounded font-bold hover:bg-blue-700 shadow-lg">שמור תיעוד</button>
+                        </form>
+                    </div>
+
+                    {/* Logs List */}
+                    <div className={`${isFormOpen ? 'col-span-8' : 'col-span-12'} transition-all duration-300`}>
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                            <div className="p-4 border-b bg-slate-50 flex justify-between items-center">
+                                <div className="flex gap-2 items-center">
+                                    <h3 className="font-bold text-lg">יומן שיחות ומשימות</h3>
+                                    <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs font-bold">{logs.filter(l => l.status === 'open').length} פתוחים</span>
+                                </div>
+                                {!isFormOpen && (
+                                    <button onClick={()=>setIsFormOpen(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700 flex items-center gap-2 shadow-sm">
+                                        <i className="fa-solid fa-plus"></i> שיחה חדשה
+                                    </button>
+                                )}
+                            </div>
+                            
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-right text-sm">
+                                    <thead className="bg-slate-50 text-slate-500">
+                                        <tr>
+                                            <th className="p-3">סטטוס</th>
+                                            <th className="p-3">תאריך</th>
+                                            <th className="p-3">סוג</th>
+                                            <th className="p-3">שם (תפקיד)</th>
+                                            <th className="p-3 w-1/3">נושא וסיכום</th>
+                                            <th className="p-3">תועד ע"י</th>
+                                            <th className="p-3">פעולות</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {logs.map(log => (
+                                            <tr key={log.id} className={`hover:bg-slate-50 transition-colors ${log.status === 'closed' ? 'opacity-60 bg-slate-50' : 'bg-white'}`}>
+                                                <td className="p-3">
+                                                    {log.status === 'open' 
+                                                        ? <span className={`badge-${log.priority} px-2 py-1 rounded-md text-xs font-bold`}>{log.priority === 'high' ? 'דחוף' : 'פתוח'}</span>
+                                                        : <span className="bg-gray-200 text-gray-600 px-2 py-1 rounded-md text-xs font-bold">טופל</span>
+                                                    }
+                                                </td>
+                                                <td className="p-3 text-slate-500 text-xs" dir="ltr">
+                                                    {log.timestamp ? new Date(log.timestamp.seconds * 1000).toLocaleString('he-IL', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'}) : '...'}
+                                                </td>
+                                                <td className="p-3">
+                                                    {log.type === 'incoming' ? <i className="fa-solid fa-arrow-down text-green-500 rotate-45" title="נכנסת"></i> : <i className="fa-solid fa-arrow-up text-blue-500 rotate-45" title="יוצאת"></i>}
+                                                </td>
+                                                <td className="p-3 font-medium">
+                                                    <div>{log.contactName}</div>
+                                                    <div className="text-xs text-slate-400">{log.contactRole} | {log.phone}</div>
+                                                </td>
+                                                <td className="p-3">
+                                                    <div className="font-bold text-slate-800">{log.subject}</div>
+                                                    <div className="text-slate-600 truncate max-w-xs">{log.summary}</div>
+                                                </td>
+                                                <td className="p-3 text-xs text-slate-500">{log.takenBy?.split('@')[0]}</td>
+                                                <td className="p-3">
+                                                    {log.status === 'open' && (
+                                                        <button onClick={()=>closeTicket(log.id)} className="text-green-600 hover:bg-green-50 p-1 rounded" title="סמן כטופל">
+                                                            <i className="fa-solid fa-check"></i>
+                                                        </button>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                        {logs.length === 0 && <tr><td colSpan="7" className="p-8 text-center text-slate-400">אין תיעוד שיחות עדיין</td></tr>}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
         }
 
-        fixUser();
+        // --- Reusing Previous Components (CRM, Catalog, Logs) ---
+        // (נשאר כמעט אותו דבר, עם שיפורים ויזואליים קלים)
+        
+        function CRMPanel({ user }) {
+            const [clients, setClients] = useState([]);
+            const [selectedClient, setSelectedClient] = useState(null);
+
+            useEffect(() => {
+                const q = query(collection(db, 'customers'), orderBy('createdAt', 'desc'));
+                const unsub = onSnapshot(q, snap => setClients(snap.docs.map(d => ({id: d.id, ...d.data()}))));
+                return () => unsub();
+            }, []);
+
+            const addProject = async () => {
+                if(!selectedClient) return;
+                const name = prompt("שם הפרויקט:");
+                if (!name) return;
+                const address = prompt("כתובת:");
+                const newProj = { projectId: 'p'+Date.now(), name, address, createdAt: new Date().toISOString() };
+                const updated = [...(selectedClient.projects || []), newProj];
+                await updateDoc(doc(db, 'customers', selectedClient.id), { projects: updated });
+                logAction(user, 'ADD_PROJECT', `נוסף פרויקט ${name} ללקוח ${selectedClient.name}`);
+                setSelectedClient({...selectedClient, projects: updated}); // Optimistic update
+            };
+
+            return (
+                <div className="grid grid-cols-12 gap-6 h-full fade-in">
+                    <div className="col-span-4 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
+                        <div className="p-4 border-b bg-slate-50 font-bold text-slate-700">רשימת לקוחות</div>
+                        <div className="overflow-y-auto flex-1">
+                            {clients.map(c => (
+                                <div key={c.id} onClick={()=>setSelectedClient(c)} className={`p-4 border-b cursor-pointer hover:bg-blue-50 ${selectedClient?.id === c.id ? 'bg-blue-50 border-r-4 border-blue-600' : ''}`}>
+                                    <div className="font-bold">{c.name}</div>
+                                    <div className="text-xs text-slate-500">{c.email}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="col-span-8 bg-white rounded-xl shadow-sm border border-slate-200 p-6 overflow-y-auto">
+                        {selectedClient ? (
+                            <>
+                                <div className="flex justify-between items-start mb-6">
+                                    <h2 className="text-2xl font-bold text-slate-800">{selectedClient.name}</h2>
+                                    <button onClick={addProject} className="bg-slate-800 text-white px-3 py-2 rounded-lg text-sm hover:bg-slate-700">
+                                        <i className="fa-solid fa-plus ml-2"></i> פרויקט חדש
+                                    </button>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    {(selectedClient.projects || []).map((p, i) => (
+                                        <div key={i} className="p-4 border rounded-lg bg-slate-50">
+                                            <div className="font-bold text-blue-700">{p.name}</div>
+                                            <div className="text-sm text-slate-500"><i className="fa-solid fa-location-dot"></i> {p.address}</div>
+                                        </div>
+                                    ))}
+                                    {(selectedClient.projects || []).length === 0 && <div className="col-span-2 text-center text-slate-400 p-4">אין פרויקטים</div>}
+                                </div>
+                            </>
+                        ) : <div className="flex h-full items-center justify-center text-slate-400">בחר לקוח מהרשימה</div>}
+                    </div>
+                </div>
+            );
+        }
+
+        function CatalogPanel({ user }) {
+            const [products, setProducts] = useState([]);
+            useEffect(() => onSnapshot(collection(db, 'products'), s => setProducts(s.docs.map(d => ({id: d.id, ...d.data()})))) , []);
+            return (
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 fade-in">
+                    <h3 className="font-bold text-xl mb-4">קטלוג מוצרים ({products.length})</h3>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-right text-sm">
+                            <thead className="bg-slate-50 text-slate-500"><tr><th>שם</th><th>מק"ט</th><th>מחיר</th><th>מלאי</th></tr></thead>
+                            <tbody>
+                                {products.map(p => (
+                                    <tr key={p.id} className="border-b hover:bg-slate-50">
+                                        <td className="p-3 font-bold">{p.name}</td>
+                                        <td className="p-3 font-mono text-slate-500">{p.sku}</td>
+                                        <td className="p-3">{p.price} ₪</td>
+                                        <td className="p-3">{p.stock || 0}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
+        }
+
+        // --- Main App ---
+        function App() {
+            const [user, setUser] = useState(null);
+            const [view, setView] = useState('dashboard');
+            const [loginData, setLoginData] = useState({email: '', pass: ''});
+            const [error, setError] = useState('');
+
+            useEffect(() => onAuthStateChanged(auth, u => setUser(u)), []);
+
+            const handleLogin = async (e) => {
+                e.preventDefault();
+                try {
+                    await signInWithEmailAndPassword(auth, loginData.email.includes('@')?loginData.email:loginData.email+'@saban.com', loginData.pass);
+                } catch(err) { setError("שגיאה בהתחברות"); }
+            };
+
+            if (!user) return (
+                <div className="min-h-screen flex items-center justify-center bg-slate-100 p-4">
+                    <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md text-center">
+                        <h1 className="text-3xl font-black text-slate-800 mb-2">Saban<span className="text-blue-600">360</span></h1>
+                        <p className="text-slate-500 mb-6">מערכת ניהול מרכזית</p>
+                        <form onSubmit={handleLogin} className="space-y-4">
+                            <input placeholder="שם משתמש" className="w-full p-3 border rounded-lg" onChange={e=>setLoginData({...loginData, email: e.target.value})} />
+                            <input type="password" placeholder="סיסמה" className="w-full p-3 border rounded-lg" onChange={e=>setLoginData({...loginData, pass: e.target.value})} />
+                            {error && <div className="text-red-500 text-sm">{error}</div>}
+                            <button className="w-full bg-slate-900 text-white py-3 rounded-lg font-bold hover:bg-slate-800">כניסה למערכת</button>
+                        </form>
+                    </div>
+                </div>
+            );
+
+            const nav = [
+                { id: 'dashboard', icon: 'fa-chart-pie', label: 'דשבורד' },
+                { id: 'calls', icon: 'fa-headset', label: 'מרכז שיחות' }, // New!
+                { id: 'crm', icon: 'fa-users', label: 'לקוחות' },
+                { id: 'catalog', icon: 'fa-boxes-stacked', label: 'קטלוג' },
+            ];
+
+            return (
+                <div className="flex h-screen overflow-hidden bg-[#f8f9fa]">
+                    <aside className="w-64 bg-white shadow-xl border-l border-slate-200 flex flex-col z-20">
+                        <div className="p-6 border-b border-slate-100 text-center">
+                            <h1 className="text-2xl font-black text-slate-800">Saban<span className="text-blue-600">360</span></h1>
+                        </div>
+                        <nav className="flex-1 p-4 space-y-2">
+                            {nav.map(n => (
+                                <button key={n.id} onClick={()=>setView(n.id)} className={`nav-item w-full text-right px-4 py-3 rounded-lg flex items-center gap-3 transition-all ${view===n.id ? 'active shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}>
+                                    <i className={`fa-solid ${n.icon} w-6 text-center`}></i> {n.label}
+                                </button>
+                            ))}
+                        </nav>
+                        <div className="p-4 border-t bg-slate-50">
+                            <div className="text-xs font-bold text-slate-600 mb-2">מחובר כ: {user.email}</div>
+                            <button onClick={()=>signOut(auth)} className="w-full text-red-500 text-sm font-bold hover:bg-red-50 py-2 rounded"><i className="fa-solid fa-power-off ml-2"></i> התנתק</button>
+                        </div>
+                    </aside>
+
+                    <main className="flex-1 overflow-y-auto p-8 relative">
+                        <header className="flex justify-between items-center mb-8">
+                            <div>
+                                <h2 className="text-3xl font-bold text-slate-800">{nav.find(n=>n.id===view)?.label}</h2>
+                                <p className="text-slate-500">ניהול שוטף ובקרה</p>
+                            </div>
+                        </header>
+
+                        {view === 'dashboard' && (
+                            <div className="grid grid-cols-3 gap-6 fade-in">
+                                <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white p-6 rounded-2xl shadow-lg shadow-blue-200">
+                                    <h3 className="text-lg font-medium opacity-90">שיחות פתוחות</h3>
+                                    <div className="text-4xl font-bold mt-2">5</div>
+                                </div>
+                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                                    <h3 className="text-slate-500 font-medium">לקוחות פעילים</h3>
+                                    <div className="text-3xl font-bold text-slate-800 mt-2">128</div>
+                                </div>
+                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                                    <h3 className="text-slate-500 font-medium">הזמנות היום</h3>
+                                    <div className="text-3xl font-bold text-slate-800 mt-2">12</div>
+                                </div>
+                                {/* Call Center Widget */}
+                                <div className="col-span-3 bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mt-4">
+                                    <h3 className="font-bold mb-4 text-slate-700">עדכונים אחרונים</h3>
+                                    <div className="text-slate-400 text-center py-10">אין התראות חדשות</div>
+                                </div>
+                            </div>
+                        )}
+
+                        {view === 'calls' && <CallCenterPanel user={user} />}
+                        {view === 'crm' && <CRMPanel user={user} />}
+                        {view === 'catalog' && <CatalogPanel user={user} />}
+                    </main>
+                </div>
+            );
+        }
+
+        createRoot(document.getElementById('root')).render(<App />);
     </script>
 </body>
 </html>
