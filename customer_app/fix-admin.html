@@ -3,19 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Saban 360 | מערכת ניהול הזמנות וקטלוג</title>
+    <title>Saban 360 | מרכז שליטה מלא</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
-        body { background-color: #f8fafc; font-family: 'Segoe UI', sans-serif; }
-        .fade-in { animation: fadeIn 0.5s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        body { background-color: #f1f5f9; font-family: 'Segoe UI', sans-serif; color: #1e293b; }
+        .nav-item.active { background: #0f172a; color: white; border-right: 4px solid #3b82f6; }
+        .fade-in { animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        /* Custom Scrollbar */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        .nav-item.active { background: #e0f2fe; color: #0369a1; border-right: 4px solid #0369a1; font-weight: bold; }
+        ::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 4px; }
+        input, select { outline: none; transition: all 0.2s; }
+        input:focus, select:focus { ring: 2px; ring-color: #3b82f6; border-color: #3b82f6; }
     </style>
 </head>
 <body>
@@ -27,7 +30,7 @@
 
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-        import { getFirestore, collection, doc, onSnapshot, updateDoc, setDoc, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+        import { getFirestore, collection, doc, onSnapshot, updateDoc, setDoc, addDoc, deleteDoc, getDocs, query, orderBy, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
         const firebaseConfig = {
           apiKey: "AIzaSyDq0oVwS6zbEfsgrYBRkeBq80dDUKMedzo", 
@@ -42,80 +45,109 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // --- Orders Panel (מותאם למבנה ששלחת) ---
-        function OrdersPanel() {
-            const [orders, setOrders] = useState([]);
-            // הנחה: שם האוסף הוא 'orders' או 'shopping_carts'. נסה לשנות כאן אם לא עובד.
-            // לפי הלוגיקה שלך זה כנראה 'orders'
-            const COLLECTION_NAME = 'orders'; 
+        // --- Users / Team Management Panel ---
+        function TeamPanel() {
+            const [users, setUsers] = useState([]);
 
             useEffect(() => {
-                const q = query(collection(db, COLLECTION_NAME), orderBy('timestamp', 'desc'));
-                const unsub = onSnapshot(q, (snap) => {
-                    setOrders(snap.docs.map(d => ({id: d.id, ...d.data()})));
+                // שואב את כל המשתמשים מאוסף customers
+                const unsub = onSnapshot(collection(db, 'customers'), (snap) => {
+                    setUsers(snap.docs.map(d => ({id: d.id, ...d.data()})));
                 });
                 return () => unsub();
             }, []);
 
-            const updateStatus = async (id, newStatus) => {
-                await updateDoc(doc(db, COLLECTION_NAME, id), { status: newStatus });
+            const changeRole = async (uid, newRole) => {
+                if(confirm(`האם לשנות את ההרשאה ל-${newRole}?`)) {
+                    await updateDoc(doc(db, 'customers', uid), { role: newRole });
+                }
+            };
+
+            const getRoleBadge = (role) => {
+                switch(role) {
+                    case 'admin': return <span className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold">מנהל</span>;
+                    case 'staff': return <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold">עובד</span>;
+                    default: return <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold">לקוח</span>;
+                }
             };
 
             return (
-                <div className="space-y-4 fade-in">
-                    <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex justify-between items-center">
-                        <h2 className="text-xl font-bold text-slate-800">ניהול הזמנות ({orders.length})</h2>
+                <div className="space-y-6 fade-in">
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                        <h2 className="text-xl font-bold text-slate-800 mb-4"><i className="fa-solid fa-users-gear ml-2"></i>ניהול משתמשים והרשאות</h2>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-right text-sm">
+                                <thead className="bg-slate-50 text-slate-500 uppercase">
+                                    <tr><th>שם</th><th>אימייל</th><th>תפקיד נוכחי</th><th>פעולות</th></tr>
+                                </thead>
+                                <tbody className="divide-y">
+                                    {users.map(u => (
+                                        <tr key={u.id} className="hover:bg-slate-50">
+                                            <td className="p-3 font-bold">{u.name}</td>
+                                            <td className="p-3 text-slate-500 font-mono">{u.email}</td>
+                                            <td className="p-3">{getRoleBadge(u.role)}</td>
+                                            <td className="p-3 flex gap-2">
+                                                <select 
+                                                    className="border rounded p-1 text-xs bg-white"
+                                                    value={u.role || 'client'}
+                                                    onChange={(e) => changeRole(u.id, e.target.value)}
+                                                >
+                                                    <option value="client">לקוח</option>
+                                                    <option value="staff">עובד</option>
+                                                    <option value="admin">מנהל</option>
+                                                </select>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
+                </div>
+            );
+        }
 
-                    <div className="grid gap-4">
-                        {orders.map(order => (
-                            <div key={order.id} className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-all">
-                                <div className="flex justify-between items-start border-b pb-3 mb-3">
+        // --- CRM / Clients Panel ---
+        function CRMPanel() {
+            const [clients, setClients] = useState([]);
+            const [search, setSearch] = useState('');
+
+            useEffect(() => {
+                const q = query(collection(db, 'customers'), orderBy('createdAt', 'desc'));
+                const unsub = onSnapshot(q, snap => setClients(snap.docs.map(d => ({id: d.id, ...d.data()}))));
+                return () => unsub();
+            }, []);
+
+            const filtered = clients.filter(c => c.name?.includes(search) || c.email?.includes(search));
+
+            return (
+                <div className="space-y-4 fade-in">
+                    <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border">
+                        <h2 className="font-bold text-xl">לקוחות ({clients.length})</h2>
+                        <div className="relative">
+                            <input placeholder="חפש לקוח..." className="border rounded-lg pl-2 pr-8 py-2 text-sm" value={search} onChange={e=>setSearch(e.target.value)} />
+                            <i className="fa-solid fa-search absolute top-3 right-3 text-gray-400"></i>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {filtered.map(c => (
+                            <div key={c.id} className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-all">
+                                <div className="flex items-center gap-3 mb-3">
+                                    <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">{c.name?.[0]}</div>
                                     <div>
-                                        <div className="flex items-center gap-2">
-                                            <span className="font-bold text-lg text-blue-700">#{order.final_order_id?.slice(-6) || order.id.slice(0,6)}</span>
-                                            <span className={`text-xs px-2 py-1 rounded-full font-bold ${order.status === 'approved' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                                                {order.status === 'approved' ? 'מאושר' : order.status}
-                                            </span>
-                                        </div>
-                                        <div className="text-sm text-slate-500 mt-1">
-                                            <i className="fa-regular fa-clock ml-1"></i>
-                                            {order.timestamp?.seconds ? new Date(order.timestamp.seconds * 1000).toLocaleString('he-IL') : 'תאריך חסר'}
-                                        </div>
-                                    </div>
-                                    <div className="text-left">
-                                        <div className="font-bold text-slate-700">{order.project_name}</div>
-                                        <div className="text-xs text-slate-500">{order.submitter_name} | {order.location_address}</div>
+                                        <div className="font-bold text-slate-800">{c.name}</div>
+                                        <div className="text-xs text-slate-500">{c.email}</div>
                                     </div>
                                 </div>
-
-                                {/* רשימת המוצרים מתוך cart_items */}
-                                <div className="bg-slate-50 rounded-lg p-3">
-                                    <h4 className="text-xs font-bold text-slate-500 mb-2">פריטים בהזמנה:</h4>
-                                    <div className="space-y-2">
-                                        {order.cart_items && Array.isArray(order.cart_items) ? order.cart_items.map((item, idx) => (
-                                            <div key={idx} className="flex items-center justify-between text-sm bg-white p-2 rounded border border-slate-100">
-                                                <div className="flex items-center gap-2">
-                                                    <img src={item.image} className="w-8 h-8 rounded object-cover border" />
-                                                    <span className="font-medium">{item.name}</span>
-                                                    <span className="text-xs text-slate-400 font-mono">({item.sku})</span>
-                                                </div>
-                                                <div className="font-bold bg-blue-50 text-blue-600 px-2 py-1 rounded">x{item.quantity}</div>
-                                            </div>
-                                        )) : <div className="text-red-500 text-xs">פורמט סל לא תקין</div>}
-                                    </div>
+                                <div className="bg-slate-50 p-3 rounded-lg text-sm">
+                                    <div className="font-bold text-slate-600 mb-1">פרויקטים פעילים:</div>
+                                    {c.projects && c.projects.length > 0 ? (
+                                        <ul className="list-disc list-inside text-slate-500 space-y-1">
+                                            {c.projects.map((p,i) => <li key={i}>{p.name}</li>)}
+                                        </ul>
+                                    ) : <span className="text-slate-400 italic">אין פרויקטים</span>}
                                 </div>
-
-                                <div className="mt-3 flex justify-end gap-2">
-                                    {order.status !== 'approved' && (
-                                        <button onClick={()=>updateStatus(order.id, 'approved')} className="bg-green-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-green-700">
-                                            <i className="fa-solid fa-check ml-1"></i> אשר הזמנה
-                                        </button>
-                                    )}
-                                    <button className="bg-slate-100 text-slate-600 px-3 py-1.5 rounded-lg text-sm font-bold hover:bg-slate-200">
-                                        <i className="fa-solid fa-print ml-1"></i> הדפס
-                                    </button>
-                                </div>
+                                <div className="mt-3 text-xs text-slate-400 text-left">UID: {c.id.slice(0,5)}...</div>
                             </div>
                         ))}
                     </div>
@@ -123,85 +155,103 @@
             );
         }
 
-        // --- Catalog Panel עם כפתור הקסם ---
+        // --- Catalog Panel (With Full CRUD) ---
         function CatalogPanel() {
             const [products, setProducts] = useState([]);
             const [loading, setLoading] = useState(false);
+            const [isEditing, setIsEditing] = useState(null); // null or product object
 
             useEffect(() => {
-                // קורא מהאוסף 'products'
-                const unsub = onSnapshot(collection(db, 'products'), (snap) => {
-                    setProducts(snap.docs.map(d => ({id: d.id, ...d.data()})));
-                });
+                const unsub = onSnapshot(collection(db, 'products'), (snap) => setProducts(snap.docs.map(d => ({id: d.id, ...d.data()}))));
                 return () => unsub();
             }, []);
 
-            // --- פונקציית הקסם: חילוץ מוצרים מהזמנות ---
+            const saveProduct = async (e) => {
+                e.preventDefault();
+                const p = isEditing;
+                if(p.id) { // Update
+                    await updateDoc(doc(db, 'products', p.id), { name: p.name, sku: p.sku, price: Number(p.price), stock: Number(p.stock), image: p.image });
+                } else { // Create
+                    await addDoc(collection(db, 'products'), { ...p, createdAt: serverTimestamp() });
+                }
+                setIsEditing(null);
+            };
+
+            const deleteProduct = async (id) => {
+                if(confirm("למחוק מוצר זה?")) await deleteDoc(doc(db, 'products', id));
+            };
+
             const importFromOrders = async () => {
-                if(!confirm("פעולה זו תסרוק את כל ההזמנות ותייצר קטלוג מוצרים מהפריטים שנמצאו. להמשיך?")) return;
+                if(!confirm("לסרוק הזמנות ולייבא מוצרים חסרים?")) return;
                 setLoading(true);
                 try {
-                    // 1. שליפת כל ההזמנות
-                    const ordersSnap = await getDocs(collection(db, 'orders')); // וודא ששם האוסף הוא orders
-                    const extractedProducts = {};
-
-                    // 2. מעבר על כל הזמנה וכל פריט
-                    ordersSnap.forEach(doc => {
-                        const order = doc.data();
-                        if (order.cart_items && Array.isArray(order.cart_items)) {
-                            order.cart_items.forEach(item => {
-                                if (item.sku) {
-                                    // שמירה במילון למניעת כפילויות (האחרון קובע)
-                                    extractedProducts[item.sku] = {
-                                        sku: item.sku,
-                                        name: item.name,
-                                        image: item.image,
-                                        price: item.price || 0, // אם אין מחיר בהזמנה, יהיה 0
-                                        stock: 100 // ברירת מחדל
-                                    };
-                                }
-                            });
-                        }
+                    const orders = await getDocs(collection(db, 'orders'));
+                    const extracted = {};
+                    orders.forEach(doc => {
+                        const d = doc.data();
+                        if(d.cart_items) d.cart_items.forEach(i => { if(i.sku) extracted[i.sku] = { sku: i.sku, name: i.name, image: i.image, price: i.price||0, stock: 100 }; });
                     });
-
-                    // 3. שמירה לאוסף products
-                    const promises = Object.values(extractedProducts).map(p => 
-                        setDoc(doc(db, 'products', p.sku), p) // משתמש במק"ט כמזהה המסמך
-                    );
-
-                    await Promise.all(promises);
-                    alert(`התהליך הסתיים! שוחזרו ${promises.length} מוצרים לקטלוג.`);
-
-                } catch (e) {
-                    alert("שגיאה: " + e.message);
-                    console.error(e);
-                }
+                    await Promise.all(Object.values(extracted).map(p => setDoc(doc(db, 'products', p.sku), p)));
+                    alert("היבוא הושלם בהצלחה!");
+                } catch(e) { alert("שגיאה: " + e.message); }
                 setLoading(false);
             };
 
             return (
                 <div className="space-y-4 fade-in">
-                    <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex justify-between items-center">
-                        <h3 className="text-xl font-bold text-slate-800">קטלוג מוצרים ({products.length})</h3>
-                        <button onClick={importFromOrders} disabled={loading} className="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-purple-700 shadow-lg flex items-center gap-2">
-                            {loading ? <i className="fa-solid fa-spinner fa-spin"></i> : <i className="fa-solid fa-wand-magic-sparkles"></i>}
-                            שחזר מוצרים מהזמנות
-                        </button>
+                    {/* Toolbar */}
+                    <div className="bg-white p-4 rounded-xl shadow-sm border flex justify-between items-center">
+                        <h2 className="font-bold text-xl">קטלוג ({products.length})</h2>
+                        <div className="flex gap-2">
+                            <button onClick={()=>setIsEditing({name:'', sku:'', price:0, stock:0, image:''})} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700">+ הוסף מוצר</button>
+                            <button onClick={importFromOrders} disabled={loading} className="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-purple-700">
+                                {loading ? 'טוען...' : 'שחזר מהזמנות'}
+                            </button>
+                        </div>
                     </div>
 
-                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    {/* Edit Modal */}
+                    {isEditing && (
+                        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                            <form onSubmit={saveProduct} className="bg-white p-6 rounded-xl w-96 space-y-3 shadow-2xl">
+                                <h3 className="font-bold text-lg">{isEditing.id ? 'עריכת מוצר' : 'מוצר חדש'}</h3>
+                                <input className="w-full border p-2 rounded" placeholder="שם מוצר" value={isEditing.name} onChange={e=>setIsEditing({...isEditing, name: e.target.value})} required />
+                                <input className="w-full border p-2 rounded" placeholder="מק״ט" value={isEditing.sku} onChange={e=>setIsEditing({...isEditing, sku: e.target.value})} required />
+                                <div className="flex gap-2">
+                                    <input type="number" className="w-full border p-2 rounded" placeholder="מחיר" value={isEditing.price} onChange={e=>setIsEditing({...isEditing, price: e.target.value})} required />
+                                    <input type="number" className="w-full border p-2 rounded" placeholder="מלאי" value={isEditing.stock} onChange={e=>setIsEditing({...isEditing, stock: e.target.value})} />
+                                </div>
+                                <input className="w-full border p-2 rounded" placeholder="כתובת תמונה (URL)" value={isEditing.image} onChange={e=>setIsEditing({...isEditing, image: e.target.value})} />
+                                <div className="flex justify-end gap-2 mt-4">
+                                    <button type="button" onClick={()=>setIsEditing(null)} className="text-slate-500 font-bold px-3">ביטול</button>
+                                    <button className="bg-blue-600 text-white px-6 py-2 rounded font-bold">שמור</button>
+                                </div>
+                            </form>
+                        </div>
+                    )}
+
+                    {/* Table */}
+                    <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
                         <table className="w-full text-right text-sm">
-                            <thead className="bg-slate-50 text-slate-500"><tr><th className="p-3">תמונה</th><th className="p-3">מק"ט</th><th className="p-3">שם</th><th className="p-3">מלאי</th></tr></thead>
-                            <tbody>
+                            <thead className="bg-slate-50 text-slate-500"><tr><th className="p-3">תמונה</th><th className="p-3">פרטים</th><th className="p-3">מחיר ומלאי</th><th className="p-3"></th></tr></thead>
+                            <tbody className="divide-y">
                                 {products.map(p => (
-                                    <tr key={p.id} className="border-b hover:bg-slate-50">
-                                        <td className="p-2"><img src={p.image} className="w-10 h-10 rounded border bg-white object-cover"/></td>
-                                        <td className="p-3 font-mono">{p.sku}</td>
-                                        <td className="p-3 font-bold">{p.name}</td>
-                                        <td className="p-3">{p.stock}</td>
+                                    <tr key={p.id} className="hover:bg-slate-50">
+                                        <td className="p-3"><img src={p.image} className="w-12 h-12 rounded bg-white border object-contain" /></td>
+                                        <td className="p-3">
+                                            <div className="font-bold">{p.name}</div>
+                                            <div className="text-slate-400 font-mono text-xs">{p.sku}</div>
+                                        </td>
+                                        <td className="p-3">
+                                            <div className="font-bold">{p.price} ₪</div>
+                                            <div className={p.stock < 10 ? "text-red-500 text-xs" : "text-green-600 text-xs"}>מלאי: {p.stock}</div>
+                                        </td>
+                                        <td className="p-3 flex gap-2">
+                                            <button onClick={()=>setIsEditing(p)} className="text-blue-600 hover:bg-blue-50 p-2 rounded"><i className="fa-solid fa-pen"></i></button>
+                                            <button onClick={()=>deleteProduct(p.id)} className="text-red-600 hover:bg-red-50 p-2 rounded"><i className="fa-solid fa-trash"></i></button>
+                                        </td>
                                     </tr>
                                 ))}
-                                {products.length === 0 && <tr><td colSpan="4" className="p-8 text-center text-slate-400">הקטלוג ריק. לחץ על הכפתור הסגול למעלה כדי לייבא מוצרים מההזמנות הקיימות.</td></tr>}
                             </tbody>
                         </table>
                     </div>
@@ -209,47 +259,68 @@
             );
         }
 
-        // --- App Shell ---
+        // --- Main App Shell ---
         function App() {
             const [user, setUser] = useState(null);
-            const [view, setView] = useState('orders'); // ברירת מחדל: הזמנות
+            const [view, setView] = useState('catalog'); // Default view
             const [login, setLogin] = useState({email:'', pass:''});
 
             useEffect(() => onAuthStateChanged(auth, setUser), []);
 
             const doLogin = (e) => {
                 e.preventDefault();
-                signInWithEmailAndPassword(auth, login.email.includes('@')?login.email:login.email+'@saban.com', login.pass)
-                .catch(()=>alert("שגיאה בהתחברות"));
+                signInWithEmailAndPassword(auth, login.email.includes('@')?login.email:login.email+'@saban.com', login.pass).catch(()=>alert("שגיאה בפרטי כניסה"));
             };
 
             if (!user) return (
-                <div className="min-h-screen flex items-center justify-center p-4">
-                    <form onSubmit={doLogin} className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md text-center space-y-4">
-                        <h1 className="text-2xl font-black text-blue-900">Saban 360</h1>
-                        <input className="w-full p-3 border rounded" placeholder="אימייל" onChange={e=>setLogin({...login, email:e.target.value})} />
-                        <input type="password" className="w-full p-3 border rounded" placeholder="סיסמה" onChange={e=>setLogin({...login, pass:e.target.value})} />
-                        <button className="w-full bg-blue-900 text-white py-3 rounded font-bold">כניסה</button>
+                <div className="min-h-screen flex items-center justify-center p-4 bg-slate-100">
+                    <form onSubmit={doLogin} className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md text-center space-y-5 fade-in">
+                        <div className="text-4xl mb-2">🛡️</div>
+                        <h1 className="text-2xl font-black text-slate-800">Saban 360 <span className="text-blue-600">Admin</span></h1>
+                        <input className="w-full p-3 border border-slate-300 rounded-lg" placeholder="שם משתמש / אימייל" onChange={e=>setLogin({...login, email:e.target.value})} />
+                        <input type="password" className="w-full p-3 border border-slate-300 rounded-lg" placeholder="סיסמה" onChange={e=>setLogin({...login, pass:e.target.value})} />
+                        <button className="w-full bg-slate-900 text-white py-3 rounded-lg font-bold hover:bg-slate-800 transition-colors">כניסה מאובטחת</button>
                     </form>
                 </div>
             );
 
+            const menu = [
+                { id: 'catalog', label: 'ניהול קטלוג', icon: 'fa-boxes-stacked' },
+                { id: 'crm', label: 'לקוחות (CRM)', icon: 'fa-users-line' },
+                { id: 'team', label: 'ניהול צוות', icon: 'fa-user-shield' },
+                { id: 'orders', label: 'הזמנות', icon: 'fa-cart-shopping' } // Added back for completeness
+            ];
+
             return (
                 <div className="flex h-screen overflow-hidden">
-                    <aside className="w-64 bg-white border-l flex flex-col shadow-xl z-10">
-                        <div className="p-6 border-b text-center"><h1 className="text-2xl font-black text-slate-800">Saban<span className="text-blue-600">360</span></h1></div>
+                    <aside className="w-64 bg-slate-900 text-white flex flex-col shadow-xl z-10">
+                        <div className="p-6 border-b border-slate-800 text-center">
+                            <h1 className="text-2xl font-black tracking-tight">Saban<span className="text-blue-500">360</span></h1>
+                            <div className="text-xs text-slate-400 mt-1">מערכת ניהול ראשית</div>
+                        </div>
                         <nav className="flex-1 p-4 space-y-2">
-                            <button onClick={()=>setView('orders')} className={`nav-item w-full text-right px-4 py-3 rounded flex gap-3 ${view==='orders'?'active':'text-slate-500'}`}><i className="fa-solid fa-cart-shopping w-6"></i> הזמנות</button>
-                            <button onClick={()=>setView('catalog')} className={`nav-item w-full text-right px-4 py-3 rounded flex gap-3 ${view==='catalog'?'active':'text-slate-500'}`}><i className="fa-solid fa-box-open w-6"></i> קטלוג</button>
+                            {menu.map(m => (
+                                <button key={m.id} onClick={()=>setView(m.id)} 
+                                    className={`nav-item w-full text-right px-4 py-3 rounded-lg flex items-center gap-3 transition-all ${view===m.id ? 'active' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+                                    <i className={`fa-solid ${m.icon} w-6 text-center`}></i> {m.label}
+                                </button>
+                            ))}
                         </nav>
-                        <div className="p-4 border-t text-center">
-                            <div className="text-xs font-bold mb-2">{user.email}</div>
-                            <button onClick={()=>signOut(auth)} className="text-red-500 font-bold text-sm">יציאה</button>
+                        <div className="p-4 border-t border-slate-800 bg-slate-950">
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center font-bold">{user.email[0].toUpperCase()}</div>
+                                <div className="flex-1 overflow-hidden">
+                                    <div className="text-xs font-bold truncate">{user.email}</div>
+                                    <button onClick={()=>signOut(auth)} className="text-red-400 text-xs hover:underline">התנתק</button>
+                                </div>
+                            </div>
                         </div>
                     </aside>
-                    <main className="flex-1 overflow-y-auto p-8 bg-slate-50">
-                        {view === 'orders' && <OrdersPanel />}
+                    <main className="flex-1 overflow-y-auto p-8 bg-slate-100">
                         {view === 'catalog' && <CatalogPanel />}
+                        {view === 'crm' && <CRMPanel />}
+                        {view === 'team' && <TeamPanel />}
+                        {view === 'orders' && <div className="text-center text-slate-500 mt-20 text-xl">אנא השתמש בגרסה v3 עבור ניהול הזמנות מלא, או העתק את רכיב ההזמנות לכאן.</div>}
                     </main>
                 </div>
             );
