@@ -12,7 +12,10 @@
       OneSignalDeferred.push(async function(OneSignal) {
         await OneSignal.init({
           appId: "de3834d3-1e11-40af-96d2-b25eda821c8f",
+          safari_web_id: "web.onesignal.auto.00000000-0000-0000-0000-000000000000", // אופציונלי לספארי
+          notifyButton: { enable: true },
         });
+        // תיוג המשתמש כעובד לקבלת התראות רלוונטיות
         OneSignal.User.addTag("role", "worker");
       });
     </script>
@@ -25,63 +28,49 @@
         body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; overscroll-behavior: none; }
         .hidden { display: none !important; }
         
-        /* Chat Slide Animation */
+        /* אנימציות */
         #chat-window { transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); transform: translateX(-100%); }
         #chat-window.open { transform: translateX(0); }
         
-        /* Chat Bubbles */
+        /* בועות צ'אט */
         .chat-bubble { max-width: 85%; padding: 10px 14px; border-radius: 12px; font-size: 0.95rem; position: relative; }
-        .sent { background-color: #dcf8c6; color: #000; border-bottom-left-radius: 0; align-self: flex-end; box-shadow: 0 1px 1px rgba(0,0,0,0.1); }
-        .received { background-color: white; border: 1px solid #e5e7eb; border-bottom-right-radius: 0; align-self: flex-start; box-shadow: 0 1px 1px rgba(0,0,0,0.1); }
+        .sent { background-color: #dcf8c6; color: #000; border-bottom-left-radius: 0; align-self: flex-end; }
+        .received { background-color: white; border: 1px solid #e5e7eb; border-bottom-right-radius: 0; align-self: flex-start; }
         
-        /* Animations */
-        @keyframes blink-red { 0%, 100% { background-color: #fee2e2; border-color: #ef4444; } 50% { background-color: #fff; border-color: #fee2e2; } }
-        .urgent-blink { animation: blink-red 1s infinite; }
-        
-        /* Templates Menu */
-        #templates-menu {
-            position: absolute; bottom: 70px; right: 10px; left: 10px;
-            background: white; border-radius: 12px; box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
-            overflow: hidden; z-index: 50; display: none; border: 1px solid #e5e7eb;
+        /* הבהוב להתראות */
+        @keyframes flash-alert { 
+            0%, 100% { background-color: #fee2e2; border-color: #ef4444; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 
+            50% { background-color: #fff; border-color: #fee2e2; box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 
         }
-        .template-item { padding: 12px; border-bottom: 1px solid #f0f0f0; cursor: pointer; transition: background 0.2s; }
-        .template-item:hover { background-color: #f0f9ff; }
-        .template-item:last-child { border-bottom: none; }
-
-        /* New Message Indicator */
-        .new-msg-indicator {
-            position: absolute; top: -5px; right: -5px; width: 12px; height: 12px;
-            background-color: #ef4444; border-radius: 50%; border: 2px solid white;
-        }
+        .new-order-alert { animation: flash-alert 2s infinite; }
     </style>
 </head>
 <body>
 
-    <!-- Sound Audio Element (Hidden) -->
-    <audio id="notif-sound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
+    <!-- סאונד התראה -->
+    <audio id="alert-sound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
 
-    <!-- Loading -->
+    <!-- מסך טעינה -->
     <div id="loading" class="fixed inset-0 bg-gray-100 flex flex-col items-center justify-center z-50">
         <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         <p class="mt-4 text-gray-500 font-medium">טוען מערכת...</p>
     </div>
 
-    <!-- Login -->
+    <!-- מסך התחברות -->
     <div id="login-view" class="fixed inset-0 bg-gray-100 flex flex-col items-center justify-center z-40 hidden">
         <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-sm mx-4 border border-gray-200">
             <div class="w-16 h-16 bg-blue-600 rounded-2xl mx-auto mb-6 flex items-center justify-center text-white font-bold text-2xl shadow-lg">S</div>
             <h2 class="text-2xl font-bold text-center text-gray-800 mb-1">כניסת עובדים</h2>
-            <p class="text-center text-gray-500 text-sm mb-6">Sidor Logistics</p>
             <form id="login-form" class="space-y-4">
-                <input type="email" id="email" placeholder="אימייל" class="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all" required>
-                <input type="password" id="password" placeholder="סיסמה" class="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all" required>
+                <input type="email" id="email" placeholder="אימייל" class="w-full p-3 border border-gray-300 rounded-xl" required>
+                <input type="password" id="password" placeholder="סיסמה" class="w-full p-3 border border-gray-300 rounded-xl" required>
                 <p id="login-error" class="text-red-500 text-sm hidden text-center bg-red-50 p-2 rounded-lg"></p>
                 <button type="submit" id="login-btn" class="w-full p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg transition-all">התחבר</button>
             </form>
         </div>
     </div>
 
-    <!-- App Main -->
+    <!-- מסך ראשי -->
     <div id="app-view" class="hidden min-h-screen flex flex-col">
         <header class="bg-white p-4 shadow-sm sticky top-0 z-10 flex justify-between items-center border-b border-gray-100">
             <div class="flex items-center">
@@ -90,76 +79,37 @@
                 </div>
                 <div>
                     <h1 class="text-sm font-bold text-gray-800" id="username">...</h1>
-                    <p class="text-xs text-green-600 flex items-center gap-1"><span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> מחובר</p>
+                    <p class="text-xs text-green-600 flex items-center gap-1"><span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> מחובר | OneSignal Active</p>
                 </div>
             </div>
             <div class="flex gap-2">
                 <button onclick="toggleChat()" class="relative p-2 text-gray-600 hover:bg-gray-100 rounded-full transition-colors">
                     <i data-feather="message-square"></i>
-                    <span id="unread-badge" class="new-msg-indicator hidden"></span>
+                    <span id="unread-badge" class="absolute top-1 right-1 w-3 h-3 bg-red-500 rounded-full hidden border-2 border-white"></span>
                 </button>
                 <button onclick="logout()" class="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors"><i data-feather="log-out"></i></button>
             </div>
         </header>
 
         <main class="flex-1 p-4 overflow-y-auto pb-20">
-            
-            <!-- Last Interaction Box (Live Updates) -->
-            <div id="last-interaction-box" class="bg-white p-4 rounded-xl shadow-sm border border-blue-100 mb-6 hidden cursor-pointer hover:bg-blue-50 transition-colors" onclick="toggleChat()">
-                <div class="flex justify-between items-start mb-2">
-                    <h3 class="text-sm font-bold text-blue-800 flex items-center gap-2">
-                        <span class="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span> פנייה אחרונה
-                    </h3>
-                    <span class="text-xs text-gray-400" id="last-interaction-time">--:--</span>
-                </div>
-                <div class="flex items-center gap-2 mb-1">
-                     <span class="text-xs font-bold bg-blue-100 text-blue-800 px-2 py-0.5 rounded" id="last-interaction-sender">...</span>
-                </div>
-                <p class="text-sm text-gray-600 mt-1 truncate font-medium" id="last-interaction-text">...</p>
-                <div class="mt-2 text-xs text-blue-600 font-bold flex items-center gap-1 justify-end">
-                    השב לפנייה <i data-feather="arrow-left" class="w-3 h-3"></i>
-                </div>
-            </div>
-
-            <h2 class="text-lg font-bold text-gray-800 mb-4 px-1 flex items-center gap-2"><i data-feather="list" class="w-4 h-4"></i> משימות והזמנות</h2>
+            <!-- רשימת הזמנות -->
             <div id="orders-list" class="space-y-4"></div>
         </main>
     </div>
 
-    <!-- Chat Sidebar -->
+    <!-- חלונית צ'אט -->
     <div id="chat-overlay" onclick="toggleChat()" class="fixed inset-0 bg-black/30 z-20 hidden transition-opacity opacity-0 backdrop-blur-sm"></div>
     <div id="chat-window" class="fixed top-0 left-0 bottom-0 w-[90%] max-w-md bg-[#efeae2] z-30 shadow-2xl flex flex-col border-r border-white/20">
-        
         <div class="p-4 bg-[#008069] text-white flex justify-between items-center shadow-md">
             <div class="flex items-center gap-3">
                 <button onclick="toggleChat()"><i data-feather="arrow-right"></i></button>
-                <div>
-                    <h3 class="font-bold text-sm">צ'אט לקוחות</h3>
-                    <p class="text-[10px] opacity-80" id="chat-status">מחובר • חדר סידור</p>
-                </div>
+                <h3 class="font-bold text-sm">צ'אט והזמנות</h3>
             </div>
-            <i data-feather="more-vertical" class="opacity-80"></i>
         </div>
-
         <div id="chat-messages" class="flex-1 p-4 overflow-y-auto flex flex-col gap-3" style="background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); background-repeat: repeat;"></div>
-        
-        <!-- Templates Menu (Quick Reply) -->
-        <div id="templates-menu">
-            <div class="bg-gray-100 p-2 text-xs text-gray-500 font-bold border-b">תגובות מהירות</div>
-            <div class="template-item" onclick="useTemplate('הזמנה התקבלה ונשלחה למחלקת הזמנות.')">📦 הזמנה התקבלה</div>
-            <div class="template-item" onclick="useTemplate('הפנייה בטיפול, נעדכן בהקדם.')">⏳ בטיפול</div>
-            <div class="template-item" onclick="useTemplate('התוספת התקבלה, תעודכן כשיטופל.')">➕ תוספת להזמנה</div>
-            <div class="template-item" onclick="useTemplate('נהג יצא אליך, צפי הגעה: 45 דקות.')">🚚 נהג בדרך</div>
-            <div class="template-item" onclick="useTemplate('כרגע עמוס, אשלח שוב עוד מס\' דקות.')">⚠️ עומס</div>
-        </div>
-
         <form id="chat-form" class="p-2 bg-[#f0f2f5] flex items-center gap-2 pb-safe">
-            <div class="flex-1 bg-white rounded-full flex items-center px-4 py-2 shadow-sm relative">
-                <input type="text" id="chat-input" placeholder="הקלד '/' לתבניות..." class="flex-1 bg-transparent border-none focus:ring-0 outline-none text-sm" autocomplete="off">
-            </div>
-            <button type="submit" class="p-3 bg-[#00a884] text-white rounded-full shadow-md hover:scale-105 transition-transform flex items-center justify-center">
-                <i data-feather="send" class="w-5 h-5"></i>
-            </button>
+            <input type="text" id="chat-input" placeholder="הודעה..." class="flex-1 p-3 rounded-full border-none focus:ring-0 text-sm" autocomplete="off">
+            <button type="submit" class="p-3 bg-[#00a884] text-white rounded-full shadow-md"><i data-feather="send"></i></button>
         </form>
     </div>
 
@@ -183,48 +133,19 @@
         
         let userProfile = null;
         let currentChatRoomId = null;
-        let blinkInterval = null;
-        let originalTitle = document.title;
 
-        // --- Sound & Notification Logic ---
-        const notifySound = document.getElementById('notif-sound');
-        
-        function playSound() {
-            notifySound.currentTime = 0;
-            notifySound.play().catch(e => console.log("Audio play failed (user interaction needed)", e));
-        }
-
-        function startBlinking(isUrgent = false) {
-            if (blinkInterval) clearInterval(blinkInterval);
-            let isOriginalTitle = true;
-            const alertTitle = isUrgent ? "🔴 דחוף! הודעה" : "🔔 הודעה חדשה";
-            
-            blinkInterval = setInterval(() => {
-                document.title = isOriginalTitle ? alertTitle : originalTitle;
-                isOriginalTitle = !isOriginalTitle;
-            }, 1000);
-            
-            document.getElementById('unread-badge').classList.remove('hidden');
-            if(isUrgent) {
-                document.getElementById('last-interaction-box').classList.add('urgent-blink');
-            }
-        }
-
-        function stopBlinking() {
-            if (blinkInterval) {
-                clearInterval(blinkInterval);
-                blinkInterval = null;
-                document.title = originalTitle;
-            }
-            document.getElementById('unread-badge').classList.add('hidden');
-            document.getElementById('last-interaction-box').classList.remove('urgent-blink');
+        // --- Sound Logic ---
+        function playAlert() {
+            const sound = document.getElementById('alert-sound');
+            sound.currentTime = 0;
+            sound.play().catch(e => console.log("Sound blocked", e));
+            if (navigator.vibrate) navigator.vibrate([200, 100, 200]); // רטט בנייד
         }
 
         // --- UI Helpers ---
         window.toggleChat = () => {
             const win = document.getElementById('chat-window');
             const overlay = document.getElementById('chat-overlay');
-            
             if (win.classList.contains('open')) {
                 win.classList.remove('open');
                 overlay.classList.add('hidden');
@@ -233,59 +154,39 @@
                 overlay.classList.remove('hidden');
                 setTimeout(() => overlay.classList.add('opacity-100'), 10);
                 win.classList.add('open');
-                stopBlinking(); // Stop blinking when chat opens
-                
-                // Scroll to bottom
-                const list = document.getElementById('chat-messages');
-                setTimeout(() => list.scrollTop = list.scrollHeight, 100);
+                document.getElementById('unread-badge').classList.add('hidden');
             }
         };
         
         window.logout = () => signOut(auth);
 
-        // --- Templates Logic ---
-        const input = document.getElementById('chat-input');
-        const menu = document.getElementById('templates-menu');
-
-        input.addEventListener('input', (e) => {
-            if (e.target.value.startsWith('/')) {
-                menu.style.display = 'block';
-            } else {
-                menu.style.display = 'none';
-            }
-        });
-
-        window.useTemplate = (text) => {
-            input.value = text;
-            menu.style.display = 'none';
-            
-            // Auto send
-            document.getElementById('chat-form').dispatchEvent(new Event('submit'));
-        };
-
         // --- Auth Logic ---
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 try {
-                    // רישום ל-OneSignal
-                    if (window.OneSignalDeferred) {
-                        OneSignalDeferred.push(function(OneSignal) {
-                            OneSignal.login(user.uid);
-                        });
-                    }
-
                     const snap = await getDoc(doc(db, 'users', user.uid));
                     if (snap.exists()) {
                         userProfile = { uid: user.uid, ...snap.data() };
                         document.getElementById('username').innerText = userProfile.name;
+                        
+                        // רישום ל-OneSignal אחרי זיהוי
+                        if (window.OneSignalDeferred) {
+                            window.OneSignalDeferred.push(function(OneSignal) {
+                                OneSignal.login(user.uid);
+                                OneSignal.User.addTag("role", "worker");
+                            });
+                        }
+
                         document.getElementById('loading').classList.add('hidden');
                         document.getElementById('login-view').classList.add('hidden');
                         document.getElementById('app-view').classList.remove('hidden');
                         
-                        initOrders();
-                        initChat();
+                        // האזנה להודעות (הזמנות) מכל החדרים או מחדר ספציפי
+                        // כאן נניח שהעובד מאזין לכל ההודעות מסוג ORDER שמגיעות למערכת (או לחדר "סידור")
+                        initOrdersListener(); 
+                        
                     } else {
-                        alert('שגיאה: משתמש לא נמצא. וודא שקיים דוקומנט ב-users עם ה-UID שלך.');
+                        alert('משתמש לא נמצא. פנה למנהל.');
                         signOut(auth);
                     }
                 } catch (e) { console.error(e); }
@@ -299,161 +200,88 @@
         document.getElementById('login-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             try { await signInWithEmailAndPassword(auth, document.getElementById('email').value, document.getElementById('password').value); }
-            catch (e) { 
-                const errEl = document.getElementById('login-error');
-                errEl.innerText = "שגיאה בהתחברות (בדוק אימייל/סיסמה)";
-                errEl.classList.remove('hidden');
-            }
+            catch (e) { document.getElementById('login-error').innerText = "שגיאה בהתחברות"; document.getElementById('login-error').classList.remove('hidden'); }
         });
 
-        // --- Orders Logic ---
-        function initOrders() {
-            const q = query(collection(db, 'orders'), where('driver.name', '==', userProfile.name), where('status', 'in', ['שויך', 'בדרך']));
-            onSnapshot(q, (snap) => {
-                const list = document.getElementById('orders-list');
-                if (snap.empty) { 
-                    list.innerHTML = '<div class="text-center p-8 bg-white rounded-xl shadow-sm border border-dashed border-gray-300"><p class="text-gray-400">אין הזמנות פעילות כרגע.</p></div>'; 
-                    return; 
-                }
-                list.innerHTML = snap.docs.map(doc => {
-                    const d = doc.data();
-                    // Blink if status is 'assigned' (new)
-                    const blinkClass = d.status === 'שויך' ? 'animate-pulse border-blue-400 border-2' : 'border-gray-200';
-                    
-                    return `
-                        <div class="bg-white p-5 rounded-xl shadow-sm border ${blinkClass} transition-all">
-                            <div class="flex justify-between items-start mb-3">
-                                <div>
-                                    <h3 class="font-bold text-lg text-gray-800">${d.customer?.name || 'לקוח כללי'}</h3>
-                                    <p class="text-sm text-gray-500 flex items-center gap-1"><i data-feather="map-pin" class="w-3 h-3"></i> ${d.address}</p>
-                                </div>
-                                <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full font-medium">${d.status}</span>
-                            </div>
-                            
-                            <div class="bg-gray-50 p-3 rounded-lg mb-3 text-sm text-gray-600">
-                                <p><strong>פריטים:</strong> ${d.items ? d.items.length : 'כללי'}</p>
-                                ${d.notes ? `<p class="mt-1 text-red-500 text-xs">⚠️ ${d.notes}</p>` : ''}
-                            </div>
-
-                            <div class="grid grid-cols-2 gap-3 mt-4">
-                                <a href="https://waze.com/ul?q=${encodeURIComponent(d.address)}&navigate=yes" class="bg-blue-500 hover:bg-blue-600 text-white text-center p-2.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors"><i data-feather="navigation" class="w-4 h-4"></i> Waze</a>
-                                <a href="tel:${d.customer?.phone}" class="bg-green-500 hover:bg-green-600 text-white text-center p-2.5 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors"><i data-feather="phone" class="w-4 h-4"></i> חייג</a>
-                            </div>
-                            
-                            <div class="mt-3 pt-3 border-t border-gray-100">
-                                <button onclick="updateStatus('${doc.id}', '${d.status === 'שויך' ? 'בדרך' : 'הושלם'}')" class="w-full bg-gray-100 hover:bg-gray-200 p-2.5 rounded-xl text-gray-700 font-medium text-sm transition-colors">
-                                    סמן כ-${d.status === 'שויך' ? 'בדרך' : 'הושלם'}
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-                feather.replace();
-            });
-        }
-
-        window.updateStatus = (id, status) => {
-            updateDoc(doc(db, 'orders', id), { status, lastModified: serverTimestamp() });
-        };
-
-        // --- Chat Logic ---
-        async function initChat() {
-            // Find "Sidor" room or creating dynamically if needed
-            const qRoom = query(collection(db, 'chat_rooms'), where('name', '==', 'סידור'));
-            onSnapshot(qRoom, (snap) => {
-                if (!snap.empty) {
-                    currentChatRoomId = snap.docs[0].id;
-                    listenMessages();
-                }
-            });
-        }
-
-        function listenMessages() {
-            const q = query(collection(db, 'messages'), where('roomId', '==', currentChatRoomId), orderBy('createdAt', 'asc'));
+        // --- Orders Logic (Realtime from Chat Messages) ---
+        function initOrdersListener() {
+            // מאזין לכל ההודעות מסוג 'ORDER' שממוענות לחדרי פרויקטים
+            // (במערכת גדולה יותר נסנן לפי אזור או נהג, כאן נציג הכל להדגמה)
+            
+            const q = query(collection(db, 'messages'), where('type', '==', 'ORDER'), orderBy('createdAt', 'desc'));
             
             onSnapshot(q, (snap) => {
-                const list = document.getElementById('chat-messages');
+                const list = document.getElementById('orders-list');
                 
-                // Check for new messages to alert
-                let isFirstLoad = list.innerHTML === "";
-                
+                // זיהוי הזמנה חדשה
                 snap.docChanges().forEach((change) => {
                     if (change.type === "added") {
-                        const msg = change.doc.data();
-                        // If message is NOT from me (the worker)
-                        if (msg.senderId !== userProfile.uid && !isFirstLoad) {
-                            // Update "Last Interaction" box
-                            updateDashboardBox(msg.senderName, msg.text, change.doc.data().createdAt);
-                            
-                            // Alert
-                            const isChatOpen = document.getElementById('chat-window').classList.contains('open');
-                            if (!isChatOpen) {
-                                playSound();
-                                const isUrgent = msg.text.includes('דחוף') || msg.text.includes('NUDGE');
-                                startBlinking(isUrgent);
+                        // אם ההזמנה נוצרה ב-5 דקות האחרונות, נפעיל התראה
+                        const msgTime = change.doc.data().createdAt?.toMillis() || 0;
+                        if (Date.now() - msgTime < 5 * 60 * 1000) {
+                            playAlert();
+                            // הצגת נוטיפיקציה מקומית אם הדפדפן תומך
+                            if(Notification.permission === "granted") {
+                                new Notification("הזמנה חדשה התקבלה!", { body: change.doc.data().text });
                             }
                         }
                     }
                 });
 
+                if (snap.empty) {
+                    list.innerHTML = '<div class="text-center p-10 text-gray-400">אין הזמנות כרגע.</div>';
+                    return;
+                }
+
                 list.innerHTML = snap.docs.map(doc => {
-                    const m = doc.data();
-                    const isMe = m.senderId === userProfile.uid;
-                    const time = m.createdAt ? new Date(m.createdAt.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '';
+                    const msg = doc.data();
+                    const order = msg.orderPayload;
+                    const isNew = (Date.now() - (msg.createdAt?.toMillis() || 0)) < 10 * 60 * 1000; // 10 דקות
+                    const blinkClass = isNew ? 'new-order-alert' : '';
+                    
                     return `
-                        <div class="flex flex-col ${isMe ? 'items-end' : 'items-start'}">
-                            <div class="chat-bubble ${isMe ? 'sent' : 'received'}">
-                                ${!isMe ? `<div class="text-[10px] font-bold text-blue-600 mb-1">${m.senderName}</div>` : ''}
-                                <div class="text-sm">${m.text}</div>
-                                <div class="text-[9px] opacity-50 text-right mt-1 flex items-center justify-end gap-1">
-                                    ${time} ${isMe ? '<i class="feather-check w-3 h-3"></i>' : ''}
+                        <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200 ${blinkClass} transition-all relative overflow-hidden">
+                            ${isNew ? '<div class="absolute top-0 right-0 bg-red-500 text-white text-[10px] px-2 py-1 rounded-bl-lg font-bold">חדש!</div>' : ''}
+                            
+                            <div class="flex justify-between items-start mb-3">
+                                <div>
+                                    <h3 class="font-bold text-lg text-gray-800">${msg.senderName}</h3>
+                                    <p class="text-xs text-gray-500">מזהה פרויקט: ${msg.roomId}</p>
                                 </div>
+                                <span class="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded-lg font-mono">
+                                    ${msg.createdAt?.toDate().toLocaleTimeString('he-IL', {hour:'2-digit', minute:'2-digit'})}
+                                </span>
+                            </div>
+
+                            <div class="bg-gray-50 p-3 rounded-lg mb-3">
+                                <ul class="text-sm space-y-1">
+                                    ${order.items.map(item => `
+                                        <li class="flex justify-between border-b border-gray-200 last:border-0 pb-1 last:pb-0">
+                                            <span>${item.name}</span>
+                                            <span class="font-bold text-gray-900">x${item.qty}</span>
+                                        </li>
+                                    `).join('')}
+                                </ul>
+                            </div>
+
+                            <div class="flex gap-2">
+                                <button onclick="alert('פונקציית אישור בבנייה')" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-bold text-sm shadow">
+                                    אשר קבלה
+                                </button>
+                                <button onclick="window.open('https://waze.com/ul?q=${encodeURIComponent(msg.roomId)}', '_blank')" class="bg-indigo-100 text-indigo-700 px-3 rounded-lg">
+                                    <i data-feather="navigation" class="w-4 h-4"></i>
+                                </button>
                             </div>
                         </div>
                     `;
                 }).join('');
                 
-                list.scrollTop = list.scrollHeight;
+                feather.replace();
             });
-        }
-        
-        function updateDashboardBox(sender, text, timestamp) {
-            const box = document.getElementById('last-interaction-box');
-            const senderEl = document.getElementById('last-interaction-sender');
-            const txtEl = document.getElementById('last-interaction-text');
-            const timeEl = document.getElementById('last-interaction-time');
-            
-            box.classList.remove('hidden');
-            senderEl.innerText = sender || 'מערכת';
-            txtEl.innerText = text.substring(0, 50) + (text.length > 50 ? '...' : '');
-            if(timestamp) timeEl.innerText = new Date(timestamp.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-            
-            // Visual flare
-            box.classList.add('ring-2', 'ring-blue-400');
-            setTimeout(() => box.classList.remove('ring-2', 'ring-blue-400'), 1000);
         }
 
-        document.getElementById('chat-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const input = document.getElementById('chat-input');
-            const text = input.value.trim();
-            if (!text || !currentChatRoomId) return;
-            
-            input.value = '';
-            await addDoc(collection(db, 'messages'), {
-                text, 
-                roomId: currentChatRoomId,
-                senderId: userProfile.uid,
-                senderName: userProfile.name,
-                type: 'TEXT',
-                createdAt: serverTimestamp()
-            });
-            // Update room meta
-            updateDoc(doc(db, 'chat_rooms', currentChatRoomId), {
-                lastMessage: text,
-                lastMessageAt: serverTimestamp()
-            });
-        });
+        // --- Chat Logic (General) ---
+        // (נשאר בסיסי כדי לא להכביד על הקוד, העובד בעיקר רואה הזמנות כאן)
         
         feather.replace();
     </script>
