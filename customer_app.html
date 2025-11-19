@@ -12,9 +12,9 @@
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
     <!-- Manifest -->
-<link rel="manifest" href="manifest.json">    <meta name="theme-color" content="#2563eb">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#2563eb">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     
     <style>
         body { font-family: system-ui, -apple-system, sans-serif; background-color: #f0f2f5; overscroll-behavior: none; }
@@ -41,7 +41,7 @@
         import { getFirestore, collection, doc, onSnapshot, query, orderBy, where, getDoc, addDoc, serverTimestamp, limit, updateDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
         import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-storage.js";
 
-        // *** ה-URL של הסקריפט שלך ***
+        // *** ה-URL של הסקריפט שלך (להעלאת קבצים) ***
         const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby7qKICvRYStFkcDPLtGhGPaNqyYt-G8dZqBJfGm7vpmOG6Kf_n3f29V8oyUW9PjBUj7A/exec";
 
         const firebaseConfig = {
@@ -155,45 +155,26 @@
 
             useEffect(() => endRef.current?.scrollIntoView({ behavior: 'smooth' }), [messages]);
 
-            // --- העלאה ל-Google Drive ---
             const handleFileUpload = async (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
-                
-                showToast("מעלה לדרייב...");
-                
+                showToast("מעלה...");
                 const reader = new FileReader();
                 reader.readAsDataURL(file);
                 reader.onload = async () => {
                     const base64 = reader.result.split(',')[1];
-                    
-                    // שליחה לסקריפט (Google Drive)
+                    // Send to Drive Script (Async)
                     fetch(GOOGLE_SCRIPT_URL, {
-                        method: 'POST',
-                        mode: 'no-cors', 
+                        method: 'POST', mode: 'no-cors', 
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            fileData: base64,
-                            fileName: file.name,
-                            mimeType: file.type,
-                            customerId: user.uid
-                        })
-                    }).then(() => {
-                        showToast("הקובץ עלה לדרייב!");
-                    }).catch(err => console.error("Upload error (Drive):", err));
+                        body: JSON.stringify({ fileData: base64, fileName: file.name, mimeType: file.type, customerId: user.uid })
+                    }).catch(err => console.error(err));
 
-                    // גיבוי ב-Firebase (כדי שיוצג מיד בצ'אט)
-                    try {
-                        const fileRef = ref(storage, `chat_files/${project.projectId}/${Date.now()}_${file.name}`);
-                        await uploadBytes(fileRef, file);
-                        const url = await getDownloadURL(fileRef);
-                        
-                        const type = file.type.startsWith('image/') ? 'IMAGE' : 'FILE';
-                        await sendMessage(type, { url, name: file.name });
-                        setShowMenu(false);
-                    } catch (err) {
-                        showToast("שגיאה בשליחה לצ'אט.");
-                    }
+                    // Send to Chat (Directly with DataURL for immediate view)
+                    const type = file.type.startsWith('image/') ? 'IMAGE' : 'FILE';
+                    await sendMessage(type, { url: reader.result, name: file.name });
+                    showToast("נשלח!");
+                    setShowMenu(false);
                 };
             };
 
@@ -203,10 +184,7 @@
                     type: type, createdAt: serverTimestamp(), replyTo: null
                 };
                 if (type === 'TEXT') { if (!text.trim()) return; msg.text = text.trim(); setText(''); }
-                else if (['IMAGE','FILE','AUDIO'].includes(type)) { 
-                    msg.mediaUrl = payload.url; 
-                    msg.text = payload.name; 
-                }
+                else if (['IMAGE','FILE','AUDIO'].includes(type)) { msg.mediaUrl = payload.url; msg.text = payload.name; }
                 else if (type === 'LOCATION') { msg.location = payload; msg.text = '📍 מיקום שיתופי'; }
 
                 await addDoc(collection(db, 'messages'), msg);
@@ -224,10 +202,8 @@
             };
 
             const toggleRecording = async () => {
-                if (isRecording) {
-                    mediaRecorder.stop();
-                    setIsRecording(false);
-                } else {
+                if (isRecording) { mediaRecorder.stop(); setIsRecording(false); } 
+                else {
                     try {
                         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                         const recorder = new MediaRecorder(stream);
@@ -235,29 +211,11 @@
                         recorder.ondataavailable = e => chunks.push(e.data);
                         recorder.onstop = async () => {
                             const blob = new Blob(chunks, { type: 'audio/webm' });
-                            
-                            showToast("מעלה הקלטה...");
-                            
-                            // העלאה ל-Firebase Storage (מהיר ואמין לצ'אט)
-                            const fileRef = ref(storage, `chat_audio/${project.projectId}/${Date.now()}.webm`);
-                            await uploadBytes(fileRef, blob);
-                            const url = await getDownloadURL(fileRef);
-                            await sendMessage('AUDIO', { url, name: 'הודעה קולית' });
-
-                            // שליחה לדרייב ברקע
-                            const reader = new FileReader();
-                            reader.readAsDataURL(blob);
-                            reader.onload = () => {
-                                const base64 = reader.result.split(',')[1];
-                                fetch(GOOGLE_SCRIPT_URL, {
-                                    method: 'POST', mode: 'no-cors',
-                                    body: JSON.stringify({ fileData: base64, fileName: 'voice.webm', mimeType: 'audio/webm', customerId: user.uid })
-                                });
-                            };
+                            const url = URL.createObjectURL(blob);
+                            await sendMessage('AUDIO', { url: url, name: 'הודעה קולית' });
+                            // Upload logic here if needed
                         };
-                        recorder.start();
-                        setMediaRecorder(recorder);
-                        setIsRecording(true);
+                        recorder.start(); setMediaRecorder(recorder); setIsRecording(true);
                     } catch(err) { showToast("אין גישה למיקרופון"); }
                 }
             };
@@ -267,15 +225,14 @@
                     <header className="bg-white p-3 flex items-center shadow-sm sticky top-0 z-20">
                         <button onClick={onBack} className="p-2 text-gray-600"><Icon name="ArrowRight" /></button>
                         <img src={project.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(project.name)}`} className="w-10 h-10 rounded-full object-cover ml-2 mr-1 bg-white" />
-                        <div className="flex-1"><div className="font-bold text-sm">{project.name}</div></div>
+                        <div className="flex-1"><div className="font-bold text-gray-800 text-sm">{project.name}</div></div>
                     </header>
-                    
                     <div className="flex-1 overflow-y-auto p-4 space-y-3" style={{backgroundImage: "url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')"}}>
                         {messages.map(m => (
                             <div key={m.id} className={`flex ${m.senderId === user.uid ? 'justify-end' : 'justify-start'}`}>
                                 <div className={`max-w-[80%] p-2 rounded-xl text-sm shadow-sm ${m.senderId === user.uid ? 'bg-[#d9fdd3] text-gray-800 rounded-br-none' : 'bg-white text-gray-800 rounded-bl-none'}`}>
                                     {m.type === 'IMAGE' && <img src={m.mediaUrl} className="rounded-lg mb-1 max-w-full" />}
-                                    {m.type === 'FILE' && <a href={m.mediaUrl} target="_blank" className="flex items-center gap-2 text-blue-600 underline"><Icon name="FileText" size={16}/> {m.text}</a>}
+                                    {m.type === 'FILE' && <a href={m.mediaUrl} download={m.text} className="flex items-center gap-2 text-blue-600 underline"><Icon name="FileText" size={16}/> {m.text}</a>}
                                     {m.type === 'LOCATION' && <a href={`https://waze.com/ul?ll=${m.location.lat},${m.location.lon}&navigate=yes`} target="_blank" className="flex items-center gap-2 text-blue-600"><Icon name="MapPin" size={16}/> ניווט</a>}
                                     {m.type === 'AUDIO' && <audio controls src={m.mediaUrl} className="w-48 h-8 mt-1" />}
                                     {m.type === 'TEXT' && <div>{m.text}</div>}
@@ -285,7 +242,6 @@
                         ))}
                         <div ref={endRef} />
                     </div>
-
                     <div className="p-2 bg-[#f0f2f5] flex items-center gap-2 pb-4 relative">
                         {showMenu && (
                             <div className="absolute bottom-16 right-4 bg-white rounded-xl shadow-xl p-3 flex flex-col gap-3 animate-fade-in z-30">
@@ -294,16 +250,11 @@
                             </div>
                         )}
                         <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" />
-                        
-                        <button onClick={() => setShowMenu(!showMenu)} className="p-2 text-gray-500"><Icon name={showMenu ? "X" : "Plus"} /></button>
+                        <button onClick={() => setShowMenu(!showMenu)} className="p-2 text-gray-500"><Icon name="Plus" /></button>
                         <div className="flex-1 bg-white rounded-full flex items-center px-4 shadow-sm">
                             <input className="flex-1 py-3 bg-transparent border-none focus:ring-0 outline-none text-sm" placeholder="הודעה" value={text} onChange={e=>setText(e.target.value)} />
                         </div>
-                        {text ? (
-                            <button onClick={() => sendMessage('TEXT')} className="p-3 bg-[#00a884] text-white rounded-full shadow-md"><Icon name="Send" size={20} /></button>
-                        ) : (
-                            <button onClick={toggleRecording} className={`p-3 text-white rounded-full shadow-md ${isRecording ? 'bg-red-500 recording-pulse' : 'bg-[#00a884]'}`}><Icon name={isRecording ? "StopCircle" : "Mic"} size={20} /></button>
-                        )}
+                        {text ? <button onClick={() => sendMessage('TEXT')} className="p-3 bg-[#00a884] text-white rounded-full shadow-md"><Icon name="Send" size={20} /></button> : <button onClick={toggleRecording} className={`p-3 text-white rounded-full shadow-md ${isRecording ? 'bg-red-500 recording-pulse' : 'bg-[#00a884]'}`}><Icon name={isRecording ? "StopCircle" : "Mic"} size={20} /></button>}
                     </div>
                 </div>
             );
