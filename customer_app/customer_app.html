@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>ח. סבן | פורטל לקוחות</title>
+    <link rel="manifest" href="manifest.json">
+    <!-- טעינת ספריות -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Google Fonts: Heebo -->
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- Manifest & Theme -->
+    <meta name="theme-color" content="#2563eb">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="https://i.postimg.cc/ryPT3r29/hwrdh.png"> 
+    
+    <!-- Embedded Manifest -->
+    <script type="application/manifest+json">
+    {
+      "name": "ח. סבן חומרי בניין",
+      "short_name": "ח. סבן",
+      "start_url": ".",
+      "display": "standalone",
+      "background_color": "#f3f4f6",
+      "theme_color": "#2563eb",
+      "icons": [
+        {
+          "src": "https://i.postimg.cc/ryPT3r29/hwrdh.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        },
+        {
+          "src": "https://i.postimg.cc/ryPT3r29/hwrdh.png",
+          "sizes": "512x512",
+          "type": "image/png"
+        }
+      ]
+    }
+    </script>
+
+    <style>
+        body { font-family: 'Heebo', sans-serif; background-color: #f0f2f5; overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* אנימציות */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
+        
+        /* Toast Notification */
+        .toast-enter { transform: translateY(-100%); opacity: 0; }
+        .toast-enter-active { transform: translateY(0); opacity: 1; transition: all 300ms ease-out; }
+        .toast-exit { transform: translateY(0); opacity: 1; }
+        .toast-exit-active { transform: translateY(-100%); opacity: 0; transition: all 300ms ease-in; }
+        
+        /* Glassmorphism */
+        .glass { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.3); }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel" data-type="module">
+        const { useState, useEffect, useRef, useMemo } = React;
+        const { createRoot } = ReactDOM;
+        
+        // --- Firebase Imports ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+        import { getFirestore, collection, doc, onSnapshot, query, orderBy, where, getDoc, addDoc, serverTimestamp, updateDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-storage.js";
+
+        const firebaseConfig = {
+          apiKey: "AIzaSyDq0oVwS6zbEfsgrYBRkeBq80dDUKMedzo", 
+          authDomain: "saban94-78949.firebaseapp.com", 
+          projectId: "saban94-78949", 
+          storageBucket: "saban94-78949.firebasestorage.app", 
+          messagingSenderId: "41553157903", 
+          appId: "1:41553157903:web:cc33d252cff023be97a87a",
+          measurementId: "G-XV6RZDESSB"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const storage = getStorage(app);
+
+        // --- אייקונים (SVG) ---
+        const Icon = ({ name, className, size=24 }) => {
+            const icons = {
+                MessageSquare: <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>,
+                BookOpen: <><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></>,
+                User: <><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>,
+                LogOut: <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></>,
+                ArrowRight: <><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></>,
+                Send: <><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></>,
+                Search: <><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></>,
+                Battery: <><rect x="1" y="6" width="18" height="12" rx="2" ry="2"/><line x1="23" y1="13" x2="23" y2="11"/></>,
+                Wifi: <path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/>,
+                Mic: <><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></>,
+                MapPin: <><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></>,
+                Bell: <><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></>,
+                Check: <polyline points="20 6 9 17 4 12"/>,
+                Loader: <><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></>
+            };
+            return (
+                <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                    {icons[name]}
+                </svg>
+            );
+        };
+
+        // --- קטלוג מוצרים (משודרג) ---
+        const KnowledgeBase = {
+            products: [
+                { id: "p-101", sku: "10-101", name: "לוח גבס לבן (סטנדרטי)", image: "https://placehold.co/400x300/e0e7ff/3730a3?text=Gypsum+Board", spec: "120x260 ס\"מ | 12.5 מ\"מ", description: "לוח גבס איכותי לבניית קירות ומחיצות פנים.", price: "₪38.00" },
+                { id: "p-102", sku: "10-102", name: "ניצב 70 מ\"מ", image: "https://placehold.co/400x300/e0e7ff/3730a3?text=Stud+70", spec: "300 ס\"מ | פח מגולוון", description: "פרופיל אנכי לקונסטרוקציית גבס חזקה.", price: "₪18.50" },
+                { id: "p-103", sku: "10-103", name: "מסלול 70 מ\"מ", image: "https://placehold.co/400x300/e0e7ff/3730a3?text=Track+70", spec: "300 ס\"מ | פח מגולוון", description: "מסילה לרצפה ולתקרה, בסיס לקיר גבס.", price: "₪16.90" },
+                { id: "p-201", sku: "20-201", name: "שפכטל אמריקאי", image: "https://placehold.co/400x300/e0e7ff/3730a3?text=Putty", spec: "28 ק\"ג | דלי", description: "חומר להחלקת קירות וטיפול בחיבורים.", price: "₪65.00" }
+            ],
+            search: function(term) {
+                if (term.length < 2) return this.products; // החזר הכל אם החיפוש ריק
+                return this.products.filter(p => p.name.includes(term) || p.sku.includes(term));
+            }
+        };
+
+        // --- Toast Notification Component ---
+        function Toast({ message, visible, onHide }) {
+            useEffect(() => {
+                if (visible) {
+                    const timer = setTimeout(onHide, 2500); // נעלם אחרי 2.5 שניות
+                    return () => clearTimeout(timer);
+                }
+            }, [visible, onHide]);
+
+            if (!visible) return null;
+
+            return (
+                <div className="fixed top-24 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full shadow-2xl z-50 flex items-center space-x-3 space-x-reverse animate-fade-in">
+                    <Icon name="Loader" className="animate-spin w-5 h-5 text-blue-400" />
+                    <span className="font-medium text-sm">{message}</span>
+                </div>
+            );
+        }
+
+        // --- Mobile Status Bar Component ---
+        function MobileStatusBar({ isConnected }) {
+            const [time, setTime] = useState(new Date());
+            
+            useEffect(() => {
+                const timer = setInterval(() => setTime(new Date()), 60000);
+                return () => clearInterval(timer);
+            }, []);
+
+            const formattedTime = time.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+            const date = time.toLocaleDateString('he-IL', { weekday: 'short', day: 'numeric', month: 'short' });
+
+            return (
+                <div className="bg-gray-900 text-white px-4 py-1 flex justify-between items-center text-xs font-medium select-none">
+                    <div className="flex items-center gap-2">
+                        <span>{formattedTime}</span>
+                        <span className="opacity-70">| {date}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        {isConnected ? <Icon name="Wifi" size={14} className="text-green-400"/> : <span className="text-red-400">מנותק</span>}
+                        <Icon name="Battery" size={16} className="text-white"/>
+                    </div>
+                </div>
+            );
+        }
+
+        // --- Auth Screen ---
+        function AuthScreen() {
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [rememberMe, setRememberMe] = useState(false);
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState('');
+
+            const handleLogin = async (e) => {
+                e.preventDefault();
+                setLoading(true); setError('');
+                
+                try {
+                    const persistence = rememberMe ? browserLocalPersistence : browserSessionPersistence;
+                    await setPersistence(auth, persistence);
+                    await signInWithEmailAndPassword(auth, email, password);
+                } catch (err) { 
+                    console.error(err);
+                    setError("שם משתמש או סיסמה שגויים."); 
+                }
+                setLoading(false);
+            };
+
+            return (
+                <div className="flex items-center justify-center min-h-screen bg-gray-100 p-4">
+                    <div className="w-full max-w-md bg-white p-8 rounded-3xl shadow-xl border border-gray-100">
+                        <div className="text-center mb-8">
+                            <div className="w-20 h-20 bg-white rounded-2xl mx-auto flex items-center justify-center shadow-lg mb-4 overflow-hidden border border-gray-100">
+                                <img src="https://i.postimg.cc/ryPT3r29/hwrdh.png" alt="Logo" className="w-full h-full object-contain p-2" />
+                            </div>
+                            <h2 className="text-2xl font-bold text-gray-800">ח. סבן חומרי בניין</h2>
+                            <p className="text-gray-500 text-sm mt-1">פורטל הזמנות מתקדם</p>
+                        </div>
+                        <form onSubmit={handleLogin} className="space-y-5">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">אימייל</label>
+                                <input type="email" value={email} onChange={e=>setEmail(e.target.value)} className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" required />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">סיסמה</label>
+                                <input type="password" value={password} onChange={e=>setPassword(e.target.value)} className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" required />
+                            </div>
+                            
+                            <div className="flex items-center">
+                                <input id="remember-me" type="checkbox" checked={rememberMe} onChange={e=>setRememberMe(e.target.checked)} className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" />
+                                <label htmlFor="remember-me" className="mr-2 block text-sm text-gray-900">זכור אותי במכשיר זה</label>
+                            </div>
+
+                            {error && <p className="text-red-500 text-sm text-center bg-red-50 p-2 rounded-lg">{error}</p>}
+                            
+                            <button disabled={loading} className="w-full p-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors shadow-md disabled:opacity-70">
+                                {loading ? "מתחבר..." : "כניסה למערכת"}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            );
+        }
+
+        // --- Main App ---
+        function App() {
+            const [user, setUser] = useState(null);
+            const [profile, setProfile] = useState(null);
+            const [loading, setLoading] = useState(true);
+            const [activeProject, setActiveProject] = useState(null);
+            const [page, setPage] = useState('chats'); 
+            const [toast, setToast] = useState({ visible: false, message: '' });
+            const [greeting, setGreeting] = useState('');
+
+            const showToast = (msg) => setToast({ visible: true, message: msg });
+
+            useEffect(() => {
+                const unsub = onAuthStateChanged(auth, async (u) => {
+                    if (u) {
+                        const docRef = doc(db, 'customers', u.uid);
+                        const snap = await getDoc(docRef);
+                        if (snap.exists()) {
+                            setUser(u);
+                            setProfile({uid: u.uid, ...snap.data()});
+                            updateGreeting(snap.data().name);
+                        } else {
+                            console.error("No profile");
+                            signOut(auth);
+                        }
+                    } else { setUser(null); setProfile(null); }
+                    setLoading(false);
+                });
+                return () => unsub();
+            }, []);
+
+            const updateGreeting = (name) => {
+                const hour = new Date().getHours();
+                let greet = "שלום";
+                if (hour >= 5 && hour < 12) greet = "בוקר טוב";
+                else if (hour >= 12 && hour < 18) greet = "צהריים טובים";
+                else if (hour >= 18 && hour < 22) greet = "ערב טוב";
+                else greet = "לילה טוב";
+                setGreeting(`${greet}, ${name}`);
+            };
+
+            // בקשת הרשאות (דמה - בדפדפן אמיתי זה יקפיץ חלונית)
+            const requestPermissions = () => {
+                showToast("מבקש גישה למיקום והתראות...");
+                // בפועל: navigator.geolocation.getCurrentPosition(...)
+                // Notification.requestPermission(...)
+                setTimeout(() => showToast("הרשאות הוענקו בהצלחה!"), 1500);
+            };
+
+            if (loading) return <div className="flex h-screen items-center justify-center text-blue-600 font-bold bg-gray-50">טוען Sidor...</div>;
+            if (!user) return <AuthScreen />;
+
+            return (
+                <div className="flex flex-col h-screen bg-gray-100 max-w-md mx-auto shadow-2xl overflow-hidden border-x border-gray-200 relative">
+                    <MobileStatusBar isConnected={true} />
+                    <Toast message={toast.message} visible={toast.visible} onHide={() => setToast({ ...toast, visible: false })} />
+                    
+                    {activeProject ? (
+                        <ChatRoom project={activeProject} user={user} onBack={() => setActiveProject(null)} showToast={showToast} />
+                    ) : (
+                        <>
+                            <div className="flex-1 overflow-y-auto pb-20 scrollbar-hide">
+                                {page === 'chats' && (
+                                    <>
+                                        <div className="bg-white p-6 pb-8 rounded-b-3xl shadow-sm mb-4">
+                                            <div className="flex justify-between items-start">
+                                                <div>
+                                                    <h1 className="text-2xl font-bold text-gray-800">{greeting}</h1>
+                                                    <p className="text-gray-500 text-sm mt-1">כיף לבחור את הבוקר איתנו ☀️</p>
+                                                </div>
+                                                <div className="relative">
+                                                    <img src={profile?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}&background=0D8ABC&color=fff`} className="w-12 h-12 rounded-full border-2 border-white shadow-md" />
+                                                    <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="px-4">
+                                            <h3 className="font-bold text-gray-700 mb-3 text-lg">הפרויקטים שלי</h3>
+                                            <ChatList profile={profile} onSelect={setActiveProject} />
+                                        </div>
+                                    </>
+                                )}
+                                
+                                {page === 'knowledge' && <KnowledgePage showToast={showToast} />}
+                                
+                                {page === 'profile' && (
+                                    <div className="p-6">
+                                        <div className="text-center mb-8">
+                                            <div className="relative inline-block">
+                                                <img src={profile?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}&background=0D8ABC&color=fff`} className="w-24 h-24 rounded-full mx-auto mb-4 border-4 border-white shadow-lg" />
+                                                <button className="absolute bottom-2 right-0 bg-blue-600 text-white p-2 rounded-full shadow-md hover:bg-blue-700"><Icon name="User" size={16}/></button>
+                                            </div>
+                                            <h2 className="text-2xl font-bold text-gray-800">{profile.name}</h2>
+                                            <p className="text-gray-500">{profile.email}</p>
+                                        </div>
+                                        
+                                        <div className="bg-white rounded-xl shadow-sm overflow-hidden mb-6 divide-y divide-gray-100">
+                                            <button onClick={requestPermissions} className="w-full p-4 text-right hover:bg-gray-50 flex items-center transition-colors">
+                                                <div className="p-2 bg-blue-100 rounded-lg ml-3 text-blue-600"><Icon name="Bell" size={20}/></div>
+                                                <span className="font-medium text-gray-700">הגדרות התראות ומיקום</span>
+                                                <Icon name="ArrowRight" className="mr-auto text-gray-300" size={16}/>
+                                            </button>
+                                            <button className="w-full p-4 text-right hover:bg-gray-50 flex items-center transition-colors">
+                                                <div className="p-2 bg-green-100 rounded-lg ml-3 text-green-600"><Icon name="User" size={20}/></div>
+                                                <span className="font-medium text-gray-700">עריכת פרטים אישיים</span>
+                                                <Icon name="ArrowRight" className="mr-auto text-gray-300" size={16}/>
+                                            </button>
+                                        </div>
+                                        
+                                        <button onClick={()=>signOut(auth)} className="w-full p-4 bg-red-50 text-red-600 rounded-xl font-bold flex items-center justify-center hover:bg-red-100 transition-colors shadow-sm border border-red-100">
+                                            <Icon name="LogOut" className="mr-2"/> התנתק
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                            
+                            <nav className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-gray-200 flex justify-around p-2 pb-5 text-gray-400 z-20 max-w-md mx-auto shadow-lg">
+                                <button onClick={()=>setPage('chats')} className={`flex flex-col items-center transition-all duration-200 ${page==='chats'?'text-blue-600 scale-110':''}`}>
+                                    <Icon name="MessageSquare" className="mb-1" />
+                                    <span className="text-[10px] font-medium">שיחות</span>
+                                </button>
+                                <button onClick={()=>setPage('knowledge')} className={`flex flex-col items-center transition-all duration-200 ${page==='knowledge'?'text-blue-600 scale-110':''}`}>
+                                    <Icon name="BookOpen" className="mb-1" />
+                                    <span className="text-[10px] font-medium">קטלוג</span>
+                                </button>
+                                <button onClick={()=>setPage('profile')} className={`flex flex-col items-center transition-all duration-200 ${page==='profile'?'text-blue-600 scale-110':''}`}>
+                                    <Icon name="User" className="mb-1" />
+                                    <span className="text-[10px] font-medium">פרופיל</span>
+                                </button>
+                            </nav>
+                        </>
+                    )}
+                </div>
+            );
+        }
+
+        // --- רכיבי עזר פנימיים ---
+        
+        function ChatList({ profile, onSelect }) {
+            const projects = (profile && profile.projects) ? profile.projects : [];
+            if (projects.length === 0) return <div className="text-center p-10 bg-white rounded-xl shadow-sm border border-dashed border-gray-300 text-gray-500 mx-4">אין פרויקטים משויכים עדיין.</div>;
+            
+            return (
+                <div className="space-y-3 pb-4">
+                    {projects.map(p => (
+                        <div key={p.projectId} onClick={() => onSelect(p)} className="flex items-center p-4 bg-white rounded-2xl shadow-sm cursor-pointer hover:shadow-md transition-all border border-transparent hover:border-blue-100">
+                            <img src={p.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(p.name)}&background=random`} className="w-14 h-14 rounded-full object-cover ml-4 border border-gray-100" />
+                            <div className="flex-1 ml-2">
+                                <div className="flex justify-between items-baseline mb-1">
+                                    <h3 className="font-bold text-gray-800 text-base">{p.name}</h3>
+                                    <span className="text-xs text-gray-400 font-medium">12:30</span>
+                                </div>
+                                <p className="text-sm text-gray-500 truncate flex items-center gap-1">
+                                    <Icon name="Check" size={14} className="text-blue-500"/>
+                                    {p.address}
+                                </p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            );
+        }
+
+        function KnowledgePage({ showToast }) {
+            const [term, setTerm] = useState('');
+            const results = term ? KnowledgeBase.search(term) : KnowledgeBase.products; 
+
+            return (
+                <div className="flex flex-col h-full">
+                    <div className="bg-white p-4 shadow-sm sticky top-0 z-10 rounded-b-2xl">
+                        <h2 className="text-2xl font-bold text-gray-800 mb-4">קטלוג מוצרים</h2>
+                        <div className="relative">
+                            <input 
+                                className="w-full p-3 pr-10 bg-gray-100 border-none rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
+                                placeholder="חפש מוצר (למשל 'גבס')..." 
+                                value={term} 
+                                onChange={e=>setTerm(e.target.value)} 
+                            />
+                            <div className="absolute top-3 right-3 text-gray-400"><Icon name="Search" /></div>
+                        </div>
+                    </div>
+                    
+                    <div className="p-4 grid grid-cols-2 gap-4 pb-24 overflow-y-auto">
+                        {results.map(p => (
+                            <div key={p.id} className="bg-white rounded-2xl shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-shadow">
+                                <div className="h-32 bg-gray-200 relative">
+                                    <img src={p.image} className="w-full h-full object-cover" />
+                                    <span className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded-md font-bold backdrop-blur-sm">{p.price}</span>
+                                </div>
+                                <div className="p-3 flex-1 flex flex-col">
+                                    <h3 className="font-bold text-gray-800 text-sm mb-1 line-clamp-2 leading-tight">{p.name}</h3>
+                                    <p className="text-xs text-gray-500 mb-3 flex-1 line-clamp-2">{p.spec}</p>
+                                    <button onClick={() => showToast(`המוצר ${p.name} נוסף להזמנה`)} className="w-full py-2 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold hover:bg-blue-600 hover:text-white transition-colors active:scale-95 transform">
+                                        הוסף להזמנה
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+
+        function ChatRoom({ project, user, onBack, showToast }) {
+            const [messages, setMessages] = useState([]);
+            const [text, setText] = useState('');
+            const endRef = useRef(null);
+
+            useEffect(() => {
+                const q = query(collection(db, 'messages'), where('roomId', '==', project.projectId), orderBy('createdAt', 'asc'));
+                const unsub = onSnapshot(q, snap => {
+                    setMessages(snap.docs.map(d => ({id: d.id, ...d.data()})));
+                });
+                return () => unsub();
+            }, [project.projectId]);
+
+            useEffect(() => endRef.current?.scrollIntoView({ behavior: 'smooth' }), [messages]);
+
+            const sendMessage = async () => {
+                if (!text.trim()) return;
+                showToast("שולח הודעה...");
+                await addDoc(collection(db, 'messages'), {
+                    roomId: project.projectId, senderId: user.uid, senderName: user.displayName || 'לקוח',
+                    text: text.trim(), type: 'TEXT', createdAt: serverTimestamp(), replyTo: null
+                });
+                setText('');
+            };
+
+            return (
+                <div className="flex flex-col h-full bg-[#e5ded8]">
+                    <header className="bg-white p-3 flex items-center shadow-sm sticky top-0 z-20">
+                        <button onClick={onBack} className="p-2 text-gray-600 hover:bg-gray-100 rounded-full mr-1"><Icon name="ArrowRight" /></button>
+                        <img src={project.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(project.name)}&background=random`} className="w-10 h-10 rounded-full object-cover ml-2 mr-2 border border-gray-200" />
+                        <div className="flex-1">
+                            <div className="font-bold text-gray-800 text-sm truncate">{project.name}</div>
+                            <div className="text-xs text-green-600 font-medium">מחובר כעת</div>
+                        </div>
+                        <button className="p-2 text-gray-600 hover:bg-gray-100 rounded-full"><Icon name="Search" size={20}/></button>
+                    </header>
+                    
+                    <div className="flex-1 overflow-y-auto p-4 space-y-3" style={{backgroundImage: "url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')", backgroundRepeat: "repeat"}}>
+                        {messages.map(m => (
+                            <div key={m.id} className={`flex ${m.senderId === user.uid ? 'justify-end' : 'justify-start'}`}>
+                                <div className={`max-w-[80%] p-3 rounded-2xl text-sm shadow-sm ${m.senderId === user.uid ? 'bg-[#d9fdd3] text-gray-800 rounded-br-none' : 'bg-white text-gray-800 rounded-bl-none'}`}>
+                                    <div>{m.text}</div>
+                                    <div className="text-[10px] text-gray-400 text-left mt-1 flex items-center justify-end gap-1 select-none">
+                                        {m.createdAt ? new Date(m.createdAt.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '...'}
+                                        {m.senderId === user.uid && <Icon name="Check" size={14} className="text-blue-500"/>}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                        <div ref={endRef} />
+                    </div>
+
+                    <div className="p-2 bg-[#f0f2f5] flex items-center gap-2 pb-4">
+                        <button className="p-2 bg-white rounded-full text-gray-500 shadow-sm hover:text-blue-600 transition-colors"><Icon name="Mic" /></button>
+                        <div className="flex-1 bg-white rounded-full flex items-center px-4 shadow-sm border border-transparent focus-within:border-blue-400 transition-colors">
+                            <input 
+                                className="flex-1 py-3 bg-transparent border-none focus:ring-0 outline-none text-sm" 
+                                placeholder="הודעה" 
+                                value={text} 
+                                onChange={e=>setText(e.target.value)} 
+                                onKeyDown={e => e.key === 'Enter' && sendMessage()} 
+                            />
+                            <button className="text-gray-400 ml-2 hover:text-blue-500"><Icon name="MapPin" size={20}/></button>
+                        </div>
+                        <button onClick={sendMessage} className="p-3 bg-[#00a884] text-white rounded-full shadow-md hover:bg-[#008f6f] transition-transform active:scale-95">
+                            <Icon name="Send" size={20} />
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+        
+        // Service Worker Registration (Embedded)
+        if ('serviceWorker' in navigator) {
+           // placeholder for future sw registration
+        }
+
+        const root = createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
