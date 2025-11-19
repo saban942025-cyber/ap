@@ -3,34 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Saban 360 | מרכז שליטה מלא</title>
+    <title>Saban 360 | ניהול מערכת</title>
+    
+    <!-- ספריות -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
     <style>
-        body { background-color: #f1f5f9; font-family: 'Segoe UI', sans-serif; color: #1e293b; }
-        .nav-item.active { background: #0f172a; color: white; border-right: 4px solid #3b82f6; }
-        .fade-in { animation: fadeIn 0.3s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 4px; }
-        input, select { outline: none; transition: all 0.2s; }
-        input:focus, select:focus { ring: 2px; ring-color: #3b82f6; border-color: #3b82f6; }
+        body { font-family: system-ui, -apple-system, sans-serif; background-color: #0f172a; color: #e2e8f0; }
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .input-dark { background: #1e293b; border: 1px solid #334155; color: white; }
+        .input-dark:focus { outline: none; border-color: #3b82f6; ring: 2px; ring-color: #3b82f6; }
+        
+        /* גלילה מותאמת */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
     </style>
 </head>
 <body>
     <div id="root"></div>
 
     <script type="text/babel" data-type="module">
-        const { useState, useEffect } = React;
+        const { useState, useEffect, useMemo } = React;
         const { createRoot } = ReactDOM;
-
+        
+        // --- Firebase ---
+        // ADDED LIMIT to imports
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-        import { getFirestore, collection, doc, onSnapshot, updateDoc, setDoc, addDoc, deleteDoc, getDocs, query, orderBy, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+        import { getFirestore, collection, doc, onSnapshot, query, orderBy, where, addDoc, updateDoc, deleteDoc, serverTimestamp, getDocs, limit } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
         const firebaseConfig = {
           apiKey: "AIzaSyDq0oVwS6zbEfsgrYBRkeBq80dDUKMedzo", 
@@ -45,210 +51,197 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // --- Users / Team Management Panel ---
-        function TeamPanel() {
-            const [users, setUsers] = useState([]);
+        // --- Icons (FIXED with Fragments <>) ---
+        const Icon = ({ name, className, size=20 }) => {
+            const icons = {
+                // FIXED: LayoutDashboard - Wrapped 4 rects in <>...</>
+                LayoutDashboard: <><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></>,
+                // FIXED: Package - Wrapped multiple paths/lines in <>...</>
+                Package: <><path d="M16.5 9.4L7.55 4.24"></path><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.29 7 12 12 20.71 7"></polyline><line x1="12" y1="22" x2="12" y2="12"></line></>,
+                // FIXED: Users - Wrapped multiple paths/circles in <>...</>
+                Users: <><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></>,
+                Activity: <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>,
+                // FIXED: LogOut - Wrapped multiple paths/lines/polylines in <>...</>
+                LogOut: <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></>,
+                Plus: <><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></>,
+                Edit: <><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></>,
+                // FIXED: Trash2 - Wrapped multiple paths/polylines in <>...</>
+                Trash2: <><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></>,
+                Search: <><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></>,
+                // FIXED: Save - Wrapped multiple paths/polylines in <>...</>
+                Save: <><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></>,
+                X: <><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></>
+            };
+            return <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>{icons[name]}</svg>;
+        };
+
+        // --- רכיבים ---
+
+        function LoginScreen({ onLogin }) {
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            
+            return (
+                <div className="flex h-screen items-center justify-center bg-slate-900">
+                    <div className="glass p-8 rounded-2xl w-full max-w-sm text-center">
+                        <h1 className="text-3xl font-bold text-blue-500 mb-2">Saban 360</h1>
+                        <p className="text-slate-400 mb-6">כניסת מנהלים בלבד</p>
+                        <form onSubmit={(e) => { e.preventDefault(); onLogin(email, password); }} className="space-y-4">
+                            <input type="email" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)} className="w-full p-3 rounded-lg input-dark" required />
+                            <input type="password" placeholder="Password" value={password} onChange={e=>setPassword(e.target.value)} className="w-full p-3 rounded-lg input-dark" required />
+                            <button className="w-full p-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold transition-colors">כניסה</button>
+                        </form>
+                    </div>
+                </div>
+            );
+        }
+
+        // --- 1. ניהול קטלוג ---
+        function CatalogPanel() {
+            const [products, setProducts] = useState([]);
+            const [isModalOpen, setIsModalOpen] = useState(false);
+            const [editingProduct, setEditingProduct] = useState(null);
+            const [searchTerm, setSearchTerm] = useState('');
 
             useEffect(() => {
-                // שואב את כל המשתמשים מאוסף customers
-                const unsub = onSnapshot(collection(db, 'customers'), (snap) => {
-                    setUsers(snap.docs.map(d => ({id: d.id, ...d.data()})));
+                const q = query(collection(db, "products"));
+                const unsub = onSnapshot(q, snap => {
+                    // FIXED: Removed extra parenthesis causing SyntaxError
+                    setProducts(snap.docs.map(d => ({id: d.id, ...d.data()})));
                 });
                 return () => unsub();
             }, []);
 
-            const changeRole = async (uid, newRole) => {
-                if(confirm(`האם לשנות את ההרשאה ל-${newRole}?`)) {
-                    await updateDoc(doc(db, 'customers', uid), { role: newRole });
+            const handleSave = async (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                const data = Object.fromEntries(formData.entries());
+                
+                try {
+                    if (editingProduct) {
+                        await updateDoc(doc(db, "products", editingProduct.id), data);
+                        logAction("עדכון מוצר", `עודכן מוצר: ${data.name}`);
+                    } else {
+                        await addDoc(collection(db, "products"), { ...data, createdAt: serverTimestamp() });
+                        logAction("יצירת מוצר", `נוצר מוצר חדש: ${data.name}`);
+                    }
+                    setIsModalOpen(false);
+                } catch (err) { alert("שגיאה בשמירה: " + err.message); }
+            };
+
+            const handleDelete = async (id, name) => {
+                if (confirm("למחוק את המוצר?")) {
+                    await deleteDoc(doc(db, "products", id));
+                    logAction("מחיקת מוצר", `נמחק מוצר: ${name}`);
                 }
             };
 
-            const getRoleBadge = (role) => {
-                switch(role) {
-                    case 'admin': return <span className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold">מנהל</span>;
-                    case 'staff': return <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold">עובד</span>;
-                    default: return <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold">לקוח</span>;
-                }
-            };
+            const filteredProducts = products.filter(p => p.name.includes(searchTerm) || p.sku?.includes(searchTerm));
 
             return (
-                <div className="space-y-6 fade-in">
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                        <h2 className="text-xl font-bold text-slate-800 mb-4"><i className="fa-solid fa-users-gear ml-2"></i>ניהול משתמשים והרשאות</h2>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-right text-sm">
-                                <thead className="bg-slate-50 text-slate-500 uppercase">
-                                    <tr><th>שם</th><th>אימייל</th><th>תפקיד נוכחי</th><th>פעולות</th></tr>
-                                </thead>
-                                <tbody className="divide-y">
-                                    {users.map(u => (
-                                        <tr key={u.id} className="hover:bg-slate-50">
-                                            <td className="p-3 font-bold">{u.name}</td>
-                                            <td className="p-3 text-slate-500 font-mono">{u.email}</td>
-                                            <td className="p-3">{getRoleBadge(u.role)}</td>
-                                            <td className="p-3 flex gap-2">
-                                                <select 
-                                                    className="border rounded p-1 text-xs bg-white"
-                                                    value={u.role || 'client'}
-                                                    onChange={(e) => changeRole(u.id, e.target.value)}
-                                                >
-                                                    <option value="client">לקוח</option>
-                                                    <option value="staff">עובד</option>
-                                                    <option value="admin">מנהל</option>
-                                                </select>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                <div>
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-2xl font-bold">ניהול קטלוג מוצרים</h2>
+                        <button onClick={() => { setEditingProduct(null); setIsModalOpen(true); }} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg flex items-center gap-2">
+                            <Icon name="Plus" /> הוסף מוצר
+                        </button>
                     </div>
-                </div>
-            );
-        }
 
-        // --- CRM / Clients Panel ---
-        function CRMPanel() {
-            const [clients, setClients] = useState([]);
-            const [search, setSearch] = useState('');
-
-            useEffect(() => {
-                const q = query(collection(db, 'customers'), orderBy('createdAt', 'desc'));
-                const unsub = onSnapshot(q, snap => setClients(snap.docs.map(d => ({id: d.id, ...d.data()}))));
-                return () => unsub();
-            }, []);
-
-            const filtered = clients.filter(c => c.name?.includes(search) || c.email?.includes(search));
-
-            return (
-                <div className="space-y-4 fade-in">
-                    <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border">
-                        <h2 className="font-bold text-xl">לקוחות ({clients.length})</h2>
-                        <div className="relative">
-                            <input placeholder="חפש לקוח..." className="border rounded-lg pl-2 pr-8 py-2 text-sm" value={search} onChange={e=>setSearch(e.target.value)} />
-                            <i className="fa-solid fa-search absolute top-3 right-3 text-gray-400"></i>
-                        </div>
+                    <div className="mb-6 relative">
+                        <input type="text" placeholder="חפש לפי שם או מקט..." value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} className="w-full p-3 pl-10 rounded-lg input-dark" />
+                        <Icon name="Search" className="absolute top-3 left-3 text-slate-400" />
                     </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {filtered.map(c => (
-                            <div key={c.id} className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-all">
-                                <div className="flex items-center gap-3 mb-3">
-                                    <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold">{c.name?.[0]}</div>
-                                    <div>
-                                        <div className="font-bold text-slate-800">{c.name}</div>
-                                        <div className="text-xs text-slate-500">{c.email}</div>
+                        {filteredProducts.map(p => (
+                            <div key={p.id} className="glass p-4 rounded-xl flex flex-col gap-3 hover:bg-slate-800/50 transition-colors">
+                                <div className="flex gap-4">
+                                    <img src={p.image || 'https://via.placeholder.com/100'} className="w-20 h-20 object-cover rounded-lg bg-slate-800" />
+                                    <div className="flex-1">
+                                        <h3 className="font-bold text-lg">{p.name}</h3>
+                                        <p className="text-slate-400 text-sm">מק"ט: {p.sku}</p>
+                                        <p className="text-green-400 font-bold mt-1">{p.price}</p>
                                     </div>
                                 </div>
-                                <div className="bg-slate-50 p-3 rounded-lg text-sm">
-                                    <div className="font-bold text-slate-600 mb-1">פרויקטים פעילים:</div>
-                                    {c.projects && c.projects.length > 0 ? (
-                                        <ul className="list-disc list-inside text-slate-500 space-y-1">
-                                            {c.projects.map((p,i) => <li key={i}>{p.name}</li>)}
-                                        </ul>
-                                    ) : <span className="text-slate-400 italic">אין פרויקטים</span>}
+                                <div className="flex gap-2 mt-auto pt-3 border-t border-slate-700">
+                                    <button onClick={() => { setEditingProduct(p); setIsModalOpen(true); }} className="flex-1 bg-slate-700 hover:bg-slate-600 py-2 rounded text-sm flex justify-center items-center gap-2"><Icon name="Edit" size={16}/> ערוך</button>
+                                    <button onClick={() => handleDelete(p.id, p.name)} className="flex-1 bg-red-900/30 hover:bg-red-900/50 text-red-400 py-2 rounded text-sm flex justify-center items-center gap-2"><Icon name="Trash2" size={16}/> מחק</button>
                                 </div>
-                                <div className="mt-3 text-xs text-slate-400 text-left">UID: {c.id.slice(0,5)}...</div>
                             </div>
                         ))}
                     </div>
+
+                    {/* Modal */}
+                    {isModalOpen && (
+                        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+                            <div className="bg-slate-900 p-6 rounded-2xl w-full max-w-lg border border-slate-700 shadow-2xl">
+                                <div className="flex justify-between mb-6">
+                                    <h3 className="text-xl font-bold">{editingProduct ? 'עריכת מוצר' : 'מוצר חדש'}</h3>
+                                    <button onClick={() => setIsModalOpen(false)}><Icon name="X" /></button>
+                                </div>
+                                <form onSubmit={handleSave} className="space-y-4">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <input name="name" defaultValue={editingProduct?.name} placeholder="שם המוצר" className="input-dark p-3 rounded-lg w-full" required />
+                                        <input name="sku" defaultValue={editingProduct?.sku} placeholder="מק''ט" className="input-dark p-3 rounded-lg w-full" />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <input name="category" defaultValue={editingProduct?.category} placeholder="קטגוריה" className="input-dark p-3 rounded-lg w-full" />
+                                        <input name="price" defaultValue={editingProduct?.price} placeholder="מחיר (לדוגמה ₪50)" className="input-dark p-3 rounded-lg w-full" />
+                                    </div>
+                                    <input name="image" defaultValue={editingProduct?.image} placeholder="URL תמונה" className="input-dark p-3 rounded-lg w-full" />
+                                    <textarea name="description" defaultValue={editingProduct?.description} placeholder="תיאור" rows="3" className="input-dark p-3 rounded-lg w-full"></textarea>
+                                    
+                                    <div className="flex gap-3 pt-4">
+                                        <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 rounded-lg bg-slate-800 hover:bg-slate-700">ביטול</button>
+                                        <button type="submit" className="flex-1 py-3 rounded-lg bg-blue-600 hover:bg-blue-500 font-bold">שמור</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
                 </div>
             );
         }
 
-        // --- Catalog Panel (With Full CRUD) ---
-        function CatalogPanel() {
-            const [products, setProducts] = useState([]);
-            const [loading, setLoading] = useState(false);
-            const [isEditing, setIsEditing] = useState(null); // null or product object
+        // --- 2. ניהול משתמשים ולקוחות ---
+        function CRMPanel() {
+            const [users, setUsers] = useState([]);
+            const [customers, setCustomers] = useState([]);
+            const [tab, setTab] = useState('workers'); // 'workers' | 'customers'
 
             useEffect(() => {
-                const unsub = onSnapshot(collection(db, 'products'), (snap) => setProducts(snap.docs.map(d => ({id: d.id, ...d.data()}))));
-                return () => unsub();
+                const unsub1 = onSnapshot(collection(db, "users"), s => setUsers(s.docs.map(d => ({id: d.id, ...d.data()}))));
+                const unsub2 = onSnapshot(collection(db, "customers"), s => setCustomers(s.docs.map(d => ({id: d.id, ...d.data()}))));
+                return () => { unsub1(); unsub2(); };
             }, []);
 
-            const saveProduct = async (e) => {
-                e.preventDefault();
-                const p = isEditing;
-                if(p.id) { // Update
-                    await updateDoc(doc(db, 'products', p.id), { name: p.name, sku: p.sku, price: Number(p.price), stock: Number(p.stock), image: p.image });
-                } else { // Create
-                    await addDoc(collection(db, 'products'), { ...p, createdAt: serverTimestamp() });
-                }
-                setIsEditing(null);
-            };
-
-            const deleteProduct = async (id) => {
-                if(confirm("למחוק מוצר זה?")) await deleteDoc(doc(db, 'products', id));
-            };
-
-            const importFromOrders = async () => {
-                if(!confirm("לסרוק הזמנות ולייבא מוצרים חסרים?")) return;
-                setLoading(true);
-                try {
-                    const orders = await getDocs(collection(db, 'orders'));
-                    const extracted = {};
-                    orders.forEach(doc => {
-                        const d = doc.data();
-                        if(d.cart_items) d.cart_items.forEach(i => { if(i.sku) extracted[i.sku] = { sku: i.sku, name: i.name, image: i.image, price: i.price||0, stock: 100 }; });
-                    });
-                    await Promise.all(Object.values(extracted).map(p => setDoc(doc(db, 'products', p.sku), p)));
-                    alert("היבוא הושלם בהצלחה!");
-                } catch(e) { alert("שגיאה: " + e.message); }
-                setLoading(false);
-            };
+            const list = tab === 'workers' ? users : customers;
 
             return (
-                <div className="space-y-4 fade-in">
-                    {/* Toolbar */}
-                    <div className="bg-white p-4 rounded-xl shadow-sm border flex justify-between items-center">
-                        <h2 className="font-bold text-xl">קטלוג ({products.length})</h2>
-                        <div className="flex gap-2">
-                            <button onClick={()=>setIsEditing({name:'', sku:'', price:0, stock:0, image:''})} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-blue-700">+ הוסף מוצר</button>
-                            <button onClick={importFromOrders} disabled={loading} className="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-purple-700">
-                                {loading ? 'טוען...' : 'שחזר מהזמנות'}
-                            </button>
-                        </div>
+                <div className="max-w-5xl mx-auto">
+                    <div className="flex gap-4 mb-6 border-b border-slate-700 pb-4">
+                        <button onClick={()=>setTab('workers')} className={`text-lg font-bold pb-1 ${tab==='workers' ? 'text-blue-400 border-b-2 border-blue-400' : 'text-slate-400'}`}>עובדים ({users.length})</button>
+                        <button onClick={()=>setTab('customers')} className={`text-lg font-bold pb-1 ${tab==='customers' ? 'text-blue-400 border-b-2 border-blue-400' : 'text-slate-400'}`}>לקוחות ({customers.length})</button>
                     </div>
-
-                    {/* Edit Modal */}
-                    {isEditing && (
-                        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                            <form onSubmit={saveProduct} className="bg-white p-6 rounded-xl w-96 space-y-3 shadow-2xl">
-                                <h3 className="font-bold text-lg">{isEditing.id ? 'עריכת מוצר' : 'מוצר חדש'}</h3>
-                                <input className="w-full border p-2 rounded" placeholder="שם מוצר" value={isEditing.name} onChange={e=>setIsEditing({...isEditing, name: e.target.value})} required />
-                                <input className="w-full border p-2 rounded" placeholder="מק״ט" value={isEditing.sku} onChange={e=>setIsEditing({...isEditing, sku: e.target.value})} required />
-                                <div className="flex gap-2">
-                                    <input type="number" className="w-full border p-2 rounded" placeholder="מחיר" value={isEditing.price} onChange={e=>setIsEditing({...isEditing, price: e.target.value})} required />
-                                    <input type="number" className="w-full border p-2 rounded" placeholder="מלאי" value={isEditing.stock} onChange={e=>setIsEditing({...isEditing, stock: e.target.value})} />
-                                </div>
-                                <input className="w-full border p-2 rounded" placeholder="כתובת תמונה (URL)" value={isEditing.image} onChange={e=>setIsEditing({...isEditing, image: e.target.value})} />
-                                <div className="flex justify-end gap-2 mt-4">
-                                    <button type="button" onClick={()=>setIsEditing(null)} className="text-slate-500 font-bold px-3">ביטול</button>
-                                    <button className="bg-blue-600 text-white px-6 py-2 rounded font-bold">שמור</button>
-                                </div>
-                            </form>
-                        </div>
-                    )}
-
-                    {/* Table */}
-                    <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-                        <table className="w-full text-right text-sm">
-                            <thead className="bg-slate-50 text-slate-500"><tr><th className="p-3">תמונה</th><th className="p-3">פרטים</th><th className="p-3">מחיר ומלאי</th><th className="p-3"></th></tr></thead>
-                            <tbody className="divide-y">
-                                {products.map(p => (
-                                    <tr key={p.id} className="hover:bg-slate-50">
-                                        <td className="p-3"><img src={p.image} className="w-12 h-12 rounded bg-white border object-contain" /></td>
-                                        <td className="p-3">
-                                            <div className="font-bold">{p.name}</div>
-                                            <div className="text-slate-400 font-mono text-xs">{p.sku}</div>
-                                        </td>
-                                        <td className="p-3">
-                                            <div className="font-bold">{p.price} ₪</div>
-                                            <div className={p.stock < 10 ? "text-red-500 text-xs" : "text-green-600 text-xs"}>מלאי: {p.stock}</div>
-                                        </td>
-                                        <td className="p-3 flex gap-2">
-                                            <button onClick={()=>setIsEditing(p)} className="text-blue-600 hover:bg-blue-50 p-2 rounded"><i className="fa-solid fa-pen"></i></button>
-                                            <button onClick={()=>deleteProduct(p.id)} className="text-red-600 hover:bg-red-50 p-2 rounded"><i className="fa-solid fa-trash"></i></button>
+                    
+                    <div className="glass rounded-xl overflow-hidden">
+                        <table className="w-full text-left">
+                            <thead className="bg-slate-800 text-slate-400 text-sm">
+                                <tr>
+                                    <th className="p-4">שם</th>
+                                    <th className="p-4">UID / מזהה</th>
+                                    <th className="p-4">תפקיד / פרטים</th>
+                                    <th className="p-4">סטטוס</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-700">
+                                {list.map(item => (
+                                    <tr key={item.id} className="hover:bg-slate-800/30">
+                                        <td className="p-4 font-bold">{item.name}</td>
+                                        <td className="p-4 text-sm font-mono text-slate-400">{item.id}</td>
+                                        <td className="p-4 text-sm">{tab==='workers' ? item.role : (item.projects?.length || 0) + ' פרויקטים'}</td>
+                                        <td className="p-4">
+                                            <span className="px-2 py-1 rounded text-xs bg-green-900/30 text-green-400 border border-green-800">פעיל</span>
                                         </td>
                                     </tr>
                                 ))}
@@ -258,75 +251,105 @@
                 </div>
             );
         }
+        
+        // --- 3. המלשינון (Logs) ---
+        function LogsPanel() {
+            const [logs, setLogs] = useState([]);
 
-        // --- Main App Shell ---
-        function App() {
-            const [user, setUser] = useState(null);
-            const [view, setView] = useState('catalog'); // Default view
-            const [login, setLogin] = useState({email:'', pass:''});
-
-            useEffect(() => onAuthStateChanged(auth, setUser), []);
-
-            const doLogin = (e) => {
-                e.preventDefault();
-                signInWithEmailAndPassword(auth, login.email.includes('@')?login.email:login.email+'@saban.com', login.pass).catch(()=>alert("שגיאה בפרטי כניסה"));
-            };
-
-            if (!user) return (
-                <div className="min-h-screen flex items-center justify-center p-4 bg-slate-100">
-                    <form onSubmit={doLogin} className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md text-center space-y-5 fade-in">
-                        <div className="text-4xl mb-2">🛡️</div>
-                        <h1 className="text-2xl font-black text-slate-800">Saban 360 <span className="text-blue-600">Admin</span></h1>
-                        <input className="w-full p-3 border border-slate-300 rounded-lg" placeholder="שם משתמש / אימייל" onChange={e=>setLogin({...login, email:e.target.value})} />
-                        <input type="password" className="w-full p-3 border border-slate-300 rounded-lg" placeholder="סיסמה" onChange={e=>setLogin({...login, pass:e.target.value})} />
-                        <button className="w-full bg-slate-900 text-white py-3 rounded-lg font-bold hover:bg-slate-800 transition-colors">כניסה מאובטחת</button>
-                    </form>
-                </div>
-            );
-
-            const menu = [
-                { id: 'catalog', label: 'ניהול קטלוג', icon: 'fa-boxes-stacked' },
-                { id: 'crm', label: 'לקוחות (CRM)', icon: 'fa-users-line' },
-                { id: 'team', label: 'ניהול צוות', icon: 'fa-user-shield' },
-                { id: 'orders', label: 'הזמנות', icon: 'fa-cart-shopping' } // Added back for completeness
-            ];
+            useEffect(() => {
+                const q = query(collection(db, "system_logs_v3"), orderBy("timestamp", "desc"), limit(100));
+                const unsub = onSnapshot(q, snap => {
+                    // FIXED: Removed extra parenthesis causing SyntaxError (again)
+                    setLogs(snap.docs.map(d => ({id: d.id, ...d.data()})));
+                });
+                return () => unsub();
+            }, []);
 
             return (
-                <div className="flex h-screen overflow-hidden">
-                    <aside className="w-64 bg-slate-900 text-white flex flex-col shadow-xl z-10">
-                        <div className="p-6 border-b border-slate-800 text-center">
-                            <h1 className="text-2xl font-black tracking-tight">Saban<span className="text-blue-500">360</span></h1>
-                            <div className="text-xs text-slate-400 mt-1">מערכת ניהול ראשית</div>
-                        </div>
-                        <nav className="flex-1 p-4 space-y-2">
-                            {menu.map(m => (
-                                <button key={m.id} onClick={()=>setView(m.id)} 
-                                    className={`nav-item w-full text-right px-4 py-3 rounded-lg flex items-center gap-3 transition-all ${view===m.id ? 'active' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-                                    <i className={`fa-solid ${m.icon} w-6 text-center`}></i> {m.label}
-                                </button>
-                            ))}
-                        </nav>
-                        <div className="p-4 border-t border-slate-800 bg-slate-950">
-                            <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center font-bold">{user.email[0].toUpperCase()}</div>
-                                <div className="flex-1 overflow-hidden">
-                                    <div className="text-xs font-bold truncate">{user.email}</div>
-                                    <button onClick={()=>signOut(auth)} className="text-red-400 text-xs hover:underline">התנתק</button>
+                <div className="max-w-5xl mx-auto">
+                    <h2 className="text-2xl font-bold mb-6 text-red-400 flex items-center gap-2"><Icon name="Activity"/> המלשינון (לוג מערכת)</h2>
+                    <div className="glass rounded-xl overflow-hidden max-h-[70vh] overflow-y-auto">
+                        {logs.map(log => (
+                            <div key={log.id} className="p-4 border-b border-slate-700 hover:bg-slate-800/50 flex justify-between items-center text-sm">
+                                <div>
+                                    <div className="font-bold text-blue-300">{log.message}</div>
+                                    <div className="text-slate-500 text-xs mt-1">{log.user?.uid || 'System'} | {log.category || 'General'}</div>
+                                </div>
+                                <div className="text-slate-400 text-xs">
+                                    {log.timestamp?.toDate().toLocaleString()}
                                 </div>
                             </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+
+        // --- שירות: כתיבת לוג ---
+        async function logAction(action, details) {
+            await addDoc(collection(db, "system_logs_v3"), {
+                message: details,
+                category: action,
+                timestamp: serverTimestamp(),
+                user: { uid: auth.currentUser.uid, email: auth.currentUser.email }
+            });
+        }
+
+        // --- האפליקציה הראשית ---
+        function App() {
+            const [user, setUser] = useState(null);
+            const [view, setView] = useState('catalog'); // catalog, crm, logs
+
+            useEffect(() => {
+                return onAuthStateChanged(auth, u => {
+                    if (u) setUser(u);
+                    else setUser(null);
+                });
+            }, []);
+
+            const handleLogin = async (email, password) => {
+                try { await signInWithEmailAndPassword(auth, email, password); } 
+                catch (e) { alert("שגיאה: " + e.message); }
+            };
+
+            if (!user) return <LoginScreen onLogin={handleLogin} />;
+
+            return (
+                <div className="flex h-screen">
+                    <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col">
+                        <div className="p-6 border-b border-slate-800">
+                            <h1 className="text-2xl font-bold text-blue-500">Saban 360</h1>
+                            <p className="text-xs text-slate-500">Master Admin</p>
+                        </div>
+                        <nav className="flex-1 p-4 space-y-2">
+                            <button onClick={()=>setView('catalog')} className={`w-full text-right p-3 rounded-lg flex items-center gap-3 ${view==='catalog' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>
+                                <Icon name="Package" /> קטלוג
+                            </button>
+                            <button onClick={()=>setView('crm')} className={`w-full text-right p-3 rounded-lg flex items-center gap-3 ${view==='crm' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>
+                                <Icon name="Users" /> משתמשים ולקוחות
+                            </button>
+                            <button onClick={()=>setView('logs')} className={`w-full text-right p-3 rounded-lg flex items-center gap-3 ${view==='logs' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>
+                                <Icon name="Activity" /> מלשינון (לוגים)
+                            </button>
+                        </nav>
+                        <div className="p-4 border-t border-slate-800">
+                            <button onClick={()=>signOut(auth)} className="w-full p-3 rounded-lg text-red-400 hover:bg-slate-800 flex items-center gap-3 justify-center">
+                                <Icon name="LogOut" /> יציאה
+                            </button>
                         </div>
                     </aside>
-                    <main className="flex-1 overflow-y-auto p-8 bg-slate-100">
+                    
+                    <main className="flex-1 overflow-y-auto bg-slate-950 p-8">
                         {view === 'catalog' && <CatalogPanel />}
                         {view === 'crm' && <CRMPanel />}
-                        {view === 'team' && <TeamPanel />}
-                        {view === 'orders' && <div className="text-center text-slate-500 mt-20 text-xl">אנא השתמש בגרסה v3 עבור ניהול הזמנות מלא, או העתק את רכיב ההזמנות לכאן.</div>}
+                        {view === 'logs' && <LogsPanel />}
                     </main>
                 </div>
             );
         }
 
-        createRoot(document.getElementById('root')).render(<App />);
+        const root = createRoot(document.getElementById('root'));
+        root.render(<App />);
     </script>
 </body>
 </html>
