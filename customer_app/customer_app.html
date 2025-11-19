@@ -5,29 +5,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>ח. סבן | פורטל לקוחות</title>
     
-    <!-- טעינת ספריות -->
+    <!-- ספריות -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
     
     <!-- Manifest -->
+    <link rel="manifest" href='data:application/manifest+json;charset=utf-8,%7B%22name%22%3A%22%D7%97.%20%D7%A1%D7%91%D7%9F%20%D7%97%D7%95%D7%9E%D7%A8%D7%99%20%D7%91%D7%A0%D7%99%D7%99%D7%9F%22%2C%22short_name%22%3A%22%D7%97.%20%D7%A1%D7%91%D7%9F%22%2C%22start_url%22%3A%22%2Fcustomer_app.html%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23f3f4f6%22%2C%22theme_color%22%3A%22%232563eb%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22https%3A%2F%2Fi.postimg.cc%2FryPT3r29%2Fhwrdh.png%22%2C%22sizes%22%3A%22192x192%22%2C%22type%22%3A%22image%2Fpng%22%7D%2C%7B%22src%22%3A%22https%3A%2F%2Fi.postimg.cc%2FryPT3r29%2Fhwrdh.png%22%2C%22sizes%22%3A%22512x512%22%2C%22type%22%3A%22image%2Fpng%22%7D%5D%7D'>
     <meta name="theme-color" content="#2563eb">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="apple-touch-icon" href="https://i.postimg.cc/ryPT3r29/hwrdh.png"> 
-    <link rel="manifest" href="manifest.json">
-
+    
     <style>
-        body { font-family: 'Heebo', sans-serif; background-color: #f0f2f5; overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
+        body { font-family: system-ui, -apple-system, sans-serif; background-color: #f0f2f5; overscroll-behavior: none; }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
-        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
         
         /* אנימציות */
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
+        
+        /* הקלטה פועמת */
+        @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+        .recording-pulse { animation: pulse-red 1.5s infinite; background-color: #ef4444 !important; }
     </style>
 </head>
 <body>
@@ -37,10 +36,9 @@
         const { useState, useEffect, useRef, useMemo } = React;
         const { createRoot } = ReactDOM;
         
-        // --- Firebase Imports ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-        import { getFirestore, collection, doc, onSnapshot, query, orderBy, where, getDoc, addDoc, serverTimestamp, updateDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+        import { getFirestore, collection, doc, onSnapshot, query, orderBy, where, getDoc, addDoc, serverTimestamp, limit, updateDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
         import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-storage.js";
 
         const firebaseConfig = {
@@ -58,7 +56,7 @@
         const db = getFirestore(app);
         const storage = getStorage(app);
 
-        // --- אייקונים (SVG) ---
+        // --- Icons ---
         const Icon = ({ name, className, size=24 }) => {
             const icons = {
                 MessageSquare: <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>,
@@ -68,23 +66,18 @@
                 ArrowRight: <><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></>,
                 Send: <><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></>,
                 Search: <><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></>,
-                Battery: <><rect x="1" y="6" width="18" height="12" rx="2" ry="2"/><line x1="23" y1="13" x2="23" y2="11"/></>,
-                Wifi: <path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/>,
-                Mic: <><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></>,
-                MapPin: <><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></>,
-                Bell: <><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></>,
+                Bell: <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>,
                 Check: <polyline points="20 6 9 17 4 12"/>,
                 Loader: <><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></>,
                 Plus: <><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></>,
-                Camera: <><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></>,
-                FileText: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></>,
-                X: <><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>
+                Mic: <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>,
+                MapPin: <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>,
+                Camera: <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>,
+                FileText: <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>,
+                X: <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>,
+                StopCircle: <circle cx="12" cy="12" r="10"/><rect x="9" y="9" width="6" height="6"/>
             };
-            return (
-                <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-                    {icons[name]}
-                </svg>
-            );
+            return <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>{icons[name]}</svg>;
         };
 
         // --- Toast ---
@@ -94,8 +87,19 @@
             return <div className="fixed top-24 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full shadow-2xl z-50 flex items-center space-x-3 space-x-reverse animate-fade-in"><Icon name="Loader" className="animate-spin w-5 h-5 text-blue-400" /><span className="font-medium text-sm">{message}</span></div>;
         }
 
-        // --- Components ---
+        // --- Mobile Status Bar ---
+        function MobileStatusBar() {
+            const [time, setTime] = useState(new Date());
+            useEffect(() => { const t = setInterval(() => setTime(new Date()), 60000); return () => clearInterval(t); }, []);
+            return (
+                <div className="bg-gray-900 text-white px-4 py-1 flex justify-between items-center text-xs font-medium select-none">
+                    <div className="flex items-center gap-2"><span>{time.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}</span></div>
+                    <div className="flex items-center gap-2"><div className="w-3 h-3 bg-green-500 rounded-full"></div></div>
+                </div>
+            );
+        }
 
+        // --- Auth Screen ---
         function AuthScreen() {
             const [email, setEmail] = useState('');
             const [password, setPassword] = useState('');
@@ -104,14 +108,10 @@
 
             const handleLogin = async (e) => {
                 e.preventDefault(); setLoading(true); setError('');
-                try { 
-                    await setPersistence(auth, browserLocalPersistence);
-                    await signInWithEmailAndPassword(auth, email, password); 
-                } 
-                catch (err) { console.error(err); setError("פרטי התחברות שגויים."); }
+                try { await setPersistence(auth, browserLocalPersistence); await signInWithEmailAndPassword(auth, email, password); } 
+                catch (err) { setError("פרטי התחברות שגויים."); }
                 setLoading(false);
             };
-
             return (
                 <div className="flex items-center justify-center min-h-screen bg-gray-100 p-4">
                     <div className="w-full max-w-md bg-white p-8 rounded-3xl shadow-xl border border-gray-100 text-center">
@@ -122,63 +122,26 @@
                             <input type="email" placeholder="אימייל" value={email} onChange={e=>setEmail(e.target.value)} className="w-full p-3 border rounded-xl" required />
                             <input type="password" placeholder="סיסמה" value={password} onChange={e=>setPassword(e.target.value)} className="w-full p-3 border rounded-xl" required />
                             {error && <p className="text-red-500 text-sm">{error}</p>}
-                            <button disabled={loading} className="w-full p-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700">{loading ? "מתחבר..." : "כניסה"}</button>
+                            <button disabled={loading} className="w-full p-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700">{loading ? "מתחבר..." : "כניסה למערכת"}</button>
                         </form>
                     </div>
                 </div>
             );
         }
 
-        function KnowledgePage({ showToast }) {
-            const [term, setTerm] = useState('');
-            const [products, setProducts] = useState([]);
-
-            // שליפה מה-Firestore (אמיתי!)
-            useEffect(() => {
-                const unsub = onSnapshot(collection(db, "products"), (snap) => {
-                    setProducts(snap.docs.map(d => ({id: d.id, ...d.data()})));
-                });
-                return () => unsub();
-            }, []);
-
-            const filtered = products.filter(p => p.name.includes(term) || p.sku?.includes(term));
-
-            return (
-                <div className="flex flex-col h-full">
-                    <div className="bg-white p-4 shadow-sm sticky top-0 z-10 rounded-b-2xl">
-                        <h2 className="text-2xl font-bold text-gray-800 mb-4">קטלוג מוצרים</h2>
-                        <div className="relative">
-                            <input className="w-full p-3 pr-10 bg-gray-100 border-none rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" placeholder="חפש מוצר..." value={term} onChange={e=>setTerm(e.target.value)} />
-                            <div className="absolute top-3 right-3 text-gray-400"><Icon name="Search" /></div>
-                        </div>
-                    </div>
-                    <div className="p-4 grid grid-cols-2 gap-4 pb-24 overflow-y-auto">
-                        {filtered.length === 0 && <p className="text-center col-span-2 text-gray-500 mt-10">אין מוצרים תואמים.</p>}
-                        {filtered.map(p => (
-                            <div key={p.id} className="bg-white rounded-2xl shadow-sm overflow-hidden flex flex-col">
-                                <div className="h-32 bg-gray-200 relative">
-                                    <img src={p.image || 'https://via.placeholder.com/150'} className="w-full h-full object-cover" />
-                                    <span className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded-md font-bold">{p.price}</span>
-                                </div>
-                                <div className="p-3 flex-1 flex flex-col">
-                                    <h3 className="font-bold text-gray-800 text-sm mb-1 line-clamp-2">{p.name}</h3>
-                                    <p className="text-xs text-gray-500 mb-3 flex-1">{p.sku}</p>
-                                    <button onClick={() => showToast(`המוצר ${p.name} נוסף להזמנה`)} className="w-full py-2 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold hover:bg-blue-100">הוסף</button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            );
-        }
-
+        // --- Chat Room (The WhatsApp Clone) ---
         function ChatRoom({ project, user, onBack, showToast }) {
             const [messages, setMessages] = useState([]);
             const [text, setText] = useState('');
-            const [isUploading, setIsUploading] = useState(false);
+            const [showMenu, setShowMenu] = useState(false);
+            const [isRecording, setIsRecording] = useState(false);
+            const [mediaRecorder, setMediaRecorder] = useState(null);
+            const [audioChunks, setAudioChunks] = useState([]);
+            
             const endRef = useRef(null);
             const fileInputRef = useRef(null);
 
+            // האזנה להודעות
             useEffect(() => {
                 const q = query(collection(db, 'messages'), where('roomId', '==', project.projectId), orderBy('createdAt', 'asc'));
                 const unsub = onSnapshot(q, snap => setMessages(snap.docs.map(d => ({id: d.id, ...d.data()}))));
@@ -187,60 +150,67 @@
 
             useEffect(() => endRef.current?.scrollIntoView({ behavior: 'smooth' }), [messages]);
 
+            // שליחת הודעה כללית
             const sendMessage = async (type = 'TEXT', payload = null) => {
-                if (type === 'TEXT' && !text.trim()) return;
-                
-                let messageData = {
-                    roomId: project.projectId, 
-                    senderId: user.uid, 
-                    senderName: user.displayName || 'לקוח',
-                    type: type,
-                    createdAt: serverTimestamp(),
-                    replyTo: null
+                let msg = {
+                    roomId: project.projectId, senderId: user.uid, senderName: user.displayName || 'לקוח',
+                    type: type, createdAt: serverTimestamp(), replyTo: null
                 };
+                if (type === 'TEXT') { if (!text.trim()) return; msg.text = text.trim(); setText(''); }
+                else if (['IMAGE','FILE','AUDIO'].includes(type)) { msg.mediaUrl = payload.url; msg.text = payload.name; }
+                else if (type === 'LOCATION') { msg.location = payload; msg.text = '📍 מיקום שיתופי'; }
 
-                if (type === 'TEXT') {
-                    messageData.text = text.trim();
-                    setText('');
-                } else if (type === 'IMAGE' || type === 'FILE') {
-                    messageData.mediaUrl = payload.url;
-                    messageData.text = payload.name; // שם הקובץ
-                } else if (type === 'LOCATION') {
-                    messageData.location = payload;
-                    messageData.text = `מיקום: ${payload.lat}, ${payload.lon}`;
-                }
-
-                await addDoc(collection(db, 'messages'), messageData);
+                await addDoc(collection(db, 'messages'), msg);
+                setShowMenu(false);
             };
 
+            // העלאת קובץ (תמונה/מסמך)
             const handleFileUpload = async (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
-                
-                setIsUploading(true);
                 showToast("מעלה קובץ...");
-                
                 try {
                     const fileRef = ref(storage, `chat_files/${project.projectId}/${Date.now()}_${file.name}`);
-                    const snapshot = await uploadBytes(fileRef, file);
-                    const url = await getDownloadURL(snapshot.ref);
-                    
+                    await uploadBytes(fileRef, file);
+                    const url = await getDownloadURL(fileRef);
                     const type = file.type.startsWith('image/') ? 'IMAGE' : 'FILE';
                     await sendMessage(type, { url, name: file.name });
-                    showToast("הקובץ נשלח!");
-                } catch (err) {
-                    console.error(err);
-                    showToast("שגיאה בהעלאה.");
-                }
-                setIsUploading(false);
+                } catch(err) { console.error(err); showToast("שגיאה בהעלאה"); }
             };
 
+            // מיקום
             const handleLocation = () => {
                 if (navigator.geolocation) {
                     showToast("מאתר מיקום...");
                     navigator.geolocation.getCurrentPosition(pos => {
                         sendMessage('LOCATION', { lat: pos.coords.latitude, lon: pos.coords.longitude });
-                    }, () => showToast("לא ניתן לאתר מיקום."));
+                    });
+                }
+            };
+
+            // הקלטה
+            const toggleRecording = async () => {
+                if (isRecording) {
+                    mediaRecorder.stop();
+                    setIsRecording(false);
+                } else {
+                    try {
+                        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                        const recorder = new MediaRecorder(stream);
+                        const chunks = [];
+                        recorder.ondataavailable = e => chunks.push(e.data);
+                        recorder.onstop = async () => {
+                            const blob = new Blob(chunks, { type: 'audio/ogg; codecs=opus' });
+                            showToast("מעלה הקלטה...");
+                            const fileRef = ref(storage, `chat_audio/${project.projectId}/${Date.now()}.ogg`);
+                            await uploadBytes(fileRef, blob);
+                            const url = await getDownloadURL(fileRef);
+                            await sendMessage('AUDIO', { url, name: 'הודעה קולית' });
+                        };
+                        recorder.start();
+                        setMediaRecorder(recorder);
+                        setIsRecording(true);
+                    } catch(err) { showToast("אין גישה למיקרופון"); }
                 }
             };
 
@@ -249,137 +219,16 @@
                     <header className="bg-white p-3 flex items-center shadow-sm sticky top-0 z-20">
                         <button onClick={onBack} className="p-2 text-gray-600"><Icon name="ArrowRight" /></button>
                         <img src={project.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(project.name)}`} className="w-10 h-10 rounded-full object-cover ml-2 mr-1" />
-                        <div className="mr-2">
-                            <div className="font-bold text-gray-800 text-sm">{project.name}</div>
-                            <div className="text-xs text-green-600">מחובר</div>
-                        </div>
+                        <div className="flex-1"><div className="font-bold text-gray-800 text-sm">{project.name}</div></div>
                     </header>
                     
                     <div className="flex-1 overflow-y-auto p-4 space-y-3" style={{backgroundImage: "url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')"}}>
                         {messages.map(m => (
                             <div key={m.id} className={`flex ${m.senderId === user.uid ? 'justify-end' : 'justify-start'}`}>
-                                <div className={`max-w-[80%] p-3 rounded-2xl text-sm shadow-sm ${m.senderId === user.uid ? 'bg-[#d9fdd3] text-gray-800 rounded-br-none' : 'bg-white text-gray-800 rounded-bl-none'}`}>
-                                    {m.type === 'IMAGE' && <img src={m.mediaUrl} className="rounded-lg mb-2 max-w-full" />}
-                                    {m.type === 'FILE' && <a href={m.mediaUrl} target="_blank" className="flex items-center gap-2 text-blue-600 underline mb-1"><Icon name="FileText" size={16}/> {m.text}</a>}
-                                    {m.type === 'LOCATION' && <a href={`https://waze.com/ul?ll=${m.location.lat},${m.location.lon}&navigate=yes`} target="_blank" className="flex items-center gap-2 text-blue-600 font-bold mb-1"><Icon name="MapPin" size={16}/> פתח ב-Waze</a>}
+                                <div className={`max-w-[80%] p-2 rounded-xl text-sm shadow-sm ${m.senderId === user.uid ? 'bg-[#d9fdd3]' : 'bg-white'}`}>
+                                    {m.type === 'IMAGE' && <img src={m.mediaUrl} className="rounded-lg mb-1 max-w-full" />}
+                                    {m.type === 'FILE' && <a href={m.mediaUrl} target="_blank" className="flex items-center gap-2 text-blue-600 underline"><Icon name="FileText" size={16}/> {m.text}</a>}
+                                    {m.type === 'LOCATION' && <a href={`https://waze.com/ul?ll=${m.location.lat},${m.location.lon}&navigate=yes`} target="_blank" className="flex items-center gap-2 text-blue-600"><Icon name="MapPin" size={16}/> ניווט</a>}
+                                    {m.type === 'AUDIO' && <audio controls src={m.mediaUrl} className="w-48 h-8 mt-1" />}
                                     {m.type === 'TEXT' && <div>{m.text}</div>}
-                                    
-                                    <div className="text-[10px] text-gray-400 text-left mt-1 flex items-center justify-end gap-1">
-                                        {m.createdAt ? new Date(m.createdAt.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '...'}
-                                        {m.senderId === user.uid && <Icon name="Check" size={14} className="text-blue-500"/>}
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                        <div ref={endRef} />
-                    </div>
-
-                    <div className="p-2 bg-[#f0f2f5] flex items-center gap-2 pb-4 border-t border-gray-200">
-                        <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" />
-                        
-                        <button onClick={() => fileInputRef.current.click()} className="p-2 bg-white rounded-full text-gray-500 shadow-sm"><Icon name="Camera" /></button>
-                        <div className="flex-1 bg-white rounded-full flex items-center px-4 shadow-sm">
-                            <input 
-                                className="flex-1 py-3 bg-transparent border-none focus:ring-0 outline-none text-sm" 
-                                placeholder="הודעה" 
-                                value={text} 
-                                onChange={e=>setText(e.target.value)} 
-                                onKeyDown={e => e.key === 'Enter' && sendMessage('TEXT')} 
-                            />
-                            <button onClick={handleLocation} className="text-gray-400 ml-2 hover:text-blue-500"><Icon name="MapPin" size={20}/></button>
-                        </div>
-                        {text ? (
-                            <button onClick={() => sendMessage('TEXT')} className="p-3 bg-[#00a884] text-white rounded-full shadow-md"><Icon name="Send" size={20} /></button>
-                        ) : (
-                            <button onClick={() => showToast("הקלטה בבנייה...")} className="p-3 bg-[#00a884] text-white rounded-full shadow-md"><Icon name="Mic" size={20} /></button>
-                        )}
-                    </div>
-                </div>
-            );
-        }
-
-        function ProfilePage({ profile, onLogout }) {
-            return (
-                <div className="p-6 text-center">
-                    <img src={profile?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}`} className="w-24 h-24 rounded-full mx-auto mb-4 border-4 border-white shadow-lg" />
-                    <h2 className="text-2xl font-bold text-gray-800">{profile.name}</h2>
-                    <p className="text-gray-500 mb-8">{profile.email}</p>
-                    <button onClick={onLogout} className="w-full p-4 bg-red-50 text-red-600 rounded-xl font-bold flex items-center justify-center hover:bg-red-100"><Icon name="LogOut" className="mr-2"/> התנתק</button>
-                </div>
-            );
-        }
-
-        function ChatList({ profile, onSelect }) {
-            const projects = (profile && profile.projects) ? profile.projects : [];
-            if (projects.length === 0) return <div className="text-center p-10 text-gray-500">אין פרויקטים.</div>;
-            return <div className="space-y-3">{projects.map(p => (
-                <div key={p.projectId} onClick={() => onSelect(p)} className="flex items-center p-4 bg-white rounded-2xl shadow-sm cursor-pointer border border-transparent hover:border-blue-100">
-                    <img src={p.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(p.name)}`} className="w-14 h-14 rounded-full object-cover ml-3" />
-                    <div><h3 className="font-bold text-gray-800">{p.name}</h3><p className="text-sm text-gray-500">{p.address}</p></div>
-                </div>
-            ))}</div>;
-        }
-
-        function App() {
-            const [user, setUser] = useState(null);
-            const [profile, setProfile] = useState(null);
-            const [loading, setLoading] = useState(true);
-            const [page, setPage] = useState('chats'); 
-            const [activeProject, setActiveProject] = useState(null);
-            const [toast, setToast] = useState({ visible: false, message: '' });
-            const [greeting, setGreeting] = useState('');
-
-            useEffect(() => {
-                return onAuthStateChanged(auth, async (u) => {
-                    if (u) {
-                        const snap = await getDoc(doc(db, 'customers', u.uid));
-                        if (snap.exists()) {
-                            setUser(u); setProfile({uid: u.uid, ...snap.data()});
-                            const h = new Date().getHours();
-                            setGreeting(h < 12 ? "בוקר טוב" : h < 18 ? "צהריים טובים" : "ערב טוב");
-                        } else { console.error("No profile"); signOut(auth); }
-                    } else { setUser(null); setProfile(null); }
-                    setLoading(false);
-                });
-            }, []);
-
-            if (loading) return <div className="flex h-screen items-center justify-center text-blue-600 font-bold">טוען...</div>;
-            if (!user) return <AuthScreen />;
-
-            return (
-                <div className="flex flex-col h-screen bg-gray-100 max-w-md mx-auto shadow-2xl overflow-hidden border-x border-gray-200 relative">
-                    <Toast message={toast.message} visible={toast.visible} onHide={() => setToast({ ...toast, visible: false })} />
-                    
-                    {activeProject ? (
-                        <ChatRoom project={activeProject} user={user} onBack={() => setActiveProject(null)} showToast={(msg) => setToast({visible: true, message: msg})} />
-                    ) : (
-                        <>
-                            <div className="flex-1 overflow-y-auto pb-20 scrollbar-hide">
-                                {page === 'chats' && (
-                                    <>
-                                        <div className="bg-white p-6 pb-8 rounded-b-3xl shadow-sm mb-4">
-                                            <h1 className="text-2xl font-bold text-gray-800">{greeting}, {profile?.name?.split(' ')[0]}</h1>
-                                            <p className="text-gray-500 text-sm mt-1">כיף לראות אותך שוב 👋</p>
-                                        </div>
-                                        <div className="px-4"><ChatList profile={profile} onSelect={setActiveProject} /></div>
-                                    </>
-                                )}
-                                {page === 'knowledge' && <KnowledgePage showToast={(msg) => setToast({visible: true, message: msg})} />}
-                                {page === 'profile' && <ProfilePage profile={profile} onLogout={()=>signOut(auth)} />}
-                            </div>
-                            <nav className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-gray-200 flex justify-around p-2 pb-5 text-gray-400 z-20 max-w-md mx-auto shadow-lg">
-                                <button onClick={()=>setPage('chats')} className={`flex flex-col items-center ${page==='chats'?'text-blue-600 scale-110':''}`}><Icon name="MessageSquare" className="mb-1"/><span className="text-[10px]">שיחות</span></button>
-                                <button onClick={()=>setPage('knowledge')} className={`flex flex-col items-center ${page==='knowledge'?'text-blue-600 scale-110':''}`}><Icon name="BookOpen" className="mb-1"/><span className="text-[10px]">קטלוג</span></button>
-                                <button onClick={()=>setPage('profile')} className={`flex flex-col items-center ${page==='profile'?'text-blue-600 scale-110':''}`}><Icon name="User" className="mb-1"/><span className="text-[10px]">פרופיל</span></button>
-                            </nav>
-                        </>
-                    )}
-                </div>
-            );
-        }
-
-        const root = createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
-</body>
-</html>
+                                    <div className="text-[10px] text-gray-400 text-left mt-1">{m.createdAt?.toDate().toLocaleTimeString([], {hour:'2-digit', minute:'2-
