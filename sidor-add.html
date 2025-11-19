@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sidor | מדריך פיתוח וסימולציה</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Heebo', sans-serif; background-color: #f8fafc; color: #334155; }
+        .code-block { direction: ltr; text-align: left; font-family: monospace; background: #1e293b; color: #cbd5e1; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; }
+        .highlight { color: #fbbf24; }
+        .step-card { border-left: 4px solid #3b82f6; background: white; padding: 1.5rem; margin-bottom: 1.5rem; border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <header class="bg-slate-900 text-white p-6 sticky top-0 z-50 shadow-lg">
+        <div class="container mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="bg-blue-600 p-2 rounded-lg"><i data-lucide="code-2"></i></div>
+                <h1 class="text-2xl font-bold">Sidor Dev Guide</h1>
+            </div>
+            <nav class="hidden md:flex gap-6 text-sm font-medium">
+                <a href="#simulation" class="hover:text-blue-400 transition">סימולציה</a>
+                <a href="#customers" class="hover:text-blue-400 transition">הוספת לקוח</a>
+                <a href="#workers" class="hover:text-blue-400 transition">הוספת עובד</a>
+                <a href="#products" class="hover:text-blue-400 transition">קטלוג מוצרים</a>
+            </nav>
+        </div>
+    </header>
+
+    <main class="flex-1 container mx-auto p-6 max-w-5xl">
+
+        <!-- חלק 1: סימולציה חיה -->
+        <section id="simulation" class="mb-16">
+            <div class="flex items-center gap-3 mb-6">
+                <i data-lucide="play-circle" class="text-blue-600 w-8 h-8"></i>
+                <h2 class="text-3xl font-bold text-slate-800">סימולציית תהליך (Live Scenario)</h2>
+            </div>
+            
+            <div class="grid md:grid-cols-2 gap-8">
+                <!-- צד הלקוח -->
+                <div class="bg-white p-6 rounded-2xl shadow-lg border border-slate-100 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 bg-blue-600 text-white text-xs px-3 py-1 rounded-bl-lg font-bold">אפליקציית לקוח</div>
+                    <div class="flex items-center gap-4 mb-6 mt-2">
+                        <div class="w-12 h-12 bg-slate-200 rounded-full flex items-center justify-center font-bold text-slate-600">ב.א</div>
+                        <div>
+                            <h3 class="font-bold text-lg">בר אוריל</h3>
+                            <p class="text-sm text-slate-500">לקוח עסקי (601235)</p>
+                        </div>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div class="bg-blue-50 p-3 rounded-xl rounded-br-none border border-blue-100 text-sm">
+                            <p><strong>בר:</strong> היי, צריך דחוף 2 משטחי בלוק 20 לפרויקט "אשר לוי".</p>
+                            <div class="mt-2 flex gap-2">
+                                <span class="bg-white px-2 py-1 rounded text-xs border border-blue-200 flex items-center gap-1"><i data-lucide="map-pin" class="w-3 h-3"></i> הסתדרות 29, רעננה</span>
+                            </div>
+                        </div>
+                        <div class="bg-slate-50 p-3 rounded-xl rounded-bl-none border border-slate-100 text-sm text-right">
+                            <p><strong>Sidor Bot:</strong> קיבלתי! ההזמנה הועברה למחסן. האם תרצה להוסיף גם מלט?</p>
+                        </div>
+                        <div class="bg-blue-50 p-3 rounded-xl rounded-br-none border border-blue-100 text-sm">
+                            <p><strong>בר:</strong> כן, תוסיף 10 שקים. אני פותח פרויקט חדש בהרצליה, שולח מיקום.</p>
+                            <div class="mt-2 w-full h-24 bg-slate-200 rounded-lg flex items-center justify-center text-slate-400 text-xs border border-slate-300 border-dashed">
+                                <i data-lucide="map" class="w-4 h-4 mr-1"></i> מפת מיקום (הרצליה פיתוח)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- צד המערכת (ניהול/עובד) -->
+                <div class="bg-white p-6 rounded-2xl shadow-lg border border-slate-100 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 bg-amber-500 text-white text-xs px-3 py-1 rounded-bl-lg font-bold">מערכת תפעול</div>
+                    
+                    <div class="space-y-4 mt-4">
+                        <!-- התראה למנהל -->
+                        <div class="border-l-4 border-red-500 bg-red-50 p-3 rounded-r-lg">
+                            <div class="flex justify-between items-start">
+                                <h4 class="font-bold text-red-800 text-sm"><i data-lucide="bell" class="w-3 h-3 inline"></i> הזמנה חדשה!</h4>
+                                <span class="text-xs text-red-600">10:42</span>
+                            </div>
+                            <p class="text-sm text-red-700 mt-1">בר אוריל (אשר לוי) - 2 משטחים + 10 מלט.</p>
+                            <button class="mt-2 bg-red-600 text-white text-xs px-2 py-1 rounded hover:bg-red-700">אשר ושיים לנהג</button>
+                        </div>
+
+                        <!-- עדכון נהג -->
+                        <div class="border-l-4 border-green-500 bg-green-50 p-3 rounded-r-lg">
+                            <div class="flex justify-between items-start">
+                                <h4 class="font-bold text-green-800 text-sm"><i data-lucide="truck" class="w-3 h-3 inline"></i> עדכון נהג (יוסי)</h4>
+                                <span class="text-xs text-green-600">11:30</span>
+                            </div>
+                            <p class="text-sm text-green-700 mt-1">הגעתי לאתר "אשר לוי". פורק סחורה.</p>
+                            <div class="mt-2 w-20 h-12 bg-slate-200 rounded overflow-hidden">
+                                <img src="https://via.placeholder.com/150" class="w-full h-full object-cover opacity-50" alt="Site Photo">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <hr class="border-slate-200 mb-16">
+
+        <!-- חלק 2: מדריכים טכניים -->
+        
+        <section id="customers" class="mb-16">
+            <div class="flex items-center gap-3 mb-6">
+                <div class="bg-emerald-100 p-2 rounded-lg text-emerald-600"><i data-lucide="user-plus"></i></div>
+                <h2 class="text-2xl font-bold text-slate-800">איך להוסיף לקוח (Firestore)</h2>
+            </div>
+            
+            <div class="step-card">
+                <h3 class="font-bold text-lg mb-2">1. מבנה הנתונים (Schema)</h3>
+                <p class="text-slate-600 mb-4 text-sm">השתמש בפרמטרים הבאים ליצירת חווית משתמש עשירה.</p>
+                
+                <div class="code-block text-sm">
+customers / {UID}
+├── name: "בר אוריל קבלנות" (String)
+├── email: "bar.oril@gmail.com" (String)
+├── phone: "050-1234567" (String)
+├── customerNumber: "601235" (String - לממשק עם קומקס)
+├── avatarUrl: "https://..." (String)
+├── tier: "VIP" (String - לקביעת תעדוף)
+├── projects: [ (Array of Maps)
+│   ├── {
+│   │   projectId: "proj-asher-levy",
+│   │   name: "פרויקט אשר לוי",
+│   │   address: "ההסתדרות 29, רעננה",
+│   │   coords: { lat: 32.18, lon: 34.86 },
+│   │   status: "active"
+│   }
+│   ...
+]
+├── preferences: { (Map)
+│   notifyOn: ["whatsapp", "push"],
+│   deliveryWindow: "07:00-16:00"
+}
+                </div>
+            </div>
+        </section>
+
+        <section id="workers" class="mb-16">
+            <div class="flex items-center gap-3 mb-6">
+                <div class="bg-amber-100 p-2 rounded-lg text-amber-600"><i data-lucide="hard-hat"></i></div>
+                <h2 class="text-2xl font-bold text-slate-800">איך להוסיף עובד (נהג/מחסנאי)</h2>
+            </div>
+            
+            <div class="step-card">
+                <div class="code-block text-sm">
+users / {UID}
+├── name: "יוסי כהן"
+├── role: "driver" (או "warehouse", "admin")
+├── phone: "052-9876543"
+├── vehicleId: "77-888-99" (אם נהג)
+├── currentStatus: "online" (online/offline)
+├── currentLocation: { lat: ..., lon: ... } (מתעדכן בזמן אמת)
+                </div>
+            </div>
+        </section>
+
+        <section id="products" class="mb-16">
+            <div class="flex items-center gap-3 mb-6">
+                <div class="bg-purple-100 p-2 rounded-lg text-purple-600"><i data-lucide="package"></i></div>
+                <h2 class="text-2xl font-bold text-slate-800">קטלוג מוצרים חכם</h2>
+            </div>
+            
+            <div class="step-card">
+                <p class="text-slate-600 mb-4 text-sm">מוצרים כוללים מטא-דאטה חכם למחשבונים והמלצות.</p>
+                <div class="code-block text-sm">
+products / {Auto-ID}
+├── name: "לוח גבס ירוק (עמיד מים)"
+├── sku: "10-500"
+├── category: "גבס"
+├── image: "https://..."
+├── price: 42.00 (Number)
+├── stock: 150 (Number)
+├── spec: "120x260, 12.5 מ\"מ"
+├── technicalData: { (Map - לבוט ולדף מוצר)
+│   application: "מתאים לחדרי רחצה ומטבחים",
+│   dryingTime: "24 שעות לשפכטל",
+│   weight: "28 ק\"ג ללוח"
+}
+├── calculator: { (Map - לנוסחת חישוב)
+│   unit: "m2",
+│   formula: "area / 3.12 * 1.1" (כולל 10% פחת)
+}
+├── relatedProducts: ["sku-10-501", "sku-20-100"] (ברגים, שפכטל)
+                </div>
+            </div>
+        </section>
+
+        <footer class="text-center text-slate-400 text-sm pt-8 border-t">
+            &copy; 2024 ח. סבן חומרי בניין | מדריך פיתוח פנימי v1.0
+        </footer>
+
+    </main>
+
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+</html>
