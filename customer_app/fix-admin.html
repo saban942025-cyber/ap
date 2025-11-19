@@ -31,7 +31,8 @@
     <div id="root"></div>
 
     <script type="text/babel" data-type="module">
-        const { useState, useEffect, useMemo } = React;
+        // *** FIX: Ensure all hooks are destructured correctly ***
+        const { useState, useEffect, useMemo, useRef } = React;
         const { createRoot } = ReactDOM;
         
         // --- Firebase ---
