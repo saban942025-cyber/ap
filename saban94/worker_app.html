@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Sidor | אפליקציית עובד</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/feather-icons"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; overscroll-behavior: none; }
+        .hidden { display: none !important; }
+        #chat-window { transition: transform 0.3s ease-in-out; transform: translateX(-100%); }
+        #chat-window.open { transform: translateX(0); }
+        .chat-bubble { max-width: 80%; padding: 8px 12px; border-radius: 12px; font-size: 0.9rem; }
+        .sent { background-color: #3b82f6; color: white; border-bottom-left-radius: 0; align-self: flex-end; }
+        .received { background-color: white; border: 1px solid #e5e7eb; border-bottom-right-radius: 0; align-self: flex-start; }
+    </style>
+</head>
+<body>
+
+    <!-- מסך טעינה -->
+    <div id="loading" class="fixed inset-0 bg-gray-100 flex flex-col items-center justify-center z-50">
+        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <p class="mt-4 text-gray-500">טוען...</p>
+    </div>
+
+    <!-- מסך התחברות -->
+    <div id="login-view" class="fixed inset-0 bg-gray-100 flex flex-col items-center justify-center z-40 hidden">
+        <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-sm mx-4">
+            <h2 class="text-2xl font-bold text-center text-blue-600 mb-6">כניסת עובדים</h2>
+            <form id="login-form" class="space-y-4">
+                <input type="email" id="email-input" placeholder="אימייל" class="w-full p-3 border rounded-lg" required>
+                <input type="password" id="password-input" placeholder="סיסמה" class="w-full p-3 border rounded-lg" required>
+                <p id="login-error" class="text-red-500 text-sm hidden"></p>
+                <button type="submit" id="login-btn" class="w-full p-3 bg-blue-600 text-white rounded-lg font-bold">התחבר</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- אפליקציה ראשית -->
+    <div id="app-view" class="hidden min-h-screen flex flex-col">
+        <header class="bg-white p-4 shadow-sm sticky top-0 z-10 flex justify-between items-center">
+            <h1 class="text-lg font-bold flex items-center"><i data-feather="truck" class="ml-2 text-blue-600"></i> שלום, <span id="username">...</span></h1>
+            <div class="flex gap-3">
+                <button onclick="toggleChat()" class="text-gray-600"><i data-feather="message-square"></i></button>
+                <button onclick="logout()" class="text-red-500"><i data-feather="log-out"></i></button>
+            </div>
+        </header>
+
+        <main class="flex-1 p-4 overflow-y-auto">
+            <div id="orders-list" class="space-y-4"></div>
+        </main>
+    </div>
+
+    <!-- חלונית צ'אט -->
+    <div id="chat-overlay" onclick="toggleChat()" class="fixed inset-0 bg-black/50 z-20 hidden transition-opacity opacity-0"></div>
+    <div id="chat-window" class="fixed top-0 left-0 bottom-0 w-4/5 max-w-md bg-white z-30 shadow-2xl flex flex-col">
+        <div class="p-4 border-b flex justify-between items-center bg-gray-50">
+            <h3 class="font-bold">צ'אט חברה</h3>
+            <button onclick="toggleChat()"><i data-feather="x"></i></button>
+        </div>
+        <div id="chat-messages" class="flex-1 p-4 overflow-y-auto flex flex-col gap-2 bg-gray-100"></div>
+        <form id="chat-form" class="p-3 border-t bg-white flex gap-2">
+            <input type="text" id="chat-input" placeholder="הודעה..." class="flex-1 p-2 border rounded-lg" autocomplete="off">
+            <button type="submit" class="p-2 bg-blue-600 text-white rounded-lg"><i data-feather="send"></i></button>
+        </form>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+        import { getFirestore, collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+          apiKey: "AIzaSyDq0oVwS6zbEfsgrYBRkeBq80dDUKMedzo", authDomain: "saban94-78949.firebaseapp.com", projectId: "saban94-78949",
+          storageBucket: "saban94-78949.firebasestorage.app", messagingSenderId: "41553157903", appId: "1:41553157903:web:cc33d252cff023be97a87a", measurementId: "G-XV6RZDESSB"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        
+        let userProfile = null;
+        let currentChatRoomId = null;
+
+        // UI Helpers
+        window.toggleChat = () => {
+            const win = document.getElementById('chat-window');
+            const overlay = document.getElementById('chat-overlay');
+            if (win.classList.contains('open')) {
+                win.classList.remove('open');
+                overlay.classList.add('hidden');
+                setTimeout(() => overlay.classList.remove('opacity-100'), 0);
+            } else {
+                overlay.classList.remove('hidden');
+                setTimeout(() => overlay.classList.add('opacity-100'), 10);
+                win.classList.add('open');
+                const list = document.getElementById('chat-messages');
+                list.scrollTop = list.scrollHeight;
+            }
+        };
+
+        window.logout = () => signOut(auth);
+
+        // Auth Logic
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                try {
+                    const snap = await getDoc(doc(db, 'users', user.uid));
+                    if (snap.exists()) {
+                        userProfile = { uid: user.uid, ...snap.data() };
+                        document.getElementById('username').innerText = userProfile.name;
+                        document.getElementById('loading').classList.add('hidden');
+                        document.getElementById('login-view').classList.add('hidden');
+                        document.getElementById('app-view').classList.remove('hidden');
+                        initOrders();
+                        initChat();
+                    } else {
+                        alert('שגיאה: לא נמצא פרופיל משתמש. וודא שה-UID תואם.');
+                        signOut(auth);
+                    }
+                } catch (e) { console.error(e); }
+            } else {
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('app-view').classList.add('hidden');
+                document.getElementById('login-view').classList.remove('hidden');
+            }
+        });
+
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email-input').value;
+            const pass = document.getElementById('password-input').value;
+            try { await signInWithEmailAndPassword(auth, email, pass); }
+            catch (e) { document.getElementById('login-error').innerText = "שגיאה בהתחברות"; document.getElementById('login-error').classList.remove('hidden'); }
+        });
+
+        // App Logic
+        function initOrders() {
+            const q = query(collection(db, 'orders'), where('driver.name', '==', userProfile.name), where('status', 'in', ['שויך', 'בדרך']));
+            onSnapshot(q, (snap) => {
+                const list = document.getElementById('orders-list');
+                if (snap.empty) { list.innerHTML = '<p class="text-center text-gray-500 mt-10">אין הזמנות פעילות.</p>'; return; }
+                list.innerHTML = snap.docs.map(doc => {
+                    const d = doc.data();
+                    return `
+                        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                            <div class="flex justify-between items-start mb-2">
+                                <div><h3 class="font-bold text-lg">${d.customer?.name || 'לקוח'}</h3><p class="text-sm text-gray-500">${d.address}</p></div>
+                                <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">${d.status}</span>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 mt-4">
+                                <a href="https://waze.com/ul?q=${encodeURIComponent(d.address)}&navigate=yes" class="bg-blue-500 text-white text-center p-2 rounded-lg font-bold">Waze</a>
+                                <a href="tel:${d.customer?.phone}" class="bg-green-500 text-white text-center p-2 rounded-lg font-bold">חייג</a>
+                            </div>
+                            <button onclick="updateStatus('${doc.id}', '${d.status === 'שויך' ? 'בדרך' : 'הושלם'}')" class="w-full mt-2 bg-gray-100 p-2 rounded-lg text-gray-700 font-medium hover:bg-gray-200">
+                                סמן כ-${d.status === 'שויך' ? 'בדרך' : 'הושלם'}
+                            </button>
+                        </div>
+                    `;
+                }).join('');
+                feather.replace();
+            });
+        }
+
+        window.updateStatus = (id, status) => {
+            updateDoc(doc(db, 'orders', id), { status, lastModified: serverTimestamp() });
+        };
+
+        async function initChat() {
+            const qRoom = query(collection(db, 'chat_rooms'), where('name', '==', 'סידור'));
+            onSnapshot(qRoom, (snap) => { if (!snap.empty) { currentChatRoomId = snap.docs[0].id; listenMessages(); } });
+        }
+
+        function listenMessages() {
+            const q = query(collection(db, 'messages'), where('roomId', '==', currentChatRoomId), orderBy('createdAt', 'asc'));
+            onSnapshot(q, (snap) => {
+                const list = document.getElementById('chat-messages');
+                list.innerHTML = snap.docs.map(doc => {
+                    const m = doc.data();
+                    const isMe = m.senderId === userProfile.uid;
+                    return `<div class="flex flex-col ${isMe ? 'items-end' : 'items-start'}"><div class="chat-bubble ${isMe ? 'sent' : 'received'}">${m.text}</div></div>`;
+                }).join('');
+                list.scrollTop = list.scrollHeight;
+            });
+        }
+
+        document.getElementById('chat-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const input = document.getElementById('chat-input');
+            if (!input.value.trim() || !currentChatRoomId) return;
+            await addDoc(collection(db, 'messages'), { text: input.value.trim(), roomId: currentChatRoomId, senderId: userProfile.uid, senderName: userProfile.name, type: 'TEXT', createdAt: serverTimestamp() });
+            input.value = '';
+        });
+        
+        feather.replace();
+    </script>
+</body>
+</html>
