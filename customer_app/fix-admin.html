@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Saban 360 | ניהול מערכת</title>
+    <title>Saban 360 | מרכז שליטה</title>
     
     <!-- ספריות -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -61,6 +61,7 @@
         const { useState, useEffect, useMemo, useRef } = React;
         const { createRoot } = ReactDOM;
         
+        // --- Firebase ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
         import { getFirestore, collection, doc, onSnapshot, query, orderBy, where, addDoc, updateDoc, deleteDoc, serverTimestamp, setDoc, getDoc, limit, writeBatch } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
@@ -78,7 +79,7 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // --- Icons ---
+        // --- Icons (FIXED with Fragments <>) ---
         const Icon = ({ name, className, size=20 }) => {
             const icons = {
                 LayoutDashboard: <><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></>,
@@ -120,6 +121,7 @@
             );
         }
 
+        // --- 1. Catalog Management (with Import) ---
         function CatalogPanel() {
             const [products, setProducts] = useState([]);
             const [isModalOpen, setIsModalOpen] = useState(false);
@@ -156,59 +158,84 @@
                 }
             };
 
+            const handleFileUpload = (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    try {
+                        const json = JSON.parse(e.target.result);
+                        if (!Array.isArray(json)) throw new Error("הקובץ חייב להכיל מערך של מוצרים");
+                        
+                        if (confirm(`האם לייבא ${json.length} מוצרים?`)) {
+                            const batch = writeBatch(db);
+                            json.forEach(item => {
+                                const ref = doc(collection(db, "products"));
+                                batch.set(ref, { ...item, createdAt: serverTimestamp() });
+                            });
+                            await batch.commit();
+                            logAction("ייבוא קובץ", `יובאו ${json.length} מוצרים מקובץ`);
+                            alert("הייבוא הושלם בהצלחה!");
+                        }
+                    } catch (err) {
+                        alert("שגיאה בקריאת הקובץ: " + err.message);
+                    }
+                };
+                reader.readAsText(file);
+            };
+
             const filtered = products.filter(p => p.name.includes(searchTerm) || p.sku?.includes(searchTerm));
 
             return (
-                <div className="fade-in">
-                    <div className="flex justify-between items-center mb-8">
-                        <div>
-                            <h2 className="text-3xl font-bold text-slate-800">קטלוג מוצרים</h2>
-                            <p className="text-slate-500 text-sm">ניהול מלאי ומחירים</p>
-                        </div>
-                        <div className="flex gap-3">
-                            <button onClick={() => { setEditingProduct(null); setIsModalOpen(true); }} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-blue-100 flex items-center gap-2 transition-all">
-                                <Icon name="Plus" /> מוצר חדש
+                <div>
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-2xl font-bold">ניהול קטלוג</h2>
+                        <div className="flex gap-2">
+                            <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept=".json" />
+                            <button onClick={() => fileInputRef.current.click()} className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg flex items-center gap-2">
+                                <Icon name="Upload" /> ייבוא מקובץ (JSON)
+                            </button>
+                            <button onClick={() => { setEditingProduct(null); setIsModalOpen(true); }} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg flex items-center gap-2">
+                                <Icon name="Plus" /> הוסף מוצר
                             </button>
                         </div>
                     </div>
 
-                    <div className="mb-8 relative">
-                        <input type="text" placeholder="חיפוש בקטלוג..." value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} className="w-full p-4 pl-12 rounded-2xl input-light shadow-sm" />
-                        <Icon name="Search" className="absolute top-4 left-4 text-slate-400" />
+                    <div className="mb-6 relative">
+                        <input type="text" placeholder="חפש..." value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} className="w-full p-3 pl-10 rounded-lg input-dark" />
+                        <Icon name="Search" className="absolute top-3 left-3 text-slate-400" />
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {filtered.map(p => (
-                            <div key={p.id} className="glass p-5 rounded-2xl flex flex-col gap-4 group">
-                                <div className="flex gap-5">
-                                    <div className="w-24 h-24 rounded-xl bg-slate-100 overflow-hidden shadow-inner">
-                                        <img src={p.image || 'https://via.placeholder.com/100'} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                                    </div>
-                                    <div className="flex-1 py-1">
-                                        <h3 className="font-bold text-xl text-slate-800 line-clamp-1">{p.name}</h3>
-                                        <p className="text-slate-500 text-sm font-mono bg-slate-100 inline-block px-2 rounded mt-1">{p.sku}</p>
-                                        <p className="text-blue-600 font-bold text-lg mt-2">{p.price}</p>
+                            <div key={p.id} className="glass p-4 rounded-xl flex flex-col gap-3 hover:bg-slate-800/50">
+                                <div className="flex gap-4">
+                                    <img src={p.image || 'https://via.placeholder.com/100'} className="w-20 h-20 object-cover rounded-lg bg-slate-800" />
+                                    <div className="flex-1">
+                                        <h3 className="font-bold text-lg">{p.name}</h3>
+                                        <p className="text-slate-400 text-sm">מק"ט: {p.sku}</p>
+                                        <p className="text-green-400 font-bold mt-1">{p.price}</p>
                                     </div>
                                 </div>
-                                <div className="flex gap-3 mt-auto pt-4 border-t border-slate-100 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button onClick={() => { setEditingProduct(p); setIsModalOpen(true); }} className="flex-1 bg-slate-100 hover:bg-slate-200 py-2 rounded-lg text-sm font-medium text-slate-600 flex justify-center items-center gap-2"><Icon name="Edit" size={16}/> ערוך</button>
-                                    <button onClick={() => handleDelete(p.id, p.name)} className="flex-1 bg-red-50 hover:bg-red-100 text-red-500 py-2 rounded-lg text-sm font-medium flex justify-center items-center gap-2"><Icon name="Trash2" size={16}/> מחק</button>
+                                <div className="flex gap-2 mt-auto pt-3 border-t border-slate-700">
+                                    <button onClick={() => { setEditingProduct(p); setIsModalOpen(true); }} className="flex-1 bg-slate-700 py-2 rounded text-sm flex justify-center items-center gap-2"><Icon name="Edit" size={16}/> ערוך</button>
+                                    <button onClick={() => handleDelete(p.id, p.name)} className="flex-1 bg-red-900/30 text-red-400 py-2 rounded text-sm flex justify-center items-center gap-2"><Icon name="Trash2" size={16}/> מחק</button>
                                 </div>
                             </div>
                         ))}
                     </div>
 
-                    {/* Modal */}
                     {isModalOpen && (
-                        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4 fade-in">
-                            <div className="bg-white p-8 rounded-3xl w-full max-w-lg shadow-2xl">
-                                <div className="flex justify-between mb-6"><h3 className="text-2xl font-bold text-slate-800">{editingProduct ? 'עריכת מוצר' : 'מוצר חדש'}</h3><button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-full"><Icon name="X" className="text-slate-500"/></button></div>
-                                <form onSubmit={handleSave} className="space-y-5">
-                                    <div className="grid grid-cols-2 gap-4"><input name="name" defaultValue={editingProduct?.name} placeholder="שם המוצר" className="input-light p-3 rounded-xl w-full" required /><input name="sku" defaultValue={editingProduct?.sku} placeholder="מק''ט" className="input-light p-3 rounded-xl w-full" /></div>
-                                    <div className="grid grid-cols-2 gap-4"><input name="category" defaultValue={editingProduct?.category} placeholder="קטגוריה" className="input-light p-3 rounded-xl w-full" /><input name="price" defaultValue={editingProduct?.price} placeholder="מחיר" className="input-light p-3 rounded-xl w-full" /></div>
-                                    <input name="image" defaultValue={editingProduct?.image} placeholder="URL תמונה" className="input-light p-3 rounded-xl w-full" />
-                                    <textarea name="description" defaultValue={editingProduct?.description} placeholder="תיאור מוצר" rows="3" className="input-light p-3 rounded-xl w-full"></textarea>
-                                    <div className="flex gap-4 pt-4"><button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 rounded-xl bg-slate-100 text-slate-600 font-medium hover:bg-slate-200">ביטול</button><button type="submit" className="flex-1 py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 shadow-lg shadow-blue-100">שמור שינויים</button></div>
+                        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+                            <div className="bg-slate-900 p-6 rounded-2xl w-full max-w-lg border border-slate-700 shadow-2xl">
+                                <div className="flex justify-between mb-6"><h3 className="text-xl font-bold">{editingProduct ? 'עריכה' : 'חדש'}</h3><button onClick={() => setIsModalOpen(false)}><Icon name="X" /></button></div>
+                                <form onSubmit={handleSave} className="space-y-4">
+                                    <div className="grid grid-cols-2 gap-4"><input name="name" defaultValue={editingProduct?.name} placeholder="שם" className="input-dark p-3 rounded-lg w-full" required /><input name="sku" defaultValue={editingProduct?.sku} placeholder="מק''ט" className="input-dark p-3 rounded-lg w-full" /></div>
+                                    <div className="grid grid-cols-2 gap-4"><input name="category" defaultValue={editingProduct?.category} placeholder="קטגוריה" className="input-dark p-3 rounded-lg w-full" /><input name="price" defaultValue={editingProduct?.price} placeholder="מחיר" className="input-dark p-3 rounded-lg w-full" /></div>
+                                    <input name="image" defaultValue={editingProduct?.image} placeholder="URL תמונה" className="input-dark p-3 rounded-lg w-full" />
+                                    <textarea name="description" defaultValue={editingProduct?.description} placeholder="תיאור" rows="3" className="input-dark p-3 rounded-lg w-full"></textarea>
+                                    <div className="flex gap-3 pt-4"><button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 rounded-lg bg-slate-800">ביטול</button><button type="submit" className="flex-1 py-3 rounded-lg bg-blue-600 font-bold">שמור</button></div>
                                 </form>
                             </div>
                         </div>
@@ -223,7 +250,7 @@
             const [customers, setCustomers] = useState([]);
             const [tab, setTab] = useState('customers');
             const [isModalOpen, setIsModalOpen] = useState(false);
-            const [modalType, setModalType] = useState('');
+            const [modalType, setModalType] = useState(''); // 'add-user', 'add-customer', 'add-project'
             const [selectedCustomer, setSelectedCustomer] = useState(null);
 
             useEffect(() => {
@@ -232,16 +259,47 @@
                 return () => { u1(); u2(); };
             }, []);
 
-            const handleAddUser = async (e) => { /* ...same logic... */ };
-            const handleAddCustomer = async (e) => { /* ...same logic... */ };
-            const handleAddProject = async (e) => { /* ...same logic... */ };
+            const handleAddUser = async (e) => {
+                e.preventDefault();
+                const data = Object.fromEntries(new FormData(e.target));
+                // הערה: כאן אנו יוצרים רק את הפרופיל. המשתמש עצמו צריך להיווצר ב-Auth בנפרד.
+                try {
+                    await setDoc(doc(db, "users", data.uid), { name: data.name, role: data.role, email: data.email, createdAt: serverTimestamp() });
+                    logAction("הוספת עובד", `נוצר עובד: ${data.name}`);
+                    setIsModalOpen(false);
+                } catch (err) { alert("שגיאה: " + err.message); }
+            };
+
+            const handleAddCustomer = async (e) => {
+                e.preventDefault();
+                const data = Object.fromEntries(new FormData(e.target));
+                try {
+                    await setDoc(doc(db, "customers", data.uid), { name: data.name, email: data.email, phone: data.phone, projects: [], createdAt: serverTimestamp() });
+                    logAction("הוספת לקוח", `נוצר לקוח: ${data.name}`);
+                    setIsModalOpen(false);
+                } catch (err) { alert("שגיאה: " + err.message); }
+            };
+
+            const handleAddProject = async (e) => {
+                e.preventDefault();
+                const data = Object.fromEntries(new FormData(e.target));
+                const newProject = { projectId: data.projectId, name: data.projectName, address: data.address };
+                
+                try {
+                    // *** FIX: Handle undefined projects safely ***
+                    const currentProjects = selectedCustomer.projects || [];
+                    await updateDoc(doc(db, "customers", selectedCustomer.id), { projects: [...currentProjects, newProject] });
+                    logAction("הוספת פרויקט", `נוסף פרויקט ${data.projectName} ללקוח ${selectedCustomer.name}`);
+                    setIsModalOpen(false);
+                } catch (err) { alert("שגיאה: " + err.message); }
+            };
 
             return (
                 <div className="max-w-6xl mx-auto fade-in">
                     <div className="flex justify-between items-center mb-8">
                         <div className="flex gap-2 bg-white p-1 rounded-xl border border-slate-200">
-                            <button onClick={()=>setTab('customers')} className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${tab==='customers' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}>לקוחות</button>
-                            <button onClick={()=>setTab('workers')} className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${tab==='workers' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}>עובדים</button>
+                            <button onClick={()=>setTab('customers')} className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${tab==='customers' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}>לקוחות ({customers.length})</button>
+                            <button onClick={()=>setTab('workers')} className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${tab==='workers' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}>עובדים ({users.length})</button>
                         </div>
                         <button onClick={() => { setModalType(tab==='workers'?'add-user':'add-customer'); setIsModalOpen(true); }} className="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 text-sm font-bold shadow-lg"><Icon name="Plus" size={18}/> {tab==='workers'?'הוסף עובד':'הוסף לקוח'}</button>
                     </div>
@@ -278,8 +336,51 @@
                             </tbody>
                         </table>
                     </div>
-                    
-                    {/* Modals go here (same logic, updated style) */}
+
+                    {/* Universal Modal */}
+                    {isModalOpen && (
+                        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+                            <div className="bg-slate-900 p-6 rounded-2xl w-full max-w-md border border-slate-700">
+                                <div className="flex justify-between mb-4"><h3 className="text-xl font-bold">הוספה</h3><button onClick={()=>setIsModalOpen(false)}><Icon name="X"/></button></div>
+                                
+                                {modalType === 'add-user' && (
+                                    <form onSubmit={handleAddUser} className="space-y-4">
+                                        <p className="text-sm text-yellow-500 bg-yellow-900/20 p-2 rounded">שים לב: יש ליצור את המשתמש ב-Auth בנפרד עם ה-UID הזה.</p>
+                                        <input name="uid" placeholder="UID (מ-Firebase Auth)" className="input-dark p-3 rounded-lg w-full" required />
+                                        <input name="name" placeholder="שם העובד" className="input-dark p-3 rounded-lg w-full" required />
+                                        <input name="email" placeholder="אימייל" className="input-dark p-3 rounded-lg w-full" required />
+                                        <select name="role" className="input-dark p-3 rounded-lg w-full">
+                                            <option value="worker">עובד (Worker)</option>
+                                            <option value="driver">נהג (Driver)</option>
+                                            <option value="admin">מנהל (Admin)</option>
+                                        </select>
+                                        <button type="submit" className="w-full py-3 bg-blue-600 rounded-lg font-bold mt-2">צור עובד</button>
+                                    </form>
+                                )}
+
+                                {modalType === 'add-customer' && (
+                                    <form onSubmit={handleAddCustomer} className="space-y-4">
+                                        <p className="text-sm text-yellow-500 bg-yellow-900/20 p-2 rounded">שים לב: יש ליצור את הלקוח ב-Auth בנפרד.</p>
+                                        <input name="uid" placeholder="UID (מ-Firebase Auth)" className="input-dark p-3 rounded-lg w-full" required />
+                                        <input name="name" placeholder="שם הלקוח" className="input-dark p-3 rounded-lg w-full" required />
+                                        <input name="email" placeholder="אימייל" className="input-dark p-3 rounded-lg w-full" required />
+                                        <input name="phone" placeholder="טלפון" className="input-dark p-3 rounded-lg w-full" />
+                                        <button type="submit" className="w-full py-3 bg-blue-600 rounded-lg font-bold mt-2">צור לקוח</button>
+                                    </form>
+                                )}
+
+                                {modalType === 'add-project' && selectedCustomer && (
+                                    <form onSubmit={handleAddProject} className="space-y-4">
+                                        <h4 className="text-sm text-blue-400">הוספת פרויקט ל: {selectedCustomer.name}</h4>
+                                        <input name="projectId" placeholder="מזהה פרויקט (באנגלית, למשל proj-tlv)" className="input-dark p-3 rounded-lg w-full" required />
+                                        <input name="projectName" placeholder="שם הפרויקט" className="input-dark p-3 rounded-lg w-full" required />
+                                        <input name="address" placeholder="כתובת" className="input-dark p-3 rounded-lg w-full" required />
+                                        <button type="submit" className="w-full py-3 bg-blue-600 rounded-lg font-bold mt-2">הוסף פרויקט</button>
+                                    </form>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
             );
         }
@@ -287,15 +388,17 @@
         // --- 3. המלשינון (Logs) ---
         function LogsPanel() {
             const [logs, setLogs] = useState([]);
+
             useEffect(() => {
-                const unsub = onSnapshot(query(collection(db, "system_logs_v3"), orderBy("timestamp", "desc"), limit(50)), s => setLogs(s.docs.map(d => ({id: d.id, ...d.data()}))));
+                const q = query(collection(db, "system_logs_v3"), orderBy("timestamp", "desc"), limit(100));
+                const unsub = onSnapshot(q, snap => setLogs(snap.docs.map(d => ({id: d.id, ...d.data()}))));
                 return () => unsub();
             }, []);
 
             return (
                 <div className="max-w-5xl mx-auto fade-in">
-                    <h2 className="text-2xl font-bold mb-6 text-slate-800 flex items-center gap-3"><div className="p-2 bg-red-100 text-red-600 rounded-lg"><Icon name="Activity"/></div> יומן פעילות מערכת</h2>
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                    <h2 className="text-2xl font-bold mb-6 text-red-400 flex items-center gap-2"><Icon name="Activity"/> המלשינון</h2>
+                    <div className="glass rounded-xl overflow-hidden max-h-[70vh] overflow-y-auto">
                         {logs.map(log => (
                             <div key={log.id} className="p-5 border-b border-slate-50 hover:bg-slate-50/50 flex justify-between items-center">
                                 <div className="flex gap-4 items-center">
@@ -317,13 +420,28 @@
             );
         }
 
-        // --- App Shell ---
+        // --- Services ---
+        async function logAction(action, details) {
+            if (!auth.currentUser) return;
+            await addDoc(collection(db, "system_logs_v3"), {
+                message: details,
+                category: action,
+                timestamp: serverTimestamp(),
+                user: { uid: auth.currentUser.uid, email: auth.currentUser.email }
+            });
+        }
+
+        // --- App ---
         function App() {
             const [user, setUser] = useState(null);
             const [view, setView] = useState('catalog');
 
             useEffect(() => onAuthStateChanged(auth, u => setUser(u)), []);
-            const handleLogin = async (email, password) => { try { await signInWithEmailAndPassword(auth, email, password); } catch(e){ alert("שגיאה"); } };
+
+            const handleLogin = async (email, password) => {
+                try { await signInWithEmailAndPassword(auth, email, password); } 
+                catch (e) { alert("שגיאה: " + e.message); }
+            };
 
             if (!user) return <LoginScreen onLogin={handleLogin} />;
 
@@ -363,9 +481,6 @@
                 </div>
             );
         }
-
-        // Helper for logging
-        async function logAction(action, details) { /* ...same... */ }
 
         const root = createRoot(document.getElementById('root'));
         root.render(<App />);
