@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>תיקון משתמש מנהל</title>
+    <style>body { font-family: sans-serif; text-align: center; padding: 50px; direction: rtl; }</style>
+</head>
+<body>
+    <h2>🛠️ מתקן פרופיל למשתמש ראמי...</h2>
+    <div id="status">מתחבר למסד נתונים...</div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+        import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+          apiKey: "AIzaSyDq0oVwS6zbEfsgrYBRkeBq80dDUKMedzo", 
+          authDomain: "saban94-78949.firebaseapp.com", 
+          projectId: "saban94-78949", 
+          storageBucket: "saban94-78949.firebasestorage.app", 
+          messagingSenderId: "41553157903", 
+          appId: "1:41553157903:web:cc33d252cff023be97a87a"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // הנתונים שביקשת להגדיר
+        const TARGET_UID = "Z96CCdBxGXfrPMXlMjrQMnv55qA3";
+        
+        const profileData = {
+            name: "ראמי-מחלקת הזמנות",
+            email: "ramims@saban94.co.il",
+            role: "admin",       // הרשאת מנהל
+            phone: "",           // אפשר לערוך אח"כ
+            projects: [],        // מערך ריק למניעת שגיאות
+            createdAt: serverTimestamp()
+        };
+
+        async function fixUser() {
+            try {
+                // כותב ישירות לנתיב customers/UID
+                await setDoc(doc(db, "customers", TARGET_UID), profileData);
+                
+                document.getElementById('status').innerHTML = 
+                    `<h3 style="color:green">✅ בוצע בהצלחה!</h3>
+                     <p>הפרופיל של ראמי נוצר במאגר.</p>
+                     <p>כעת ניתן להיכנס לאפליקציה.</p>`;
+            } catch (error) {
+                document.getElementById('status').innerHTML = 
+                    `<h3 style="color:red">❌ שגיאה:</h3>
+                     <p>${error.message}</p>`;
+                console.error(error);
+            }
+        }
+
+        fixUser();
+    </script>
+</body>
+</html>
