@@ -42,7 +42,7 @@
         import { getFirestore, collection, doc, onSnapshot, query, orderBy, where, getDoc, addDoc, serverTimestamp, limit, updateDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
         import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-storage.js";
 
-        // כתובת הסקריפט שלך
+        // *** כתובת הסקריפט שלך ***
         const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby7qKICvRYStFkcDPLtGhGPaNqyYt-G8dZqBJfGm7vpmOG6Kf_n3f29V8oyUW9PjBUj7A/exec";
 
         const firebaseConfig = {
@@ -58,6 +58,7 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
+        const storage = getStorage(app);
 
         // --- Icons ---
         const Icon = ({ name, className, size=24 }) => {
@@ -123,7 +124,9 @@
             return (
                 <div className="flex items-center justify-center min-h-screen bg-gray-100 p-4">
                     <div className="w-full max-w-md bg-white p-8 rounded-3xl shadow-xl border border-gray-100 text-center">
-                        <h2 className="text-2xl font-bold text-gray-800 mb-6">ח. סבן חומרי בניין</h2>
+                        <div className="w-20 h-20 bg-white rounded-2xl mx-auto flex items-center justify-center shadow-lg mb-4 overflow-hidden border border-gray-100"><img src="https://i.postimg.cc/ryPT3r29/hwrdh.png" className="w-full h-full object-contain p-2" /></div>
+                        <h2 className="text-2xl font-bold text-gray-800">ח. סבן חומרי בניין</h2>
+                        <p className="text-gray-500 text-sm mt-1 mb-6">פורטל הזמנות מתקדם</p>
                         <form onSubmit={handleLogin} className="space-y-4">
                             <input type="email" placeholder="אימייל" value={email} onChange={e=>setEmail(e.target.value)} className="w-full p-3 border rounded-xl" required />
                             <input type="password" placeholder="סיסמה" value={password} onChange={e=>setPassword(e.target.value)} className="w-full p-3 border rounded-xl" required />
@@ -209,6 +212,7 @@
                 else if (type === 'LOCATION') { msg.location = payload; msg.text = '📍 מיקום שיתופי'; }
 
                 await addDoc(collection(db, 'messages'), msg);
+                setShowMenu(false);
             };
 
             const handleLocation = () => {
@@ -256,11 +260,11 @@
             };
 
             return (
-                <div className="flex flex-col h-full bg-[#efeae2]">
-                    <header className="bg-[#008069] text-white p-3 flex items-center shadow-md sticky top-0 z-20">
-                        <button onClick={onBack} className="p-2"><Icon name="ArrowRight" /></button>
+                <div className="flex flex-col h-full bg-[#e5ded8]">
+                    <header className="bg-white p-3 flex items-center shadow-sm sticky top-0 z-20">
+                        <button onClick={onBack} className="p-2 text-gray-600"><Icon name="ArrowRight" /></button>
                         <img src={project.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(project.name)}`} className="w-10 h-10 rounded-full object-cover ml-2 mr-1 bg-white" />
-                        <div className="flex-1"><div className="font-bold text-sm">{project.name}</div></div>
+                        <div className="flex-1"><div className="font-bold text-gray-800 text-sm">{project.name}</div></div>
                     </header>
                     
                     <div className="flex-1 overflow-y-auto p-4 space-y-3" style={{backgroundImage: "url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')"}}>
@@ -302,16 +306,16 @@
             );
         }
 
-        // --- Knowledge Page (Fixed Catalog) ---
+        // --- Knowledge Page (Live Catalog) ---
         function KnowledgePage({ showToast }) {
             const [term, setTerm] = useState('');
-            const [liveProducts, setLiveProducts] = useState([]);
+            const [products, setProducts] = useState([]);
 
             useEffect(() => {
-                return onSnapshot(collection(db, "products"), snap => setLiveProducts(snap.docs.map(d => ({id: d.id, ...d.data()}))));
+                return onSnapshot(collection(db, "products"), snap => setProducts(snap.docs.map(d => ({id: d.id, ...d.data()}))));
             }, []);
 
-            const filtered = KnowledgeBase.search(term, liveProducts);
+            const filtered = KnowledgeBase.search(term, products);
 
             return (
                 <div className="flex flex-col h-full">
