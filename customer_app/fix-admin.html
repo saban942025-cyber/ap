@@ -17,8 +17,6 @@
         .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
         .input-dark { background: #1e293b; border: 1px solid #334155; color: white; }
         .input-dark:focus { outline: none; border-color: #3b82f6; ring: 2px; ring-color: #3b82f6; }
-        .btn-primary { background-color: #2563eb; color: white; transition: all 0.2s; }
-        .btn-primary:hover { background-color: #1d4ed8; }
         
         /* גלילה מותאמת */
         ::-webkit-scrollbar { width: 8px; }
@@ -31,7 +29,6 @@
     <div id="root"></div>
 
     <script type="text/babel" data-type="module">
-        // *** FIX: Ensure all hooks are destructured correctly ***
         const { useState, useEffect, useMemo, useRef } = React;
         const { createRoot } = ReactDOM;
         
@@ -233,7 +230,6 @@
             const handleAddUser = async (e) => {
                 e.preventDefault();
                 const data = Object.fromEntries(new FormData(e.target));
-                // הערה: כאן אנו יוצרים רק את הפרופיל. המשתמש עצמו צריך להיווצר ב-Auth בנפרד.
                 try {
                     await setDoc(doc(db, "users", data.uid), { name: data.name, role: data.role, email: data.email, createdAt: serverTimestamp() });
                     logAction("הוספת עובד", `נוצר עובד: ${data.name}`);
@@ -257,6 +253,7 @@
                 const newProject = { projectId: data.projectId, name: data.projectName, address: data.address };
                 
                 try {
+                    // *** FIX: Handle cases where projects array is undefined ***
                     const currentProjects = selectedCustomer.projects || [];
                     await updateDoc(doc(db, "customers", selectedCustomer.id), { projects: [...currentProjects, newProject] });
                     logAction("הוספת פרויקט", `נוסף פרויקט ${data.projectName} ללקוח ${selectedCustomer.name}`);
@@ -292,7 +289,8 @@
                                         <td className="p-4 text-sm">
                                             {tab==='workers' ? 
                                                 <span className="px-2 py-1 bg-slate-700 rounded">{item.role}</span> : 
-                                                <div className="flex flex-wrap gap-1">{item.projects?.map(p=><span key={p.projectId} className="px-2 py-1 bg-blue-900/40 text-blue-300 rounded text-xs">{p.name}</span>)}</div>
+                                                // *** FIX: Handle undefined projects safely ***
+                                                <div className="flex flex-wrap gap-1">{(item.projects || []).map(p=><span key={p.projectId} className="px-2 py-1 bg-blue-900/40 text-blue-300 rounded text-xs">{p.name}</span>)}</div>
                                             }
                                         </td>
                                         <td className="p-4">
