@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ח. סבן | ניהול קטלוג ומלאי</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6; }
+        .glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
+        /* אנימציה עדינה לשינויים */
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel" data-type="module">
+        const { useState, useEffect } = React;
+        const { createRoot } = ReactDOM;
+
+        // --- Firebase Imports (אותה תצורה בדיוק כמו באפליקציית הלקוח) ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+        import { getFirestore, collection, doc, onSnapshot, addDoc, updateDoc, deleteDoc, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+          apiKey: "AIzaSyDq0oVwS6zbEfsgrYBRkeBq80dDUKMedzo", 
+          authDomain: "saban94-78949.firebaseapp.com", 
+          projectId: "saban94-78949", 
+          storageBucket: "saban94-78949.firebasestorage.app", 
+          messagingSenderId: "41553157903", 
+          appId: "1:41553157903:web:cc33d252cff023be97a87a",
+          measurementId: "G-XV6RZDESSB"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const PRODUCTS_COLLECTION = "products"; // שם האוסף בדאטה בייס
+
+        // --- רכיב כניסה ---
+        function LoginScreen() {
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [error, setError] = useState('');
+
+            const handleLogin = async (e) => {
+                e.preventDefault();
+                try {
+                    await signInWithEmailAndPassword(auth, email, password);
+                } catch (err) {
+                    setError("שגיאה בהתחברות: בדוק הרשאות מנהל");
+                }
+            };
+
+            return (
+                <div className="min-h-screen flex items-center justify-center bg-gray-200">
+                    <div className="bg-white p-8 rounded-2xl shadow-xl w-96">
+                        <h2 className="text-2xl font-bold text-center mb-6 text-blue-800">ניהול קטלוג ח. סבן</h2>
+                        <form onSubmit={handleLogin} className="space-y-4">
+                            <input type="email" placeholder="אימייל מנהל" value={email} onChange={e=>setEmail(e.target.value)} className="w-full p-3 border rounded-lg" />
+                            <input type="password" placeholder="סיסמה" value={password} onChange={e=>setPassword(e.target.value)} className="w-full p-3 border rounded-lg" />
+                            {error && <p className="text-red-500 text-sm">{error}</p>}
+                            <button className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700">כניסה</button>
+                        </form>
+                    </div>
+                </div>
+            );
+        }
+
+        // --- רכיב יבוא מאקסל ---
+        function BulkImport({ onClose }) {
+            const [textData, setTextData] = useState('');
+            const [preview, setPreview] = useState([]);
+            const [loading, setLoading] = useState(false);
+
+            // פונקציה שממירה טקסט שהועתק מאקסל לJSON
+            const parseData = () => {
+                const lines = textData.trim().split('\n');
+                const parsed = lines.map(line => {
+                    // הנחה: סדר עמודות: מק"ט | שם מוצר | מחיר | מפרט | תמונה (URL)
+                    const parts = line.split('\t'); // אקסל משתמש בטאבים
+                    return {
+                        sku: parts[0]?.trim() || '',
+                        name: parts[1]?.trim() || '',
+                        price: parts[2]?.trim() || '0',
+                        spec: parts[3]?.trim() || '',
+                        image: parts[4]?.trim() || 'https://placehold.co/400x300?text=No+Image'
+                    };
+                }).filter(p => p.name && p.price); // סנן שורות ריקות
+                setPreview(parsed);
+            };
+
+            const executeImport = async () => {
+                setLoading(true);
+                const batch = writeBatch(db); // שימוש באצווה ליעילות
+                
+                // הערה: Firestore Batch מוגבל ל500 פעולות. לקבצים ענקיים צריך לפצל.
+                // כאן נבצע הוספה אחד אחד לפשטות בקוד צד לקוח
+                try {
+                    let count = 0;
+                    for (const item of preview) {
+                        await addDoc(collection(db, PRODUCTS_COLLECTION), {
+                            ...item,
+                            createdAt: serverTimestamp()
+                        });
+                        count++;
+                    }
+                    alert(`נוספו ${count} מוצרים בהצלחה!`);
+                    onClose();
+                } catch (e) {
+                    alert("שגיאה ביבוא: " + e.message);
+                }
+                setLoading(false);
+            };
+
+            return (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-white w-3/4 h-3/4 rounded-2xl shadow-2xl flex flex-col p-6 fade-in">
+                        <div className="flex justify-between mb-4">
+                            <h3 className="text-xl font-bold"><i className="fa-solid fa-file-excel text-green-600 ml-2"></i> יבוא המוני מגיליון</h3>
+                            <button onClick={onClose} className="text-red-500 hover:bg-red-50 p-2 rounded"><i className="fa-solid fa-times"></i></button>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-4 flex-1 overflow-hidden">
+                            <div className="flex flex-col">
+                                <label className="text-sm font-bold text-gray-600 mb-1">1. העתק נתונים מאקסל והדבק כאן:</label>
+                                <div className="text-xs text-gray-400 mb-2">סדר עמודות: מק"ט | שם | מחיר | מפרט | תמונה URL</div>
+                                <textarea 
+                                    className="flex-1 w-full p-3 border rounded-lg bg-gray-50 text-sm font-mono"
+                                    placeholder={`10-101	לוח גבס	38	120x260	http://...\n10-102	ניצב 70	18	3 מטר	http://...`}
+                                    value={textData}
+                                    onChange={e => setTextData(e.target.value)}
+                                ></textarea>
+                                <button onClick={parseData} className="mt-2 bg-gray-800 text-white py-2 rounded">בדוק נתונים</button>
+                            </div>
+                            
+                            <div className="flex flex-col bg-gray-50 border rounded-lg p-2 overflow-y-auto">
+                                <label className="text-sm font-bold text-gray-600 mb-1">2. תצוגה מקדימה ({preview.length} מוצרים):</label>
+                                <table className="w-full text-sm text-right">
+                                    <thead className="bg-gray-200 sticky top-0">
+                                        <tr><th>מק"ט</th><th>שם</th><th>מחיר</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        {preview.map((p, i) => (
+                                            <tr key={i} className="border-b">
+                                                <td>{p.sku}</td>
+                                                <td>{p.name}</td>
+                                                <td>{p.price}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div className="mt-4 flex justify-end border-t pt-4">
+                            <button 
+                                onClick={executeImport} 
+                                disabled={preview.length === 0 || loading}
+                                className={`px-6 py-2 rounded-lg font-bold text-white ${preview.length > 0 ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-400'}`}
+                            >
+                                {loading ? 'טוען למסד נתונים...' : 'בצע יבוא לקטלוג'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // --- האפליקציה הראשית ---
+        function App() {
+            const [user, setUser] = useState(null);
+            const [products, setProducts] = useState([]);
+            const [showImport, setShowImport] = useState(false);
+            const [filter, setFilter] = useState('');
+
+            useEffect(() => {
+                const unsubAuth = onAuthStateChanged(auth, (u) => setUser(u));
+                return () => unsubAuth();
+            }, []);
+
+            useEffect(() => {
+                if (!user) return;
+                // האזנה בזמן אמת למוצרים ב-Firebase
+                const q = collection(db, PRODUCTS_COLLECTION);
+                const unsubDb = onSnapshot(q, (snap) => {
+                    const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    setProducts(list);
+                });
+                return () => unsubDb();
+            }, [user]);
+
+            // עדכון שדה בודד (Live Edit)
+            const updateField = async (id, field, value) => {
+                const ref = doc(db, PRODUCTS_COLLECTION, id);
+                await updateDoc(ref, { [field]: value });
+            };
+
+            // מחיקת מוצר
+            const deleteProduct = async (id) => {
+                if (confirm('למחוק מוצר זה לצמיתות?')) {
+                    await deleteDoc(doc(db, PRODUCTS_COLLECTION, id));
+                }
+            };
+
+            // הוספת מוצר ריק ידני
+            const addEmptyProduct = async () => {
+                await addDoc(collection(db, PRODUCTS_COLLECTION), {
+                    sku: 'חדש', name: 'ערוך אותי', price: '0', spec: '', image: ''
+                });
+            };
+
+            if (!user) return <LoginScreen />;
+
+            const filteredProducts = products.filter(p => 
+                (p.name && p.name.includes(filter)) || (p.sku && p.sku.includes(filter))
+            );
+
+            return (
+                <div className="min-h-screen flex flex-col">
+                    {/* Header */}
+                    <header className="bg-blue-900 text-white p-4 shadow-md flex justify-between items-center sticky top-0 z-10">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-white/10 p-2 rounded-full"><i className="fa-solid fa-boxes-stacked"></i></div>
+                            <div>
+                                <h1 className="text-xl font-bold">מנהל קטלוג ח. סבן</h1>
+                                <div className="text-xs opacity-70 text-blue-200">{products.length} מוצרים במאגר</div>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <button onClick={()=>signOut(auth)} className="bg-red-500/20 hover:bg-red-500 text-white px-4 py-2 rounded-lg transition-colors text-sm">
+                                <i className="fa-solid fa-sign-out-alt ml-2"></i> יציאה
+                            </button>
+                        </div>
+                    </header>
+
+                    {/* Toolbar */}
+                    <div className="p-4 bg-white shadow-sm flex flex-wrap gap-4 items-center justify-between">
+                        <div className="relative w-full max-w-md">
+                            <i className="fa-solid fa-search absolute top-3 right-3 text-gray-400"></i>
+                            <input 
+                                type="text" 
+                                placeholder="חפש לפי שם או מק״ט..." 
+                                className="w-full p-2 pr-10 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                                value={filter}
+                                onChange={e => setFilter(e.target.value)}
+                            />
+                        </div>
+                        <div className="flex gap-2">
+                            <button onClick={addEmptyProduct} className="bg-gray-100 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-200 font-medium">
+                                <i className="fa-solid fa-plus ml-2"></i> הוסף ידני
+                            </button>
+                            <button onClick={() => setShowImport(true)} className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 font-medium shadow-lg shadow-green-600/20">
+                                <i className="fa-solid fa-file-excel ml-2"></i> יבוא מאקסל
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Grid / Table */}
+                    <div className="flex-1 p-4 overflow-auto">
+                        <div className="bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
+                            <table className="w-full text-right border-collapse">
+                                <thead className="bg-gray-50 text-gray-500 text-sm">
+                                    <tr>
+                                        <th className="p-3 w-20">תמונה</th>
+                                        <th className="p-3 w-32">מק"ט</th>
+                                        <th className="p-3">שם מוצר</th>
+                                        <th className="p-3 w-48">מפרט</th>
+                                        <th className="p-3 w-24">מחיר (₪)</th>
+                                        <th className="p-3 w-16"></th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {filteredProducts.map(p => (
+                                        <tr key={p.id} className="hover:bg-blue-50/50 group transition-colors">
+                                            <td className="p-2">
+                                                <img src={p.image || 'https://placehold.co/100?text=X'} className="w-10 h-10 rounded border object-cover bg-white" />
+                                            </td>
+                                            <td className="p-2">
+                                                <input 
+                                                    className="bg-transparent w-full border-b border-transparent focus:border-blue-500 outline-none font-mono text-sm"
+                                                    value={p.sku}
+                                                    onChange={(e) => updateField(p.id, 'sku', e.target.value)}
+                                                />
+                                            </td>
+                                            <td className="p-2">
+                                                <input 
+                                                    className="bg-transparent w-full border-b border-transparent focus:border-blue-500 outline-none font-medium"
+                                                    value={p.name}
+                                                    onChange={(e) => updateField(p.id, 'name', e.target.value)}
+                                                />
+                                            </td>
+                                            <td className="p-2">
+                                                <input 
+                                                    className="bg-transparent w-full border-b border-transparent focus:border-blue-500 outline-none text-sm text-gray-500"
+                                                    value={p.spec}
+                                                    onChange={(e) => updateField(p.id, 'spec', e.target.value)}
+                                                />
+                                            </td>
+                                            <td className="p-2">
+                                                <input 
+                                                    className="bg-transparent w-full border-b border-transparent focus:border-blue-500 outline-none font-bold text-blue-700"
+                                                    value={p.price}
+                                                    onChange={(e) => updateField(p.id, 'price', e.target.value)}
+                                                />
+                                            </td>
+                                            <td className="p-2 text-center">
+                                                <button onClick={() => deleteProduct(p.id)} className="text-gray-300 hover:text-red-500 transition-colors">
+                                                    <i className="fa-solid fa-trash"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {filteredProducts.length === 0 && (
+                                        <tr>
+                                            <td colspan="6" className="text-center p-8 text-gray-400">
+                                                לא נמצאו מוצרים. נסה לייבא מאקסל או להוסיף ידנית.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    {showImport && <BulkImport onClose={() => setShowImport(false)} />}
+                </div>
+            );
+        }
+
+        const root = createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
