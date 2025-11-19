@@ -5,6 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>ח. סבן | פורטל לקוחות</title>
     
+    <!-- OneSignal SDK -->
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <script>
+      window.OneSignalDeferred = window.OneSignalDeferred || [];
+      OneSignalDeferred.push(async function(OneSignal) {
+        await OneSignal.init({
+          appId: "de3834d3-1e11-40af-96d2-b25eda821c8f",
+        });
+        // תיוג המשתמש כלקוח
+        OneSignal.User.addTag("role", "customer");
+      });
+    </script>
+    
     <!-- טעינת ספריות -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
@@ -263,7 +276,7 @@
                 <div className="flex flex-col h-full bg-[#e5ded8]">
                     <header className="bg-white p-3 flex items-center shadow-sm sticky top-0 z-20">
                         <button onClick={onBack} className="p-2 text-gray-600"><Icon name="ArrowRight" /></button>
-                        <img src={project.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(project.name)}`} className="w-10 h-10 rounded-full object-cover ml-2 mr-1 bg-white" />
+                        <img src={project.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(project.name)}`} className="w-10 h-10 rounded-full object-cover ml-2 mr-1" />
                         <div className="flex-1"><div className="font-bold text-gray-800 text-sm">{project.name}</div></div>
                     </header>
                     
@@ -343,13 +356,36 @@
             const [page, setPage] = useState('chats'); 
             const [activeProject, setActiveProject] = useState(null);
             const [toast, setToast] = useState({ visible: false, message: '' });
+            const [greeting, setGreeting] = useState('');
+            const [askedPerms, setAskedPerms] = useState(false);
 
             useEffect(() => {
                 return onAuthStateChanged(auth, async (u) => {
                     if (u) {
                         const snap = await getDoc(doc(db, 'customers', u.uid));
-                        if (snap.exists()) { setUser(u); setProfile({uid: u.uid, ...snap.data()}); } 
-                        else { signOut(auth); }
+                        if (snap.exists()) { 
+                            setUser(u); 
+                            setProfile({uid: u.uid, ...snap.data()}); 
+                            const h = new Date().getHours();
+                            setGreeting(h < 12 ? "בוקר טוב" : h < 18 ? "צהריים טובים" : "ערב טוב");
+
+                            // OneSignal Initialization
+                            if (window.OneSignalDeferred) {
+                                window.OneSignalDeferred.push(function(OneSignal) {
+                                    OneSignal.login(u.uid);
+                                    OneSignal.User.addTag("role", "customer");
+                                    
+                                    // Request permission if not already granted
+                                    if (Notification.permission === "default" && !askedPerms) {
+                                        setTimeout(() => {
+                                            OneSignal.Slidedown.promptPush();
+                                            setAskedPerms(true);
+                                        }, 2000);
+                                    }
+                                });
+                            }
+
+                        } else { signOut(auth); }
                     } else { setUser(null); setProfile(null); }
                     setLoading(false);
                 });
