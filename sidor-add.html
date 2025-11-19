@@ -3,203 +3,268 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sidor | מדריך פיתוח וסימולציה</title>
+    <title>Sidor Dev | מדריך הקמה ופיתוח</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Heebo', sans-serif; background-color: #f8fafc; color: #334155; }
-        .code-block { direction: ltr; text-align: left; font-family: monospace; background: #1e293b; color: #cbd5e1; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; }
-        .highlight { color: #fbbf24; }
-        .step-card { border-left: 4px solid #3b82f6; background: white; padding: 1.5rem; margin-bottom: 1.5rem; border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        body { font-family: 'Heebo', sans-serif; background-color: #0f172a; color: #e2e8f0; }
+        .font-mono { font-family: 'Fira Code', monospace; }
+        .glass { background: rgba(30, 41, 59, 0.5); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .code-block { background: #1e293b; padding: 1.5rem; border-radius: 0.5rem; border: 1px solid #334155; overflow-x: auto; direction: ltr; text-align: left; }
+        .json-key { color: #93c5fd; }
+        .json-string { color: #86efac; }
+        .json-number { color: #fca5a5; }
+        .json-bool { color: #f9a8d4; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col">
 
-    <header class="bg-slate-900 text-white p-6 sticky top-0 z-50 shadow-lg">
-        <div class="container mx-auto flex justify-between items-center">
+    <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-50">
+        <div class="container mx-auto px-6 py-4 flex justify-between items-center">
             <div class="flex items-center gap-3">
-                <div class="bg-blue-600 p-2 rounded-lg"><i data-lucide="code-2"></i></div>
-                <h1 class="text-2xl font-bold">Sidor Dev Guide</h1>
+                <div class="bg-blue-600 p-2 rounded-lg text-white"><i data-lucide="terminal-square"></i></div>
+                <div>
+                    <h1 class="text-xl font-bold text-white">Sidor Dev Guide</h1>
+                    <p class="text-xs text-slate-400">תיעוד טכני ומדריך הקמה</p>
+                </div>
             </div>
-            <nav class="hidden md:flex gap-6 text-sm font-medium">
-                <a href="#simulation" class="hover:text-blue-400 transition">סימולציה</a>
-                <a href="#customers" class="hover:text-blue-400 transition">הוספת לקוח</a>
-                <a href="#workers" class="hover:text-blue-400 transition">הוספת עובד</a>
-                <a href="#products" class="hover:text-blue-400 transition">קטלוג מוצרים</a>
+            <nav class="hidden md:flex gap-6 text-sm font-medium text-slate-300">
+                <a href="#simulation" class="hover:text-white transition">סימולציה</a>
+                <a href="#customer-schema" class="hover:text-white transition">לקוח (Customer)</a>
+                <a href="#worker-schema" class="hover:text-white transition">עובד (Worker)</a>
+                <a href="#product-schema" class="hover:text-white transition">מוצר (Product)</a>
             </nav>
         </div>
     </header>
 
-    <main class="flex-1 container mx-auto p-6 max-w-5xl">
+    <main class="flex-1 container mx-auto p-6 max-w-6xl space-y-20">
 
-        <!-- חלק 1: סימולציה חיה -->
-        <section id="simulation" class="mb-16">
-            <div class="flex items-center gap-3 mb-6">
-                <i data-lucide="play-circle" class="text-blue-600 w-8 h-8"></i>
-                <h2 class="text-3xl font-bold text-slate-800">סימולציית תהליך (Live Scenario)</h2>
+        <!-- 1. סימולציית זרימה -->
+        <section id="simulation">
+            <div class="text-center mb-10">
+                <h2 class="text-3xl font-bold text-white mb-2">איך המערכת עובדת? (Data Flow)</h2>
+                <p class="text-slate-400">תרשים זרימה של המידע בין האפליקציות השונות בזמן אמת.</p>
             </div>
-            
-            <div class="grid md:grid-cols-2 gap-8">
-                <!-- צד הלקוח -->
-                <div class="bg-white p-6 rounded-2xl shadow-lg border border-slate-100 relative overflow-hidden">
-                    <div class="absolute top-0 right-0 bg-blue-600 text-white text-xs px-3 py-1 rounded-bl-lg font-bold">אפליקציית לקוח</div>
-                    <div class="flex items-center gap-4 mb-6 mt-2">
-                        <div class="w-12 h-12 bg-slate-200 rounded-full flex items-center justify-center font-bold text-slate-600">ב.א</div>
-                        <div>
-                            <h3 class="font-bold text-lg">בר אוריל</h3>
-                            <p class="text-sm text-slate-500">לקוח עסקי (601235)</p>
-                        </div>
-                    </div>
-                    
-                    <div class="space-y-4">
-                        <div class="bg-blue-50 p-3 rounded-xl rounded-br-none border border-blue-100 text-sm">
-                            <p><strong>בר:</strong> היי, צריך דחוף 2 משטחי בלוק 20 לפרויקט "אשר לוי".</p>
-                            <div class="mt-2 flex gap-2">
-                                <span class="bg-white px-2 py-1 rounded text-xs border border-blue-200 flex items-center gap-1"><i data-lucide="map-pin" class="w-3 h-3"></i> הסתדרות 29, רעננה</span>
-                            </div>
-                        </div>
-                        <div class="bg-slate-50 p-3 rounded-xl rounded-bl-none border border-slate-100 text-sm text-right">
-                            <p><strong>Sidor Bot:</strong> קיבלתי! ההזמנה הועברה למחסן. האם תרצה להוסיף גם מלט?</p>
-                        </div>
-                        <div class="bg-blue-50 p-3 rounded-xl rounded-br-none border border-blue-100 text-sm">
-                            <p><strong>בר:</strong> כן, תוסיף 10 שקים. אני פותח פרויקט חדש בהרצליה, שולח מיקום.</p>
-                            <div class="mt-2 w-full h-24 bg-slate-200 rounded-lg flex items-center justify-center text-slate-400 text-xs border border-slate-300 border-dashed">
-                                <i data-lucide="map" class="w-4 h-4 mr-1"></i> מפת מיקום (הרצליה פיתוח)
-                            </div>
-                        </div>
-                    </div>
-                </div>
 
-                <!-- צד המערכת (ניהול/עובד) -->
-                <div class="bg-white p-6 rounded-2xl shadow-lg border border-slate-100 relative overflow-hidden">
-                    <div class="absolute top-0 right-0 bg-amber-500 text-white text-xs px-3 py-1 rounded-bl-lg font-bold">מערכת תפעול</div>
-                    
-                    <div class="space-y-4 mt-4">
-                        <!-- התראה למנהל -->
-                        <div class="border-l-4 border-red-500 bg-red-50 p-3 rounded-r-lg">
-                            <div class="flex justify-between items-start">
-                                <h4 class="font-bold text-red-800 text-sm"><i data-lucide="bell" class="w-3 h-3 inline"></i> הזמנה חדשה!</h4>
-                                <span class="text-xs text-red-600">10:42</span>
-                            </div>
-                            <p class="text-sm text-red-700 mt-1">בר אוריל (אשר לוי) - 2 משטחים + 10 מלט.</p>
-                            <button class="mt-2 bg-red-600 text-white text-xs px-2 py-1 rounded hover:bg-red-700">אשר ושיים לנהג</button>
-                        </div>
+            <div class="relative">
+                <!-- קו מחבר רקע -->
+                <div class="absolute top-1/2 left-0 right-0 h-1 bg-slate-700 -z-10 hidden md:block"></div>
 
-                        <!-- עדכון נהג -->
-                        <div class="border-l-4 border-green-500 bg-green-50 p-3 rounded-r-lg">
-                            <div class="flex justify-between items-start">
-                                <h4 class="font-bold text-green-800 text-sm"><i data-lucide="truck" class="w-3 h-3 inline"></i> עדכון נהג (יוסי)</h4>
-                                <span class="text-xs text-green-600">11:30</span>
-                            </div>
-                            <p class="text-sm text-green-700 mt-1">הגעתי לאתר "אשר לוי". פורק סחורה.</p>
-                            <div class="mt-2 w-20 h-12 bg-slate-200 rounded overflow-hidden">
-                                <img src="https://via.placeholder.com/150" class="w-full h-full object-cover opacity-50" alt="Site Photo">
-                            </div>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    
+                    <!-- שלב 1: לקוח -->
+                    <div class="glass p-6 rounded-2xl border border-emerald-500/30 relative group">
+                        <div class="absolute -top-3 right-6 bg-emerald-600 text-white text-xs px-2 py-1 rounded">שלב 1</div>
+                        <div class="w-12 h-12 bg-emerald-900/50 rounded-full flex items-center justify-center mb-4 text-emerald-400"><i data-lucide="smartphone"></i></div>
+                        <h3 class="text-lg font-bold text-white mb-2">לקוח (Customer App)</h3>
+                        <p class="text-sm text-slate-400 mb-4">יוצר הזמנה או שולח הודעה.</p>
+                        <div class="bg-slate-900 p-2 rounded text-xs font-mono text-emerald-300 border border-slate-700">
+                            write to: collections/messages<br>
+                            type: "ORDER"
                         </div>
                     </div>
+
+                    <!-- שלב 2: שרת/פונקציות -->
+                    <div class="glass p-6 rounded-2xl border border-purple-500/30 relative group">
+                        <div class="absolute -top-3 right-6 bg-purple-600 text-white text-xs px-2 py-1 rounded">שלב 2</div>
+                        <div class="w-12 h-12 bg-purple-900/50 rounded-full flex items-center justify-center mb-4 text-purple-400"><i data-lucide="server"></i></div>
+                        <h3 class="text-lg font-bold text-white mb-2">Cloud Functions</h3>
+                        <p class="text-sm text-slate-400 mb-4">מזהה הודעה חדשה, שולח Push למנהל.</p>
+                        <div class="bg-slate-900 p-2 rounded text-xs font-mono text-purple-300 border border-slate-700">
+                            trigger: onCreate(message)<br>
+                            action: sendOneSignal()
+                        </div>
+                    </div>
+
+                    <!-- שלב 3: מנהל -->
+                    <div class="glass p-6 rounded-2xl border border-blue-500/30 relative group">
+                        <div class="absolute -top-3 right-6 bg-blue-600 text-white text-xs px-2 py-1 rounded">שלב 3</div>
+                        <div class="w-12 h-12 bg-blue-900/50 rounded-full flex items-center justify-center mb-4 text-blue-400"><i data-lucide="monitor"></i></div>
+                        <h3 class="text-lg font-bold text-white mb-2">מנהל (Admin Panel)</h3>
+                        <p class="text-sm text-slate-400 mb-4">רואה הזמנה, משבץ לנהג, מעדכן סטטוס.</p>
+                        <div class="bg-slate-900 p-2 rounded text-xs font-mono text-blue-300 border border-slate-700">
+                            update: orders/{id}<br>
+                            set: status="שויך", driver=...
+                        </div>
+                    </div>
+
+                    <!-- שלב 4: עובד -->
+                    <div class="glass p-6 rounded-2xl border border-amber-500/30 relative group">
+                        <div class="absolute -top-3 right-6 bg-amber-600 text-white text-xs px-2 py-1 rounded">שלב 4</div>
+                        <div class="w-12 h-12 bg-amber-900/50 rounded-full flex items-center justify-center mb-4 text-amber-400"><i data-lucide="truck"></i></div>
+                        <h3 class="text-lg font-bold text-white mb-2">עובד (Worker App)</h3>
+                        <p class="text-sm text-slate-400 mb-4">מקבל התראה ("צפצוף"), מנווט ומספק.</p>
+                        <div class="bg-slate-900 p-2 rounded text-xs font-mono text-amber-300 border border-slate-700">
+                            listen: orders where driver==me<br>
+                            action: update status="הושלם"
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </section>
 
-        <hr class="border-slate-200 mb-16">
+        <hr class="border-slate-800">
 
-        <!-- חלק 2: מדריכים טכניים -->
-        
-        <section id="customers" class="mb-16">
-            <div class="flex items-center gap-3 mb-6">
-                <div class="bg-emerald-100 p-2 rounded-lg text-emerald-600"><i data-lucide="user-plus"></i></div>
-                <h2 class="text-2xl font-bold text-slate-800">איך להוסיף לקוח (Firestore)</h2>
-            </div>
-            
-            <div class="step-card">
-                <h3 class="font-bold text-lg mb-2">1. מבנה הנתונים (Schema)</h3>
-                <p class="text-slate-600 mb-4 text-sm">השתמש בפרמטרים הבאים ליצירת חווית משתמש עשירה.</p>
+        <!-- 2. סכמות ומבנה נתונים -->
+
+        <!-- CUSTOMER SCHEMA -->
+        <section id="customer-schema" class="grid md:grid-cols-2 gap-10">
+            <div>
+                <h2 class="text-2xl font-bold text-white mb-4 flex items-center gap-2"><i data-lucide="user" class="text-blue-500"></i> הקמת לקוח (Customers)</h2>
+                <p class="text-slate-400 mb-6">
+                    לקוח באפליקציה הוא דוקומנט בקולקציית <code>customers</code>.
+                    <br><strong class="text-red-400">חשוב:</strong> ה-ID של הדוקומנט חייב להיות ה-UID של המשתמש ב-Authentication.
+                </p>
                 
-                <div class="code-block text-sm">
-customers / {UID}
-├── name: "בר אוריל קבלנות" (String)
-├── email: "bar.oril@gmail.com" (String)
-├── phone: "050-1234567" (String)
-├── customerNumber: "601235" (String - לממשק עם קומקס)
-├── avatarUrl: "https://..." (String)
-├── tier: "VIP" (String - לקביעת תעדוף)
-├── projects: [ (Array of Maps)
-│   ├── {
-│   │   projectId: "proj-asher-levy",
-│   │   name: "פרויקט אשר לוי",
-│   │   address: "ההסתדרות 29, רעננה",
-│   │   coords: { lat: 32.18, lon: 34.86 },
-│   │   status: "active"
-│   }
-│   ...
-]
-├── preferences: { (Map)
-│   notifyOn: ["whatsapp", "push"],
-│   deliveryWindow: "07:00-16:00"
-}
+                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700 mb-6">
+                    <h3 class="font-bold text-white mb-2">שדות חובה:</h3>
+                    <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                        <li><code>name</code>: שם מלא להצגה.</li>
+                        <li><code>email</code>: אימייל (לזיהוי ותצוגה).</li>
+                        <li><code>projects</code>: מערך של אובייקטים. אם ריק, הלקוח יראה מסך ריק.</li>
+                    </ul>
                 </div>
-            </div>
-        </section>
 
-        <section id="workers" class="mb-16">
-            <div class="flex items-center gap-3 mb-6">
-                <div class="bg-amber-100 p-2 rounded-lg text-amber-600"><i data-lucide="hard-hat"></i></div>
-                <h2 class="text-2xl font-bold text-slate-800">איך להוסיף עובד (נהג/מחסנאי)</h2>
+                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                    <h3 class="font-bold text-white mb-2">שדות מומלצים (לשדרוג):</h3>
+                    <ul class="list-disc list-inside text-sm text-slate-300 space-y-1">
+                        <li><code>customerNumber</code>: מזהה לקוח במערכת ERP (קומקס).</li>
+                        <li><code>tier</code>: דירוג לקוח (רגיל / זהב / פרימיום).</li>
+                        <li><code>creditLimit</code>: מסגרת אשראי (מספר).</li>
+                    </ul>
+                </div>
             </div>
             
-            <div class="step-card">
-                <div class="code-block text-sm">
-users / {UID}
-├── name: "יוסי כהן"
-├── role: "driver" (או "warehouse", "admin")
-├── phone: "052-9876543"
-├── vehicleId: "77-888-99" (אם נהג)
-├── currentStatus: "online" (online/offline)
-├── currentLocation: { lat: ..., lon: ... } (מתעדכן בזמן אמת)
+            <div>
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-xs text-slate-500">customer_schema.json</span>
+                    <button class="text-xs text-blue-400 hover:text-white" onclick="copyCode('cust-code')">העתק JSON</button>
                 </div>
+                <pre class="code-block text-sm" id="cust-code">
+{
+  <span class="json-key">"name"</span>: <span class="json-string">"בר אוריל קבלנות"</span>,
+  <span class="json-key">"email"</span>: <span class="json-string">"bar.oril@saban.co.il"</span>,
+  <span class="json-key">"phone"</span>: <span class="json-string">"050-1234567"</span>,
+  <span class="json-key">"customerNumber"</span>: <span class="json-string">"601235"</span>,
+  <span class="json-key">"tier"</span>: <span class="json-string">"GOLD"</span>,
+  <span class="json-key">"avatarUrl"</span>: <span class="json-string">"https://..."</span>,
+  <span class="json-key">"projects"</span>: [
+    {
+      <span class="json-key">"projectId"</span>: <span class="json-string">"proj-asher-levy"</span>,
+      <span class="json-key">"name"</span>: <span class="json-string">"פרויקט אשר לוי"</span>,
+      <span class="json-key">"address"</span>: <span class="json-string">"ההסתדרות 29, רעננה"</span>,
+      <span class="json-key">"avatarUrl"</span>: <span class="json-string">"https://..."</span>
+    },
+    {
+      <span class="json-key">"projectId"</span>: <span class="json-string">"proj-herzliya-pituach"</span>,
+      <span class="json-key">"name"</span>: <span class="json-string">"וילה הרצליה פיתוח"</span>,
+      <span class="json-key">"address"</span>: <span class="json-string">"גלי תכלת 50, הרצליה"</span>
+    }
+  ]
+}</pre>
             </div>
         </section>
 
-        <section id="products" class="mb-16">
-            <div class="flex items-center gap-3 mb-6">
-                <div class="bg-purple-100 p-2 rounded-lg text-purple-600"><i data-lucide="package"></i></div>
-                <h2 class="text-2xl font-bold text-slate-800">קטלוג מוצרים חכם</h2>
+        <hr class="border-slate-800">
+
+        <!-- WORKER SCHEMA -->
+        <section id="worker-schema" class="grid md:grid-cols-2 gap-10">
+            <div>
+                <h2 class="text-2xl font-bold text-white mb-4 flex items-center gap-2"><i data-lucide="hard-hat" class="text-amber-500"></i> הקמת עובד (Users)</h2>
+                <p class="text-slate-400 mb-6">
+                    עובדים (נהגים, מחסנאים, מנהלים) נשמרים בקולקציית <code>users</code>.
+                    <br>השדה הקריטי הוא <code>role</code>.
+                </p>
+                
+                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                    <h3 class="font-bold text-white mb-2">תפקידים אפשריים (Roles):</h3>
+                    <div class="space-y-2">
+                        <div class="flex gap-3 items-center text-sm text-slate-300">
+                            <span class="bg-amber-900/50 text-amber-400 px-2 py-1 rounded font-mono text-xs">worker</span>
+                            <span>עובד כללי / נהג. מקבל משימות.</span>
+                        </div>
+                        <div class="flex gap-3 items-center text-sm text-slate-300">
+                            <span class="bg-blue-900/50 text-blue-400 px-2 py-1 rounded font-mono text-xs">admin</span>
+                            <span>מנהל. גישה לדוחות וללוח הבקרה המלא.</span>
+                        </div>
+                    </div>
+                </div>
             </div>
             
-            <div class="step-card">
-                <p class="text-slate-600 mb-4 text-sm">מוצרים כוללים מטא-דאטה חכם למחשבונים והמלצות.</p>
-                <div class="code-block text-sm">
-products / {Auto-ID}
-├── name: "לוח גבס ירוק (עמיד מים)"
-├── sku: "10-500"
-├── category: "גבס"
-├── image: "https://..."
-├── price: 42.00 (Number)
-├── stock: 150 (Number)
-├── spec: "120x260, 12.5 מ\"מ"
-├── technicalData: { (Map - לבוט ולדף מוצר)
-│   application: "מתאים לחדרי רחצה ומטבחים",
-│   dryingTime: "24 שעות לשפכטל",
-│   weight: "28 ק\"ג ללוח"
-}
-├── calculator: { (Map - לנוסחת חישוב)
-│   unit: "m2",
-│   formula: "area / 3.12 * 1.1" (כולל 10% פחת)
-}
-├── relatedProducts: ["sku-10-501", "sku-20-100"] (ברגים, שפכטל)
+            <div>
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-xs text-slate-500">worker_schema.json</span>
+                    <button class="text-xs text-blue-400 hover:text-white" onclick="copyCode('worker-code')">העתק JSON</button>
                 </div>
+                <pre class="code-block text-sm" id="worker-code">
+{
+  <span class="json-key">"name"</span>: <span class="json-string">"יוסי הנהג"</span>,
+  <span class="json-key">"email"</span>: <span class="json-string">"yossi@saban.co.il"</span>,
+  <span class="json-key">"phone"</span>: <span class="json-string">"052-9999999"</span>,
+  <span class="json-key">"role"</span>: <span class="json-string">"worker"</span>,
+  <span class="json-key">"vehicleNumber"</span>: <span class="json-string">"77-856-12"</span>,
+  <span class="json-key">"vehicleType"</span>: <span class="json-string">"משאית מנוף"</span>,
+  <span class="json-key">"active"</span>: <span class="json-bool">true</span>
+}</pre>
             </div>
         </section>
 
-        <footer class="text-center text-slate-400 text-sm pt-8 border-t">
-            &copy; 2024 ח. סבן חומרי בניין | מדריך פיתוח פנימי v1.0
-        </footer>
+        <hr class="border-slate-800">
+
+        <!-- PRODUCT SCHEMA -->
+        <section id="product-schema" class="grid md:grid-cols-2 gap-10">
+            <div>
+                <h2 class="text-2xl font-bold text-white mb-4 flex items-center gap-2"><i data-lucide="package" class="text-purple-500"></i> קטלוג מוצרים (Products)</h2>
+                <p class="text-slate-400 mb-6">
+                    המוצרים מוצגים באפליקציית הלקוח. מומלץ להוסיף תמונות איכותיות.
+                </p>
+                
+                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
+                    <h3 class="font-bold text-white mb-2">טיפ למפתחים:</h3>
+                    <p class="text-sm text-slate-300">
+                        השדה <code>calculator</code> הוא אופציונלי אבל משדרג את החוויה. הוא מאפשר לאפליקציה לחשב כמויות ללקוח (למשל: כמה לוחות גבס צריך ל-X מטר קיר).
+                    </p>
+                </div>
+            </div>
+            
+            <div>
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-xs text-slate-500">product_schema.json</span>
+                    <button class="text-xs text-blue-400 hover:text-white" onclick="copyCode('prod-code')">העתק JSON</button>
+                </div>
+                <pre class="code-block text-sm" id="prod-code">
+{
+  <span class="json-key">"name"</span>: <span class="json-string">"לוח גבס עמיד מים (ירוק)"</span>,
+  <span class="json-key">"sku"</span>: <span class="json-string">"10-500"</span>,
+  <span class="json-key">"category"</span>: <span class="json-string">"גבס"</span>,
+  <span class="json-key">"price"</span>: <span class="json-string">"₪42.00"</span>,
+  <span class="json-key">"image"</span>: <span class="json-string">"https://..."</span>,
+  <span class="json-key">"spec"</span>: <span class="json-string">"120x260 ס\"מ, עובי 12.5 מ\"מ"</span>,
+  <span class="json-key">"stock"</span>: <span class="json-number">150</span>,
+  <span class="json-key">"description"</span>: <span class="json-string">"מתאים לחדרים רטובים כמו מקלחות."</span>,
+  <span class="json-key">"calculator"</span>: {
+    <span class="json-key">"unit"</span>: <span class="json-string">"m2"</span>,
+    <span class="json-key">"formula"</span>: <span class="json-string">"(area / 3.12) * 1.1"</span>
+  }
+}</pre>
+            </div>
+        </section>
 
     </main>
 
+    <footer class="border-t border-slate-800 bg-slate-900 mt-20 py-8 text-center text-slate-500 text-sm">
+        &copy; 2024 Sidor Development Team | נוצר ע"י Gemini AI
+    </footer>
+
     <script>
         lucide.createIcons();
+        function copyCode(id) {
+            const el = document.getElementById(id);
+            const text = el.innerText;
+            navigator.clipboard.writeText(text).then(() => alert('הועתק!'));
+        }
     </script>
 </body>
 </html>
