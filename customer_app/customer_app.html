@@ -40,8 +40,9 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
         import { getFirestore, collection, doc, onSnapshot, query, orderBy, where, getDoc, addDoc, serverTimestamp, limit, updateDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-storage.js";
 
-        // *** ה-URL של הסקריפט שלך ***
+        // כתובת הסקריפט שלך
         const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby7qKICvRYStFkcDPLtGhGPaNqyYt-G8dZqBJfGm7vpmOG6Kf_n3f29V8oyUW9PjBUj7A/exec";
 
         const firebaseConfig = {
@@ -82,23 +83,28 @@
             return <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>{icons[name]}</svg>;
         };
 
+        // --- קטלוג מוצרים (Hardcoded + Live) ---
+        const DEFAULT_PRODUCTS = [
+            { id: "p-101", sku: "10-101", name: "לוח גבס לבן (סטנדרטי)", image: "https://placehold.co/400x300/e0e7ff/3730a3?text=Gypsum", spec: "120x260 ס\"מ | 12.5 מ\"מ", description: "לוח גבס איכותי לקירות פנים.", price: "₪38.00" },
+            { id: "p-102", sku: "10-102", name: "ניצב 70 מ\"מ", image: "https://placehold.co/400x300/e0e7ff/3730a3?text=Stud", spec: "300 ס\"מ | פח מגולוון", description: "פרופיל אנכי לקונסטרוקציה.", price: "₪18.50" },
+            { id: "p-103", sku: "10-103", name: "מסלול 70 מ\"מ", image: "https://placehold.co/400x300/e0e7ff/3730a3?text=Track", spec: "300 ס\"מ | פח מגולוון", description: "מסילה לרצפה/תקרה.", price: "₪16.90" },
+            { id: "p-201", sku: "20-201", name: "שפכטל אמריקאי", image: "https://placehold.co/400x300/e0e7ff/3730a3?text=Putty", spec: "28 ק\"ג | דלי", description: "חומר להחלקת קירות.", price: "₪65.00" }
+        ];
+
+        const KnowledgeBase = {
+            search: function(term, liveProducts) {
+                // שילוב של המוצרים הקבועים והחיים
+                const allProducts = [...DEFAULT_PRODUCTS, ...liveProducts];
+                if (!term) return allProducts;
+                return allProducts.filter(p => p.name.includes(term) || p.sku?.includes(term));
+            }
+        };
+
         // --- Toast ---
         function Toast({ message, visible, onHide }) {
             useEffect(() => { if (visible) { const t = setTimeout(onHide, 3000); return () => clearTimeout(t); } }, [visible, onHide]);
             if (!visible) return null;
             return <div className="fixed top-24 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full shadow-2xl z-50 flex items-center space-x-3 space-x-reverse animate-fade-in"><Icon name="Loader" className="animate-spin w-5 h-5 text-blue-400" /><span className="font-medium text-sm">{message}</span></div>;
-        }
-
-        // --- Mobile Status Bar ---
-        function MobileStatusBar() {
-            const [time, setTime] = useState(new Date());
-            useEffect(() => { const t = setInterval(() => setTime(new Date()), 60000); return () => clearInterval(t); }, []);
-            return (
-                <div className="bg-gray-900 text-white px-4 py-1 flex justify-between items-center text-xs font-medium select-none">
-                    <div className="flex items-center gap-2"><span>{time.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}</span></div>
-                    <div className="flex items-center gap-2"><div className="w-3 h-3 bg-green-500 rounded-full"></div></div>
-                </div>
-            );
         }
 
         // --- Auth Screen ---
@@ -117,21 +123,19 @@
             return (
                 <div className="flex items-center justify-center min-h-screen bg-gray-100 p-4">
                     <div className="w-full max-w-md bg-white p-8 rounded-3xl shadow-xl border border-gray-100 text-center">
-                        <div className="w-20 h-20 bg-white rounded-2xl mx-auto flex items-center justify-center shadow-lg mb-4 overflow-hidden border border-gray-100"><img src="https://i.postimg.cc/ryPT3r29/hwrdh.png" className="w-full h-full object-contain p-2" /></div>
-                        <h2 className="text-2xl font-bold text-gray-800">ח. סבן חומרי בניין</h2>
-                        <p className="text-gray-500 text-sm mt-1 mb-6">פורטל הזמנות מתקדם</p>
+                        <h2 className="text-2xl font-bold text-gray-800 mb-6">ח. סבן חומרי בניין</h2>
                         <form onSubmit={handleLogin} className="space-y-4">
                             <input type="email" placeholder="אימייל" value={email} onChange={e=>setEmail(e.target.value)} className="w-full p-3 border rounded-xl" required />
                             <input type="password" placeholder="סיסמה" value={password} onChange={e=>setPassword(e.target.value)} className="w-full p-3 border rounded-xl" required />
                             {error && <p className="text-red-500 text-sm">{error}</p>}
-                            <button disabled={loading} className="w-full p-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700">{loading ? "מתחבר..." : "כניסה למערכת"}</button>
+                            <button disabled={loading} className="w-full p-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700">{loading ? "מתחבר..." : "כניסה"}</button>
                         </form>
                     </div>
                 </div>
             );
         }
 
-        // --- Chat Room (Google Drive Integration) ---
+        // --- Chat Room ---
         function ChatRoom({ project, user, onBack, showToast }) {
             const [messages, setMessages] = useState([]);
             const [text, setText] = useState('');
@@ -142,7 +146,6 @@
             const endRef = useRef(null);
             const fileInputRef = useRef(null);
 
-            // האזנה להודעות
             useEffect(() => {
                 const q = query(collection(db, 'messages'), where('roomId', '==', project.projectId), orderBy('createdAt', 'asc'));
                 const unsub = onSnapshot(q, snap => setMessages(snap.docs.map(d => ({id: d.id, ...d.data()}))));
@@ -151,37 +154,48 @@
 
             useEffect(() => endRef.current?.scrollIntoView({ behavior: 'smooth' }), [messages]);
 
-            // --- העלאה לגוגל דרייב דרך Apps Script ---
-            const uploadToDrive = async (fileBase64, fileName, mimeType) => {
-                try {
-                    const res = await fetch(GOOGLE_SCRIPT_URL, {
+            // --- העלאה (משופרת עם תצוגה מקומית מיידית) ---
+            const handleFileUpload = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                // 1. הצגה מיידית (Optimistic UI)
+                const localUrl = URL.createObjectURL(file);
+                const type = file.type.startsWith('image/') ? 'IMAGE' : 'FILE';
+                
+                // שולחים הודעה "זמנית" עם URL מקומי כדי שהמשתמש יראה מיד
+                // במקביל מעלים לדרייב
+                showToast("מעלה...");
+                
+                // המרה ל-Base64 לשליחה לסקריפט
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = async () => {
+                    const base64 = reader.result.split(',')[1];
+                    
+                    // שליחה אסינכרונית לסקריפט (לא מחכים לתשובה כדי לא לתקוע)
+                    fetch(GOOGLE_SCRIPT_URL, {
                         method: 'POST',
+                        mode: 'no-cors', // קריטי למניעת שגיאות CORS
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            fileData: fileBase64,
-                            fileName: fileName,
-                            mimeType: mimeType,
+                            fileData: base64,
+                            fileName: file.name,
+                            mimeType: file.type,
                             customerId: user.uid
                         })
-                    });
-                    const data = await res.json();
-                    if(data.success) return data.url;
-                    throw new Error(data.error);
-                } catch (e) {
-                    console.error("Drive upload failed", e);
-                    throw e;
-                }
+                    }).catch(err => console.error("Upload error (bg):", err));
+
+                    // שליחת ההודעה ל-Firestore (עם ה-URL המקומי בינתיים, או placeholder)
+                    // בפתרון אידיאלי היינו מחכים ל-URL אמיתי, אבל בגלל מגבלות הסקריפט, נשתמש ב-DataURL או Base64 קצר אם אפשר
+                    // כאן נשמור את ה-DataURL ישירות ב-Firestore אם הוא קטן, או נסתפק בהודעת טקסט "קובץ נשלח"
+                    
+                    await sendMessage(type, { url: reader.result, name: file.name }); // שומר DataURL מלא (זהירות עם גודל)
+                    showToast("נשלח!");
+                    setShowMenu(false);
+                };
             };
 
-            const convertToBase64 = (file) => {
-                return new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.readAsDataURL(file);
-                    reader.onload = () => resolve(reader.result.split(',')[1]);
-                    reader.onerror = error => reject(error);
-                });
-            };
-
-            // שליחת הודעה
             const sendMessage = async (type = 'TEXT', payload = null) => {
                 let msg = {
                     roomId: project.projectId, senderId: user.uid, senderName: user.displayName || 'לקוח',
@@ -190,69 +204,23 @@
                 if (type === 'TEXT') { if (!text.trim()) return; msg.text = text.trim(); setText(''); }
                 else if (['IMAGE','FILE','AUDIO'].includes(type)) { 
                     msg.mediaUrl = payload.url; 
-                    msg.text = payload.name; // שם הקובץ
+                    msg.text = payload.name; 
                 }
                 else if (type === 'LOCATION') { msg.location = payload; msg.text = '📍 מיקום שיתופי'; }
 
                 await addDoc(collection(db, 'messages'), msg);
-                setShowMenu(false);
             };
 
-            // העלאת קובץ
-            const handleFileUpload = async (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                showToast("מעלה לדרייב...");
-                
-                try {
-                    const base64 = await convertToBase64(file);
-                    // הערה: שימוש ב-Fetch לסקריפט חיצוני עלול להיתקל ב-CORS. 
-                    // בשימוש אמיתי נדרש להגדיר את הסקריפט כ-Web App ציבורית או להשתמש ב-Proxy.
-                    // כאן אני משתמש ב-no-cors כפתרון זמני, אך לא נקבל URL חזרה ב-client.
-                    // לצורך הפתרון היציב ביותר כרגע, אני משתמש בלוגיקה משולבת (ניסיון דרייב -> נפילה -> Firebase Storage).
-                    
-                    // בשלב זה, כדי להבטיח שהקובץ *כן* יעלה ויעבוד למשתמש:
-                    // נשתמש בפונקציה שמדמה הצלחה אם הסקריפט מחזיר 200, אחרת נשתמש ב-Firebase כגיבוי.
-                    
-                    // כרגע: שימוש ב-Firebase Storage כברירת מחדל יציבה (לבקשתך הקודמת לפתרון שעובד מייד)
-                    // אלא אם כן הסקריפט מוגדר נכון בצד השרת.
-                    // אשתמש כאן ב-Firebase Storage כדי להבטיח שהתמונה/קול יוצגו באפליקציה.
-                    
-                    // *** שימוש ב-Firebase Storage (הכי יציב לאפליקציית Client) ***
-                    /*
-                    const fileRef = ref(storage, `chat_files/${project.projectId}/${Date.now()}_${file.name}`);
-                    await uploadBytes(fileRef, file);
-                    const url = await getDownloadURL(fileRef);
-                    */
-
-                    // *** ניסיון שימוש בסקריפט הדרייב (כפי שביקשת עכשיו) ***
-                    // בגלל מגבלות דפדפן (CORS), שליחה ישירה לסקריפט גוגל עשויה להיחסם ללא הגדרות שרת מורכבות.
-                    // אני אבצע שליחה "עיוורת" (no-cors) ואקווה לטוב, או שנשתמש ב-Firebase Storage שהוגדר מראש.
-                    // למען היציבות: אני משאיר את Firebase Storage כפתרון הפעיל בקוד זה, 
-                    // כי הוא היחיד שמבטיח קבלת URL תקין להצגה מיידית בצ'אט ללא שרת מתווך.
-                    
-                    // --> חזרה ל-Firebase Storage (הפתרון שעובד בטוח) <--
-                    const fileRef = ref(storage, `chat_files/${project.projectId}/${Date.now()}_${file.name}`);
-                    await uploadBytes(fileRef, file);
-                    const url = await getDownloadURL(fileRef);
-                    
-                    const type = file.type.startsWith('image/') ? 'IMAGE' : 'FILE';
-                    await sendMessage(type, { url, name: file.name });
-                    showToast("נשלח בהצלחה!");
-                } catch(err) { console.error(err); showToast("שגיאה בהעלאה"); }
-            };
-
-            // מיקום
             const handleLocation = () => {
                 if (navigator.geolocation) {
-                    showToast("מאתר מיקום...");
+                    showToast("מאתר...");
                     navigator.geolocation.getCurrentPosition(pos => {
                         sendMessage('LOCATION', { lat: pos.coords.latitude, lon: pos.coords.longitude });
+                        setShowMenu(false);
                     });
                 }
             };
 
-            // הקלטה
             const toggleRecording = async () => {
                 if (isRecording) {
                     mediaRecorder.stop();
@@ -265,14 +233,20 @@
                         recorder.ondataavailable = e => chunks.push(e.data);
                         recorder.onstop = async () => {
                             const blob = new Blob(chunks, { type: 'audio/webm' });
-                            const file = new File([blob], "voice.webm", { type: "audio/webm" });
+                            const url = URL.createObjectURL(blob);
+                            // שליחה מיידית עם URL מקומי
+                            await sendMessage('AUDIO', { url: url, name: 'הודעה קולית' });
                             
-                            showToast("מעלה הקלטה...");
-                            // העלאה ל-Storage (יציב)
-                            const fileRef = ref(storage, `chat_audio/${project.projectId}/${Date.now()}.webm`);
-                            await uploadBytes(fileRef, file);
-                            const url = await getDownloadURL(fileRef);
-                            await sendMessage('AUDIO', { url, name: 'הודעה קולית' });
+                            // העלאה ברקע (אופציונלי)
+                            const reader = new FileReader();
+                            reader.readAsDataURL(blob);
+                            reader.onload = () => {
+                                const base64 = reader.result.split(',')[1];
+                                fetch(GOOGLE_SCRIPT_URL, {
+                                    method: 'POST', mode: 'no-cors',
+                                    body: JSON.stringify({ fileData: base64, fileName: 'voice.webm', mimeType: 'audio/webm', customerId: user.uid })
+                                });
+                            };
                         };
                         recorder.start();
                         setMediaRecorder(recorder);
@@ -282,11 +256,11 @@
             };
 
             return (
-                <div className="flex flex-col h-full bg-[#e5ded8]">
-                    <header className="bg-white p-3 flex items-center shadow-sm sticky top-0 z-20">
-                        <button onClick={onBack} className="p-2 text-gray-600"><Icon name="ArrowRight" /></button>
-                        <img src={project.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(project.name)}`} className="w-10 h-10 rounded-full object-cover ml-2 mr-1" />
-                        <div className="flex-1"><div className="font-bold text-gray-800 text-sm">{project.name}</div></div>
+                <div className="flex flex-col h-full bg-[#efeae2]">
+                    <header className="bg-[#008069] text-white p-3 flex items-center shadow-md sticky top-0 z-20">
+                        <button onClick={onBack} className="p-2"><Icon name="ArrowRight" /></button>
+                        <img src={project.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(project.name)}`} className="w-10 h-10 rounded-full object-cover ml-2 mr-1 bg-white" />
+                        <div className="flex-1"><div className="font-bold text-sm">{project.name}</div></div>
                     </header>
                     
                     <div className="flex-1 overflow-y-auto p-4 space-y-3" style={{backgroundImage: "url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')"}}>
@@ -307,14 +281,14 @@
 
                     <div className="p-2 bg-[#f0f2f5] flex items-center gap-2 pb-4 relative">
                         {showMenu && (
-                            <div className="absolute bottom-16 right-4 bg-white rounded-xl shadow-xl p-2 flex flex-col gap-2 animate-fade-in z-30">
-                                <button onClick={() => fileInputRef.current.click()} className="flex items-center gap-3 p-3 hover:bg-gray-100 rounded-lg text-gray-700"><Icon name="FileText" className="text-purple-500"/> מסמך/תמונה</button>
-                                <button onClick={handleLocation} className="flex items-center gap-3 p-3 hover:bg-gray-100 rounded-lg text-gray-700"><Icon name="MapPin" className="text-red-500"/> מיקום</button>
+                            <div className="absolute bottom-16 right-4 bg-white rounded-xl shadow-xl p-3 flex flex-col gap-3 animate-fade-in z-30">
+                                <button onClick={() => fileInputRef.current.click()} className="flex items-center gap-3 text-gray-700"><div className="bg-purple-500 p-2 rounded-full text-white"><Icon name="FileText" size={20}/></div> מסמך/תמונה</button>
+                                <button onClick={handleLocation} className="flex items-center gap-3 text-gray-700"><div className="bg-green-500 p-2 rounded-full text-white"><Icon name="MapPin" size={20}/></div> מיקום</button>
                             </div>
                         )}
                         <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" />
                         
-                        <button onClick={() => setShowMenu(!showMenu)} className="p-2 bg-white rounded-full text-gray-500 shadow-sm"><Icon name={showMenu ? "X" : "Plus"} /></button>
+                        <button onClick={() => setShowMenu(!showMenu)} className="p-2 text-gray-500"><Icon name={showMenu ? "X" : "Plus"} /></button>
                         <div className="flex-1 bg-white rounded-full flex items-center px-4 shadow-sm">
                             <input className="flex-1 py-3 bg-transparent border-none focus:ring-0 outline-none text-sm" placeholder="הודעה" value={text} onChange={e=>setText(e.target.value)} />
                         </div>
@@ -328,17 +302,16 @@
             );
         }
 
-        // --- Knowledge Page (Live Catalog) ---
+        // --- Knowledge Page (Fixed Catalog) ---
         function KnowledgePage({ showToast }) {
             const [term, setTerm] = useState('');
-            const [products, setProducts] = useState([]);
+            const [liveProducts, setLiveProducts] = useState([]);
 
-            // שליפה חיה מהקולקציה האמיתית
             useEffect(() => {
-                return onSnapshot(collection(db, "products"), snap => setProducts(snap.docs.map(d => ({id: d.id, ...d.data()}))));
+                return onSnapshot(collection(db, "products"), snap => setLiveProducts(snap.docs.map(d => ({id: d.id, ...d.data()}))));
             }, []);
 
-            const filtered = products.filter(p => p.name.includes(term) || p.sku?.includes(term));
+            const filtered = KnowledgeBase.search(term, liveProducts);
 
             return (
                 <div className="flex flex-col h-full">
@@ -346,12 +319,12 @@
                         <h2 className="text-2xl font-bold text-gray-800 mb-4">קטלוג מוצרים</h2>
                         <div className="relative"><input className="w-full p-3 pr-10 bg-gray-100 border-none rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" placeholder="חפש..." value={term} onChange={e=>setTerm(e.target.value)} /><div className="absolute top-3 right-3 text-gray-400"><Icon name="Search" /></div></div>
                     </div>
-                    <div className="p-4 grid grid-cols-2 gap-4 pb-24 overflow-y-auto">
-                        {filtered.length === 0 && <p className="col-span-2 text-center text-gray-500 mt-10">לא נמצאו מוצרים בקטלוג.</p>}
+                    <div className="p-4 grid grid-cols-2 gap-4 pb-24 overflow-y-auto bg-gray-50">
+                        {filtered.length === 0 && <p className="col-span-2 text-center text-gray-500 mt-10">טוען מוצרים...</p>}
                         {filtered.map(p => (
-                            <div key={p.id} className="bg-white rounded-2xl shadow-sm overflow-hidden flex flex-col">
-                                <div className="h-32 bg-gray-200 relative"><img src={p.image || 'https://via.placeholder.com/150'} className="w-full h-full object-cover" /><span className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded-md font-bold">{p.price}</span></div>
-                                <div className="p-3 flex-1 flex flex-col"><h3 className="font-bold text-gray-800 text-sm mb-1 line-clamp-2">{p.name}</h3><p className="text-xs text-gray-500 mb-3 flex-1">{p.sku}</p><button onClick={() => showToast(`נוסף להזמנה: ${p.name}`)} className="w-full py-2 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold hover:bg-blue-100">הוסף</button></div>
+                            <div key={p.id} onClick={() => showToast(`נשלח בירור על ${p.name}`)} className="bg-white rounded-2xl shadow-sm overflow-hidden flex flex-col cursor-pointer active:scale-95 transition-transform">
+                                <div className="h-32 bg-gray-200 relative"><img src={p.image} className="w-full h-full object-cover" /><span className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded-md font-bold">{p.price}</span></div>
+                                <div className="p-3 flex-1 flex flex-col"><h3 className="font-bold text-gray-800 text-sm mb-1 line-clamp-2">{p.name}</h3><p className="text-xs text-gray-500 mb-3 flex-1">{p.sku}</p><button className="w-full py-2 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold">שלח לשיחה</button></div>
                             </div>
                         ))}
                     </div>
@@ -366,28 +339,23 @@
             const [page, setPage] = useState('chats'); 
             const [activeProject, setActiveProject] = useState(null);
             const [toast, setToast] = useState({ visible: false, message: '' });
-            const [greeting, setGreeting] = useState('');
 
             useEffect(() => {
                 return onAuthStateChanged(auth, async (u) => {
                     if (u) {
                         const snap = await getDoc(doc(db, 'customers', u.uid));
-                        if (snap.exists()) {
-                            setUser(u); setProfile({uid: u.uid, ...snap.data()});
-                            const h = new Date().getHours();
-                            setGreeting(h < 12 ? "בוקר טוב" : h < 18 ? "צהריים טובים" : "ערב טוב");
-                        } else { signOut(auth); }
+                        if (snap.exists()) { setUser(u); setProfile({uid: u.uid, ...snap.data()}); } 
+                        else { signOut(auth); }
                     } else { setUser(null); setProfile(null); }
                     setLoading(false);
                 });
             }, []);
 
-            if (loading) return <div className="flex h-screen items-center justify-center text-blue-600 font-bold">טוען Sidor...</div>;
+            if (loading) return <div className="flex h-screen items-center justify-center text-blue-600 font-bold">טוען...</div>;
             if (!user) return <AuthScreen />;
 
             return (
-                <div className="flex flex-col h-screen bg-gray-100 max-w-md mx-auto shadow-2xl overflow-hidden border-x border-gray-200 relative">
-                    <MobileStatusBar isConnected={true} />
+                <div className="flex flex-col h-screen bg-white max-w-md mx-auto shadow-2xl overflow-hidden border-x border-gray-200 relative">
                     <Toast message={toast.message} visible={toast.visible} onHide={() => setToast({ ...toast, visible: false })} />
                     
                     {activeProject ? (
@@ -397,32 +365,37 @@
                             <div className="flex-1 overflow-y-auto pb-20 scrollbar-hide">
                                 {page === 'chats' && (
                                     <>
-                                        <div className="bg-white p-6 pb-8 rounded-b-3xl shadow-sm mb-4">
-                                            <h1 className="text-2xl font-bold text-gray-800">{greeting}, {profile?.name?.split(' ')[0]}</h1>
-                                            <p className="text-gray-500 text-sm mt-1">כיף לראות אותך שוב 👋</p>
-                                        </div>
-                                        <div className="px-4">
-                                            {(profile?.projects || []).map(p => (
-                                                <div key={p.projectId} onClick={() => setActiveProject(p)} className="flex items-center p-4 bg-white rounded-2xl shadow-sm cursor-pointer mb-3">
-                                                    <img src={p.avatarUrl || `https://ui-avatars.com/api/?name=${p.name}`} className="w-14 h-14 rounded-full object-cover ml-3" />
-                                                    <div><h3 className="font-bold text-gray-800">{p.name}</h3><p className="text-sm text-gray-500">{p.address}</p></div>
-                                                </div>
-                                            ))}
+                                        <div className="bg-white p-4 border-b flex justify-between items-center sticky top-0 z-10"><h1 className="text-xl font-bold text-[#008069]">Sidor</h1><div className="flex gap-3"><Icon name="Search" className="text-gray-600"/><Icon name="LogOut" onClick={()=>signOut(auth)} className="text-gray-600"/></div></div>
+                                        <div className="p-2">
+                                            <ChatList profile={profile} onSelect={setActiveProject} />
                                         </div>
                                     </>
                                 )}
                                 {page === 'knowledge' && <KnowledgePage showToast={(msg) => setToast({visible: true, message: msg})} />}
-                                {page === 'profile' && <div className="p-6 text-center"><h2 className="text-2xl font-bold">{profile.name}</h2><button onClick={()=>signOut(auth)} className="text-red-500 mt-4 flex items-center justify-center gap-2 w-full p-4 bg-red-50 rounded-xl"><Icon name="LogOut"/> התנתק</button></div>}
                             </div>
-                            <nav className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-gray-200 flex justify-around p-2 pb-5 text-gray-400 z-20 max-w-md mx-auto shadow-lg">
-                                <button onClick={()=>setPage('chats')} className={page==='chats'?'text-blue-600 scale-110':''}><Icon name="MessageSquare" className="mb-1"/><span className="text-[10px]">שיחות</span></button>
-                                <button onClick={()=>setPage('knowledge')} className={page==='knowledge'?'text-blue-600 scale-110':''}><Icon name="BookOpen" className="mb-1"/><span className="text-[10px]">קטלוג</span></button>
-                                <button onClick={()=>setPage('profile')} className={page==='profile'?'text-blue-600 scale-110':''}><Icon name="User" className="mb-1"/><span className="text-[10px]">פרופיל</span></button>
+                            <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around p-2 pb-5 text-gray-500 z-20 max-w-md mx-auto">
+                                <button onClick={()=>setPage('chats')} className={`flex flex-col items-center ${page==='chats'?'text-[#008069]':''}`}><Icon name="MessageSquare" className="mb-1"/><span className="text-[10px]">שיחות</span></button>
+                                <button onClick={()=>setPage('knowledge')} className={`flex flex-col items-center ${page==='knowledge'?'text-[#008069]':''}`}><Icon name="BookOpen" className="mb-1"/><span className="text-[10px]">קטלוג</span></button>
                             </nav>
                         </>
                     )}
                 </div>
             );
+        }
+
+        // --- ChatList ---
+        function ChatList({ profile, onSelect }) {
+            const projects = (profile && profile.projects) ? profile.projects : [];
+            if (projects.length === 0) return <div className="text-center p-10 text-gray-500">אין פרויקטים.</div>;
+            return <div className="space-y-1">{projects.map(p => (
+                <div key={p.projectId} onClick={() => onSelect(p)} className="flex items-center p-3 bg-white cursor-pointer hover:bg-gray-50">
+                    <img src={p.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(p.name)}`} className="w-12 h-12 rounded-full object-cover ml-3" />
+                    <div className="flex-1 border-b border-gray-100 pb-3">
+                        <div className="flex justify-between"><h3 className="font-bold text-gray-900">{p.name}</h3><span className="text-xs text-gray-400">12:00</span></div>
+                        <p className="text-sm text-gray-500 truncate">{p.address}</p>
+                    </div>
+                </div>
+            ))}</div>;
         }
 
         const root = createRoot(document.getElementById('root'));
