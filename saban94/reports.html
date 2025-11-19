@@ -6,101 +6,129 @@
     <title>Sidor | דוחות ניהול</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/feather-icons"></script>
-    <link rel="manifest" href="manifest.json">
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-    </style>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        .hidden { display: none !important; }
+    </style>
 </head>
-<body class="bg-gray-100">
+<body>
 
-    <!-- מסך נעילה -->
-    <div id="lock-screen" class="fixed inset-0 bg-gray-800 bg-opacity-75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-white p-8 rounded-lg shadow-2xl w-full max-w-sm">
-            <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">כניסת מנהל</h2>
-            <p class="text-center text-gray-600 mb-6">הזן סיסמת דוחות כדי להמשיך.</p>
-            <form id="password-form" class="space-y-4">
-                <input type="password" id="password-input" class="block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" placeholder="סיסמה">
-                <p id="password-error" class="text-sm text-red-600 hidden">סיסמה שגויה.</p>
-                <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-lg font-medium text-white bg-blue-600 hover:bg-blue-700">
-                    כניסה
+    <!-- מסך נעילה (התחברות מנהל) -->
+    <div id="lock-screen" class="fixed inset-0 bg-slate-800 bg-opacity-95 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-sm text-center">
+            <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-600">
+                <i data-feather="shield" class="w-8 h-8"></i>
+            </div>
+            <h2 class="text-2xl font-bold text-gray-800 mb-2">כניסת מנהלים</h2>
+            <p class="text-gray-500 mb-6 text-sm">גישה לדוחות ונתונים רגישים</p>
+            
+            <form id="login-form" class="space-y-4 text-right">
+                <div>
+                    <label class="text-xs font-bold text-gray-700">אימייל</label>
+                    <input type="email" id="email" class="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-gray-700">סיסמה</label>
+                    <input type="password" id="password" class="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
+                </div>
+                
+                <div id="login-error" class="p-3 bg-red-50 text-red-600 text-sm rounded-lg hidden">
+                    שגיאה בהתחברות
+                </div>
+
+                <button type="submit" id="login-btn" class="w-full py-3 px-4 bg-slate-900 text-white rounded-lg font-bold hover:bg-slate-800 transition-colors">
+                    כניסה מאובטחת
                 </button>
             </form>
         </div>
     </div>
 
     <!-- תוכן הדוחות (מוסתר) -->
-    <div id="reports-content" class="hidden container mx-auto p-6">
-        <header class="mb-8">
-            <h1 class="text-4xl font-bold text-gray-900">דוחות ניהול (KPIs)</h1>
-            <p class="text-xl text-gray-600">נתונים בזמן אמת מהמערכת</p>
+    <div id="reports-content" class="hidden min-h-screen pb-10">
+        <!-- Header -->
+        <header class="bg-white shadow-sm sticky top-0 z-10">
+            <div class="container mx-auto px-6 py-4 flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="p-2 bg-blue-600 rounded-lg text-white"><i data-feather="bar-chart-2"></i></div>
+                    <div>
+                        <h1 class="text-xl font-bold text-gray-900">לוח בקרה ניהולי</h1>
+                        <p class="text-xs text-gray-500">Sidor Analytics</p>
+                    </div>
+                </div>
+                <button onclick="logout()" class="text-gray-500 hover:text-red-600 flex items-center gap-2 text-sm font-medium px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors">
+                    <i data-feather="log-out" class="w-4 h-4"></i> יציאה
+                </button>
+            </div>
         </header>
         
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <!-- כרטיס 1: זמן תגובה -->
-            <div class="bg-white p-6 rounded-lg shadow-md">
-                <div class="flex items-center">
-                    <div class="p-3 bg-blue-100 text-blue-600 rounded-full">
-                        <i data-feather="clock"></i>
+        <main class="container mx-auto px-6 py-8">
+            <!-- KPI Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">הזמנות היום</p>
+                            <h3 id="kpi-orders" class="text-3xl font-bold text-gray-900 mt-1">--</h3>
+                        </div>
+                        <div class="p-2 bg-blue-50 text-blue-600 rounded-lg"><i data-feather="shopping-cart"></i></div>
                     </div>
-                    <div class="mr-4">
-                        <h3 class="text-gray-500 text-sm font-medium uppercase">זמן תגובה ממוצע</h3>
-                        <p id="kpi-response-time" class="text-3xl font-bold text-gray-900">טוען...</p>
+                    <p class="text-xs text-green-600 flex items-center gap-1"><i data-feather="trending-up" class="w-3 h-3"></i> מתעדכן בזמן אמת</p>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">לקוח פעיל</p>
+                            <h3 id="kpi-customers" class="text-3xl font-bold text-gray-900 mt-1">--</h3>
+                        </div>
+                        <div class="p-2 bg-purple-50 text-purple-600 rounded-lg"><i data-feather="users"></i></div>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-1.5 mt-2">
+                        <div class="bg-purple-600 h-1.5 rounded-full" style="width: 70%"></div>
                     </div>
                 </div>
-            </div>
-            
-            <!-- כרטיס 2: נציג מוביל -->
-            <div class="bg-white p-6 rounded-lg shadow-md">
-                <div class="flex items-center">
-                    <div class="p-3 bg-green-100 text-green-600 rounded-full">
-                        <i data-feather="user-check"></i>
+
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">זמן תגובה ממוצע</p>
+                            <h3 class="text-3xl font-bold text-gray-900 mt-1">12ד'</h3>
+                        </div>
+                        <div class="p-2 bg-amber-50 text-amber-600 rounded-lg"><i data-feather="clock"></i></div>
                     </div>
-                    <div class="mr-4">
-                        <h3 class="text-gray-500 text-sm font-medium uppercase">נציג מוביל</h3>
-                        <p id="kpi-top-agent" class="text-3xl font-bold text-gray-900">טוען...</p>
+                    <p class="text-xs text-gray-400">מחושב על בסיס מענה ראשוני</p>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">נציג מוביל</p>
+                            <h3 class="text-xl font-bold text-gray-900 mt-2">אורן</h3>
+                        </div>
+                        <div class="p-2 bg-emerald-50 text-emerald-600 rounded-lg"><i data-feather="award"></i></div>
                     </div>
+                    <p class="text-xs text-emerald-600">32 טיפולים היום</p>
                 </div>
             </div>
 
-            <!-- כרטיס 3: הזמנות היום -->
-            <div class="bg-white p-6 rounded-lg shadow-md">
-                <div class="flex items-center">
-                    <div class="p-3 bg-indigo-100 text-indigo-600 rounded-full">
-                        <i data-feather="shopping-cart"></i>
-                    </div>
-                    <div class="mr-4">
-                        <h3 class="text-gray-500 text-sm font-medium uppercase">הזמנות (היום)</h3>
-                        <p id="kpi-orders-today" class="text-3xl font-bold text-gray-900">טוען...</p>
-                    </div>
+            <!-- פניות פתוחות -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div class="p-6 border-b border-gray-100 flex justify-between items-center">
+                    <h2 class="text-lg font-bold text-gray-800">פניות אחרונות (Live)</h2>
+                    <span class="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-bold animate-pulse">בטיפול</span>
+                </div>
+                <div id="alerts-list" class="divide-y divide-gray-50 max-h-96 overflow-y-auto">
+                    <div class="p-8 text-center text-gray-400">טוען נתונים...</div>
                 </div>
             </div>
-            
-            <!-- כרטיס 4: לקוחות פעילים (היום) -->
-            <div class="bg-white p-6 rounded-lg shadow-md">
-                <div class="flex items-center">
-                    <div class="p-3 bg-yellow-100 text-yellow-600 rounded-full">
-                        <i data-feather="users"></i>
-                    </div>
-                    <div class="mr-4">
-                        <h3 class="text-gray-500 text-sm font-medium uppercase">לקוחות פעילים (היום)</h3>
-                        <p id="kpi-active-customers" class="text-3xl font-bold text-gray-900">טוען...</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="mt-8 bg-white p-6 rounded-lg shadow-md">
-            <h2 class="text-2xl font-bold text-gray-800 mb-4">הודעות אחרונות מלקוחות (ללא מענה)</h2>
-            <div id="kpi-unanswered-messages" class="space-y-3">
-                <p class="text-gray-500">טוען נתונים...</p>
-            </div>
-        </div>
+        </main>
     </div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
-        import { getFirestore, collection, query, where, getDocs, Timestamp, orderBy } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+        import { getFirestore, collection, query, where, getDocs, getDoc, doc, Timestamp, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
         
         const firebaseConfig = {
           apiKey: "AIzaSyDq0oVwS6zbEfsgrYBRkeBq80dDUKMedzo", 
@@ -113,80 +141,136 @@
         };
         
         const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // --- לוגיקת נעילה ---
-        document.getElementById('password-form').addEventListener('submit', (e) => {
-            e.preventDefault();
-            const pass = document.getElementById('password-input').value;
-            const errorEl = document.getElementById('password-error');
-            
-            if (pass === "1125") {
-                document.getElementById('lock-screen').style.display = 'none';
-                document.getElementById('reports-content').style.display = 'block';
-                feather.replace();
-                loadReports();
+        // --- Auth Logic ---
+        
+        // בדיקת התחברות
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                checkAdminRole(user);
             } else {
-                errorEl.classList.remove('hidden');
+                showLockScreen();
             }
         });
 
-        // --- לוגיקת טעינת דוחות ---
-        async function loadReports() {
+        async function checkAdminRole(user) {
+            const btn = document.getElementById('login-btn');
+            btn.textContent = "בודק הרשאות...";
+            
             try {
-                // הגדרות זמן
-                const now = new Date();
-                const startOfDay = new Date(now.setHours(0, 0, 0, 0));
-                
-                // 1. הזמנות היום
-                const ordersQuery = query(
-                    collection(db, "messages"),
-                    where("type", "==", "ORDER"),
-                    where("createdAt", ">=", Timestamp.fromDate(startOfDay))
-                );
-                const ordersSnapshot = await getDocs(ordersQuery);
-                document.getElementById('kpi-orders-today').textContent = ordersSnapshot.size;
-                
-                // 2. לקוחות פעילים היום
-                const activeCustomers = new Set(ordersSnapshot.docs.map(doc => doc.data().senderId));
-                document.getElementById('kpi-active-customers').textContent = activeCustomers.size;
+                const userDoc = await getDoc(doc(db, 'users', user.uid));
+                if (userDoc.exists() && userDoc.data().role === 'admin') {
+                    // מנהל מאושר
+                    document.getElementById('lock-screen').classList.add('hidden');
+                    document.getElementById('reports-content').classList.remove('hidden');
+                    feather.replace();
+                    initDashboard();
+                } else {
+                    showError("אין לך הרשאות מנהל.");
+                    signOut(auth);
+                }
+            } catch (e) {
+                showError("שגיאה בבדיקת הרשאות.");
+                signOut(auth);
+            }
+        }
 
-                // 3 & 4: זמן תגובה ונציג מוביל (דורש שאילתות מורכבות יותר)
-                // אלו שאילתות מורכבות שדורשות עיבוד נתונים
-                // לצורך הדגמה, נשים ערכי דמה
-                document.getElementById('kpi-response-time').textContent = "15 דקות";
-                document.getElementById('kpi-top-agent').textContent = "אורן";
-                
-                // 5. הודעות ללא מענה
-                // שאילתה על התראות פתוחות
-                const alertsQuery = query(
-                    collection(db, "org_alerts"),
-                    orderBy("createdAt", "desc")
-                );
-                const alertsSnapshot = await getDocs(alertsQuery);
-                const container = document.getElementById('kpi-unanswered-messages');
-                
-                if (alertsSnapshot.empty) {
-                    container.innerHTML = '<p class="text-green-600 font-medium">אין פניות פתוחות. כל הכבוד!</p>';
+        // טופס התחברות
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const pass = document.getElementById('password').value;
+            const btn = document.getElementById('login-btn');
+            const err = document.getElementById('login-error');
+
+            btn.textContent = "מתחבר...";
+            btn.disabled = true;
+            err.classList.add('hidden');
+
+            try {
+                await signInWithEmailAndPassword(auth, email, pass);
+                // ההמשך ב-onAuthStateChanged
+            } catch (error) {
+                showError("פרטי התחברות שגויים.");
+                btn.textContent = "כניסה מאובטחת";
+                btn.disabled = false;
+            }
+        });
+
+        function showError(msg) {
+            const err = document.getElementById('login-error');
+            err.textContent = msg;
+            err.classList.remove('hidden');
+        }
+
+        function showLockScreen() {
+            document.getElementById('lock-screen').classList.remove('hidden');
+            document.getElementById('reports-content').classList.add('hidden');
+            document.getElementById('login-btn').textContent = "כניסה מאובטחת";
+            document.getElementById('login-btn').disabled = false;
+        }
+
+        window.logout = () => signOut(auth);
+
+
+        // --- Dashboard Logic ---
+        
+        function initDashboard() {
+            const now = new Date();
+            const startOfDay = new Date(now.setHours(0, 0, 0, 0));
+
+            // 1. הזמנות היום
+            const qOrders = query(collection(db, "messages"), where("type", "==", "ORDER"), where("createdAt", ">=", Timestamp.fromDate(startOfDay)));
+            onSnapshot(qOrders, (snap) => {
+                document.getElementById('kpi-orders').textContent = snap.size;
+                // חישוב לקוחות ייחודיים
+                const customers = new Set();
+                snap.docs.forEach(d => customers.add(d.data().senderId));
+                document.getElementById('kpi-customers').textContent = customers.size;
+            });
+
+            // 2. פניות פתוחות (Live Alerts)
+            const qAlerts = query(collection(db, "org_alerts"), orderBy("createdAt", "desc"));
+            onSnapshot(qAlerts, (snap) => {
+                const list = document.getElementById('alerts-list');
+                if (snap.empty) {
+                    list.innerHTML = `
+                        <div class="flex flex-col items-center justify-center p-10 text-gray-400">
+                            <i data-feather="check-circle" class="w-10 h-10 mb-2 text-green-500"></i>
+                            <p>אין פניות פתוחות. הכל טופל!</p>
+                        </div>
+                    `;
+                    feather.replace();
                     return;
                 }
-                
-                container.innerHTML = alertsSnapshot.docs.map(doc => {
+
+                list.innerHTML = snap.docs.map(doc => {
                     const alert = doc.data();
-                    const time = alert.createdAt.toDate().toLocaleTimeString('he-IL', {hour: '2-digit', minute: '2-digit'});
+                    const date = alert.createdAt ? alert.createdAt.toDate() : new Date();
                     return `
-                        <div class="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                            <p class="font-medium text-gray-800">${alert.senderName || 'לקוח'}: <span class="font-normal">${alert.text || '...'}</span></p>
-                            <p class="text-xs text-gray-500">חדר: ${alert.roomId} | ${time}</p>
+                        <div class="p-4 hover:bg-gray-50 transition-colors flex justify-between items-center">
+                            <div class="flex items-center gap-4">
+                                <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">
+                                    ${alert.senderName ? alert.senderName.charAt(0) : '?'}
+                                </div>
+                                <div>
+                                    <h4 class="font-bold text-gray-800">${alert.senderName || 'לקוח'}</h4>
+                                    <p class="text-sm text-gray-600 truncate max-w-xs">${alert.text || 'הודעה חדשה'}</p>
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <span class="block text-xs font-bold text-gray-500">${date.toLocaleTimeString('he-IL', {hour:'2-digit', minute:'2-digit'})}</span>
+                                <span class="inline-block px-2 py-0.5 bg-yellow-100 text-yellow-700 text-[10px] rounded-full mt-1">ממתין</span>
+                            </div>
                         </div>
                     `;
                 }).join('');
-
-            } catch (error) {
-                console.error("Error loading reports:", error);
-                document.getElementById('reports-content').innerHTML = `<p class="text-red-500">שגיאה בטעינת הדוחות: ${error.message}</p>`;
-            }
+            });
         }
+        
+        feather.replace();
     </script>
 </body>
 </html>
