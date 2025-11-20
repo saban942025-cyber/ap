@@ -358,6 +358,7 @@
             
             const sortedIds = Object.keys(roomsState).sort((a,b) => {
                 const rA = roomsState[a], rB = roomsState[b];
+                // Prioritize Unread first, then Time
                 if(rA.unread !== rB.unread) return rB.unread - rA.unread;
                 return rB.time - rA.time;
             });
