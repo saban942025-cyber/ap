@@ -18,6 +18,7 @@
               notifyButton: { enable: false },
               allowLocalhostAsSecureOrigin: true 
             });
+            OneSignal.User.addTag("role", "customer");
         } catch (e) { console.warn("Push Init Warn:", e); }
       });
     </script>
@@ -51,7 +52,7 @@
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
         import { getFirestore, collection, doc, onSnapshot, query, orderBy, where, getDoc, addDoc, serverTimestamp, limit, updateDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
         import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-storage.js";
-        
+
         const firebaseConfig = {
           apiKey: "AIzaSyDq0oVwS6zbEfsgrYBRkeBq80dDUKMedzo", 
           authDomain: "saban94-78949.firebaseapp.com", 
@@ -149,7 +150,7 @@
                 const file = e.target.files[0];
                 if (!file) return;
                 const reader = new FileReader();
-                reader.onload = (ev) => setAvatar(ev.target.result); // Base64 for simplicity
+                reader.onload = (ev) => setAvatar(ev.target.result); 
                 reader.readAsDataURL(file);
             };
 
@@ -198,11 +199,6 @@
                                 {(!profile.projects || profile.projects.length === 0) && <div className="text-center text-gray-400 py-4">אין פרויקטים משויכים</div>}
                             </div>
                         </div>
-                        
-                         <div className="mt-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-                            <div className="text-xs text-gray-400 mb-1">מספר לקוח</div>
-                            <div className="font-mono font-bold text-gray-600">{profile.customerNumber || '---'}</div>
-                        </div>
                     </div>
                 </div>
             );
@@ -213,6 +209,9 @@
             const [text, setText] = useState('');
             const [showMenu, setShowMenu] = useState(false);
             const [modalProduct, setModalProduct] = useState(null);
+            const [isRecording, setIsRecording] = useState(false); // Audio State
+            const mediaRecorder = useRef(null);
+            const audioChunks = useRef([]);
             const endRef = useRef(null);
             const fileInputRef = useRef(null);
 
@@ -249,7 +248,7 @@
                     roomId: project.projectId, 
                     senderId: user.uid, 
                     senderName: profile.name || user.displayName || 'לקוח',
-                    senderAvatar: userAvatar, // שולח תמונה עדכנית
+                    senderAvatar: userAvatar, 
                     type, createdAt: serverTimestamp(), readByWorker: false, status: 'sent'
                 };
                 
@@ -257,11 +256,36 @@
                 else if(type === 'ORDER') { msg.text = '🛒 הזמנה'; msg.orderPayload = payload; msg.orderStatus = 'new'; }
                 else if(type === 'IMAGE') { msg.text = '📷 תמונה'; msg.mediaUrl = payload; }
                 else if(type === 'LOCATION') { msg.text = '📍 מיקום'; msg.location = payload; }
+                else if(type === 'AUDIO') { msg.text = '🎤 הודעה קולית'; msg.mediaUrl = payload; }
 
                 setShowMenu(false);
                 setModalProduct(null);
 
-                try { await addDoc(collection(db, 'messages'), msg); } catch (e) { alert("שגיאה בשליחה"); }
+                try { 
+                    await addDoc(collection(db, 'messages'), msg); 
+                } catch (e) { alert("שגיאה בשליחה"); }
+            };
+
+            const startRecording = async () => {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder.current = new MediaRecorder(stream);
+                    audioChunks.current = [];
+                    mediaRecorder.current.ondataavailable = (e) => audioChunks.current.push(e.data);
+                    mediaRecorder.current.onstop = () => {
+                        const blob = new Blob(audioChunks.current, { type: 'audio/mp3' });
+                        const reader = new FileReader();
+                        reader.readAsDataURL(blob);
+                        reader.onloadend = () => handleSend('AUDIO', reader.result); // Demo: Base64
+                    };
+                    mediaRecorder.current.start();
+                    setIsRecording(true);
+                } catch (err) { alert("אין גישה למיקרופון"); }
+            };
+
+            const stopRecording = () => {
+                if (mediaRecorder.current) mediaRecorder.current.stop();
+                setIsRecording(false);
             };
 
             const handleFile = (e) => {
@@ -296,8 +320,9 @@
                                     <div className={`max-w-[80%] p-2 rounded-lg shadow-sm text-sm ${isMe ? 'bg-[#d9fdd3]' : 'bg-white'}`}>
                                         {m.type === 'ORDER' && <div className="font-bold text-green-700">🛒 הזמנה: {m.orderPayload.total} פריטים</div>}
                                         {m.type === 'IMAGE' && <img src={m.mediaUrl} className="rounded max-h-48"/>}
+                                        {m.type === 'AUDIO' && <audio controls src={m.mediaUrl} className="w-full mt-1"/>}
                                         {m.type === 'LOCATION' && <div className="text-blue-600 flex gap-1 items-center"><Icon name="MapPin" size={16}/> מיקום שיתופי</div>}
-                                        {m.text && <div className="mt-1">{m.text}</div>}
+                                        {m.text && m.type !== 'AUDIO' && <div className="mt-1">{m.text}</div>}
                                         
                                         <div className="text-[9px] text-gray-500 flex justify-end gap-1 mt-1">
                                             {m.createdAt?.toDate ? m.createdAt.toDate().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : '...'}
@@ -315,6 +340,7 @@
                             <button onClick={()=>fileInputRef.current.click()} className="flex flex-col items-center gap-1 text-purple-600 hit-area"><div className="p-3 bg-purple-100 rounded-full"><Icon name="Image"/></div><span className="text-xs">גלריה</span></button>
                             <button onClick={()=>fileInputRef.current.click()} className="flex flex-col items-center gap-1 text-pink-600 hit-area"><div className="p-3 bg-pink-100 rounded-full"><Icon name="Camera"/></div><span className="text-xs">מצלמה</span></button>
                             <button onClick={handleLocation} className="flex flex-col items-center gap-1 text-green-600 hit-area"><div className="p-3 bg-green-100 rounded-full"><Icon name="MapPin"/></div><span className="text-xs">מיקום</span></button>
+                            <button onMouseDown={startRecording} onMouseUp={stopRecording} onTouchStart={startRecording} onTouchEnd={stopRecording} className={`flex flex-col items-center gap-1 ${isRecording?'text-red-600 scale-110':'text-orange-600'} hit-area transition`}><div className={`p-3 ${isRecording?'bg-red-100 animate-pulse':'bg-orange-100'} rounded-full`}><Icon name="Mic"/></div><span className="text-xs">{isRecording?'מקליט...':'הקלט'}</span></button>
                             {PRODUCTS.map(p => (
                                 <button key={p.id} onClick={()=>setModalProduct(p)} className="flex flex-col items-center gap-1 text-blue-600 hit-area">
                                     <div className="p-3 bg-blue-100 rounded-full"><Icon name="ShoppingCart"/></div>
@@ -340,7 +366,6 @@
         function App() {
             const [user, setUser] = useState(null);
             const [profile, setProfile] = useState(null);
-            const [view, setView] = useState('profile'); // default to profile for quick access
             const [activeProject, setActiveProject] = useState(null);
 
             useEffect(() => onAuthStateChanged(auth, async u => {
@@ -350,10 +375,7 @@
                     if(snap.exists()) {
                         const data = snap.data();
                         setProfile(data);
-                        // אם יש פרויקט יחיד, אולי נרצה להיכנס ישר אליו, אבל המשתמש ביקש רשימת פרויקטים
-                        // setView('profile'); 
                     } else {
-                        // יצירת פרופיל ראשוני
                         const newProfile = { name: u.displayName || 'לקוח חדש', email: u.email, projects: [] };
                         await setDoc(doc(db, 'customers', u.uid), newProfile);
                         setProfile(newProfile);
@@ -369,14 +391,8 @@
             };
 
             if (!user) return <AuthScreen />;
-            
-            if (activeProject) {
-                return <ChatRoom project={activeProject} user={user} onBack={()=>setActiveProject(null)} profile={profile} />;
-            }
-
-            if (profile) {
-                return <ProfilePage profile={profile} onSave={handleUpdateProfile} onSelectProject={setActiveProject} onLogout={()=>signOut(auth)} />;
-            }
+            if (activeProject) return <ChatRoom project={activeProject} user={user} onBack={()=>setActiveProject(null)} profile={profile} />;
+            if (profile) return <ProfilePage profile={profile} onSave={handleUpdateProfile} onSelectProject={setActiveProject} onLogout={()=>signOut(auth)} />;
             
             return <div className="p-10 text-center">טוען...</div>;
         }
