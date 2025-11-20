@@ -2,12 +2,12 @@
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Sidor Pro | עובדים</title>
     <link rel="manifest" href="manifest.json">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>👷</text></svg>">
     
-    <!-- OneSignal -->
+    <!-- OneSignal (Error Handled) -->
     <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
     <script>
       window.OneSignalDeferred = window.OneSignalDeferred || [];
@@ -20,171 +20,213 @@
               allowLocalhostAsSecureOrigin: true 
             });
             OneSignal.User.addTag("role", "worker");
-        } catch (e) { console.warn("OneSignal Init Error:", e); }
+        } catch (e) { console.warn("OneSignal Init Warn (likely localhost):", e); }
       });
     </script>
 
-    <!-- Tailwind & Icons -->
+    <!-- Libraries -->
+    <!-- Tailwind CSS (Dev Mode) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/feather-icons"></script>
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;700&display=swap" rel="stylesheet">
     
     <style>
-        /* CSS Reset & Base */
-        body { font-family: 'Rubik', sans-serif; background-color: #f0f2f5; overflow: hidden; margin: 0; padding: 0; }
+        body { font-family: 'Rubik', sans-serif; background-color: #f0f2f5; overflow: hidden; margin: 0; }
         
-        /* Interaction */
-        .hit-area { cursor: pointer; touch-action: manipulation; min-height: 44px; min-width: 44px; display: flex; align-items: center; justify-content: center; transition: background 0.1s; }
-        .hit-area:active { background-color: rgba(0,0,0,0.05); }
-        .scroll-smooth { -webkit-overflow-scrolling: touch; }
+        /* Interaction & Scroll */
+        .hit-area { cursor: pointer; touch-action: manipulation; min-height: 44px; min-width: 44px; display: flex; align-items: center; justify-content: center; transition: all 0.1s; }
+        .hit-area:active { transform: scale(0.95); background-color: rgba(0,0,0,0.05); }
+        .scroll-smooth { -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
         
         /* Animations */
-        @keyframes pulse-border { 0% { border-color: transparent; } 50% { border-color: #ef4444; } 100% { border-color: transparent; } }
-        .unread-active { background-color: #fff1f2 !important; border-right: 4px solid #ef4444; }
+        @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+        .unread-pulse { animation: pulse-red 2s infinite; border-right: 4px solid #ef4444; background-color: #fff1f2; }
         
-        /* Lists */
-        .chat-list-item { transition: all 0.2s ease; border-bottom: 1px solid #f0f0f0; }
+        /* Layout */
+        .chat-list-item { transition: background-color 0.2s; border-bottom: 1px solid #f3f4f6; }
         .chat-list-item:hover { background-color: #f9fafb; }
         .chat-list-item.active { background-color: #eff6ff; border-right: 4px solid #3b82f6; }
         
-        /* Status Dots */
-        @keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); } 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); } }
-        .online-dot { width: 10px; height: 10px; background: #22c55e; border-radius: 50%; animation: pulse-ring 2s infinite; }
-        .avatar { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 2px solid #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1); background: #e5e7eb; }
+        .online-dot { width: 8px; height: 8px; background-color: #22c55e; border-radius: 50%; box-shadow: 0 0 0 2px white; }
         
-        /* Layout Fixes */
+        /* SLA Badges */
+        .sla-badge { font-size: 10px; font-weight: bold; padding: 2px 8px; border-radius: 99px; }
+        .sla-ok { background: #dcfce7; color: #166534; }
+        .sla-warn { background: #fef9c3; color: #854d0e; }
+        .sla-danger { background: #fee2e2; color: #991b1b; animation: pulse-red 1s infinite; }
+
         @media (min-width: 1024px) { 
-            #shell-wrapper { max-width: 1600px; margin: 0 auto; box-shadow: 0 0 50px rgba(0,0,0,0.1); height: 100vh; border-left: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; } 
+            #shell-wrapper { max-width: 1600px; margin: 0 auto; height: 100vh; border-left: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; box-shadow: 0 0 20px rgba(0,0,0,0.05); } 
         }
     </style>
 </head>
 <body>
 
-    <audio id="notif-sound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
+    <audio id="alert-sound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
+    <audio id="sla-sound" src="https://assets.mixkit.co/active_storage/sfx/2868/2868-preview.mp3" preload="auto"></audio>
 
-    <!-- Login View -->
-    <div id="login-view" class="fixed inset-0 bg-gray-900 flex items-center justify-center z-50">
+    <!-- Login Overlay -->
+    <div id="login-view" class="fixed inset-0 bg-slate-900 flex items-center justify-center z-50">
         <div class="bg-white p-8 rounded-2xl w-96 text-center shadow-2xl">
-            <h2 class="text-2xl font-bold mb-6">כניסת צוות</h2>
-            <form id="login-form" class="space-y-3">
-                <input type="email" id="email" placeholder="Email" class="w-full p-3 bg-gray-100 rounded-lg text-right" required>
-                <input type="password" id="password" placeholder="Password" class="w-full p-3 bg-gray-100 rounded-lg text-right" required>
-                <button class="w-full bg-blue-600 text-white font-bold p-3 rounded-lg hover:bg-blue-700 hit-area">התחבר</button>
+            <div class="mb-6 text-4xl">🚛</div>
+            <h2 class="text-2xl font-bold mb-6 text-gray-800">כניסת צוות</h2>
+            <form id="login-form" class="space-y-4">
+                <input type="email" id="email" placeholder="אימייל" class="w-full p-3 bg-gray-100 rounded-xl text-right border-none focus:ring-2 focus:ring-blue-500" required>
+                <input type="password" id="password" placeholder="סיסמה" class="w-full p-3 bg-gray-100 rounded-xl text-right border-none focus:ring-2 focus:ring-blue-500" required>
+                <button class="w-full bg-blue-600 text-white font-bold p-3 rounded-xl hover:bg-blue-700 transition hit-area">התחבר למערכת</button>
             </form>
         </div>
     </div>
 
-    <!-- Main App Shell -->
+    <!-- App Wrapper -->
     <div id="shell-wrapper" class="hidden bg-white h-screen flex">
-        <!-- Sidebar Navigation -->
-        <aside class="w-16 bg-white border-l flex flex-col items-center py-6 gap-6 shadow-lg z-20 flex-shrink-0">
-            <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold shadow-blue-200">S</div>
-            <nav class="flex-1 flex flex-col gap-4 w-full items-center">
-                <button onclick="switchTab('dashboard')" id="btn-dashboard" class="p-3 rounded-xl text-blue-600 bg-blue-50 hit-area" title="דשבורד"><i data-feather="grid"></i></button>
-                <button onclick="switchTab('chat')" id="btn-chat" class="p-3 rounded-xl text-gray-400 relative hit-area" title="צ'אט">
-                    <i data-feather="message-circle"></i>
-                    <span id="global-badge" class="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full hidden border-2 border-white"></span>
+        <!-- Sidebar -->
+        <aside class="w-20 bg-white border-l flex flex-col items-center py-6 gap-6 shadow-lg z-20 flex-shrink-0">
+            <div class="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white font-bold text-xl shadow-blue-200 shadow-lg">S</div>
+            
+            <nav class="flex-1 flex flex-col gap-6 w-full items-center mt-4">
+                <button onclick="app.switchTab('dashboard')" id="btn-dashboard" class="p-3 rounded-xl text-blue-600 bg-blue-50 hit-area group relative">
+                    <i data-feather="grid"></i>
+                    <span class="absolute right-full mr-2 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition pointer-events-none whitespace-nowrap">דשבורד</span>
                 </button>
-                <button onclick="stopSound()" class="p-3 rounded-xl text-red-400 hover:bg-red-50 hit-area" title="השתק התראות"><i data-feather="volume-x"></i></button>
+                <button onclick="app.switchTab('chat')" id="btn-chat" class="p-3 rounded-xl text-gray-400 hover:bg-gray-50 hit-area relative group">
+                    <i data-feather="message-circle"></i>
+                    <span id="global-badge" class="absolute top-0 right-0 w-3.5 h-3.5 bg-red-500 rounded-full hidden border-2 border-white"></span>
+                    <span class="absolute right-full mr-2 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition pointer-events-none whitespace-nowrap">צ'אט</span>
+                </button>
+                <button onclick="app.stopSound()" class="p-3 rounded-xl text-red-400 hover:bg-red-50 hit-area group relative">
+                    <i data-feather="volume-x"></i>
+                    <span class="absolute right-full mr-2 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition pointer-events-none whitespace-nowrap">השתק</span>
+                </button>
             </nav>
-            <button onclick="logout()" class="text-red-400 p-3 hit-area"><i data-feather="log-out"></i></button>
+            
+            <button onclick="app.logout()" class="text-gray-400 hover:text-red-500 p-3 hit-area"><i data-feather="log-out"></i></button>
         </aside>
 
-        <!-- Main Content Area -->
-        <main class="flex-1 flex overflow-hidden relative">
+        <!-- Main Area -->
+        <main class="flex-1 flex overflow-hidden relative bg-[#f0f2f5]">
             
-            <!-- Dashboard Tab -->
-            <div id="tab-dashboard" class="flex-1 p-8 overflow-y-auto bg-[#f8f9fa] w-full">
+            <!-- VIEW: DASHBOARD -->
+            <div id="tab-dashboard" class="flex-1 p-8 overflow-y-auto w-full">
                 <header class="flex justify-between items-center mb-8">
                     <div>
-                        <h1 class="text-2xl font-bold text-gray-800">דשבורד ניהול</h1>
-                        <p class="text-sm text-gray-500" id="admin-name">טוען...</p>
+                        <h1 class="text-2xl font-bold text-gray-800">מרכז שליטה</h1>
+                        <p class="text-sm text-gray-500" id="admin-name">טוען נתונים...</p>
                     </div>
-                    <div class="flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-sm border">
-                        <div class="online-dot"></div>
-                        <span class="text-sm font-bold text-green-600">מחובר</span>
+                    <div class="flex items-center gap-3 bg-white px-4 py-2 rounded-full shadow-sm border">
+                        <span class="relative flex h-3 w-3">
+                          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                          <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                        </span>
+                        <span class="text-sm font-bold text-green-700">מערכת חיה</span>
                     </div>
                 </header>
 
-                <!-- KPI Cards -->
+                <!-- Stats Cards -->
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between h-32">
-                        <div class="text-gray-500 mb-1 text-sm font-medium">הזמנות היום</div>
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                        <div class="text-gray-500 mb-1 text-xs font-bold uppercase tracking-wide">הזמנות היום</div>
                         <div class="text-3xl font-bold text-blue-600" id="stat-orders">0</div>
                     </div>
-                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between h-32">
-                        <div class="text-gray-500 mb-1 text-sm font-medium">הודעות שלא נקראו</div>
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                        <div class="text-gray-500 mb-1 text-xs font-bold uppercase tracking-wide">הודעות שלא נקראו</div>
                         <div class="text-3xl font-bold text-orange-500" id="stat-unread">0</div>
                     </div>
-                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between h-32">
-                        <div class="text-gray-500 mb-1 text-sm font-medium">זמן מענה (ART)</div>
-                        <div class="text-3xl font-bold text-purple-600" id="stat-avg-resp">--:--</div>
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                        <div class="text-gray-500 mb-1 text-xs font-bold uppercase tracking-wide">זמן מענה (ART)</div>
+                        <div class="text-3xl font-bold text-purple-600" id="stat-art">--:--</div>
                     </div>
-                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between h-32">
-                        <div class="text-gray-500 mb-1 text-sm font-medium">לקוחות מחוברים</div>
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                        <div class="text-gray-500 mb-1 text-xs font-bold uppercase tracking-wide">לקוחות מחוברים</div>
                         <div class="text-3xl font-bold text-green-600" id="stat-online">0</div>
                     </div>
                 </div>
 
-                <!-- Activity Stream -->
-                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 h-96 overflow-y-auto">
-                    <h3 class="font-bold text-lg mb-4 text-gray-800">פניות אחרונות</h3>
-                    <div id="activity-stream" class="space-y-3"></div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[500px]">
+                    <!-- SLA Monitor -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col">
+                        <h3 class="font-bold text-lg mb-4 flex items-center gap-2 text-gray-800 border-b pb-3">
+                            <i data-feather="clock" class="text-blue-500"></i> פניות חיות (SLA)
+                        </h3>
+                        <div id="sla-list" class="space-y-2 flex-1 overflow-y-auto pr-2">
+                            <div class="text-center text-gray-400 py-10 flex flex-col items-center">
+                                <i data-feather="check-circle" class="w-10 h-10 mb-2 text-green-100"></i>
+                                אין פניות ממתינות
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Activity Log -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col">
+                        <h3 class="font-bold text-lg mb-4 flex items-center gap-2 text-gray-800 border-b pb-3">
+                            <i data-feather="activity" class="text-blue-500"></i> לוג פעילות
+                        </h3>
+                        <div id="activity-log" class="space-y-0 flex-1 overflow-y-auto pr-2"></div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Chat Tab (Split View) -->
+            <!-- VIEW: CHAT (SPLIT) -->
             <div id="tab-chat" class="flex-1 flex hidden w-full h-full bg-white">
-                <!-- Clients List -->
-                <div class="w-96 border-l bg-white flex flex-col z-10 shadow-sm">
+                
+                <!-- Contact List -->
+                <div class="w-96 border-l bg-white flex flex-col z-10 shadow-lg">
                     <div class="p-4 border-b bg-gray-50 flex justify-between items-center">
                         <h2 class="font-bold text-lg text-gray-800">לקוחות</h2>
-                        <span class="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded-full" id="list-count">0</span>
+                        <div class="flex gap-2">
+                            <span class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-lg font-bold" id="list-count">0</span>
+                        </div>
                     </div>
-                    <div id="chat-rooms-list" class="flex-1 overflow-y-auto scroll-smooth"></div>
+                    <!-- The List -->
+                    <div id="chat-list" class="flex-1 overflow-y-auto scroll-smooth"></div>
                 </div>
 
                 <!-- Chat Window -->
-                <div class="flex-1 flex flex-col bg-[#efeae2] relative bg-[url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')]">
+                <div class="flex-1 flex flex-col bg-[#efeae2] relative">
+                    <div class="absolute inset-0 opacity-10" style="background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png');"></div>
+
                     <!-- Empty State -->
-                    <div id="empty-chat-state" class="absolute inset-0 flex flex-col items-center justify-center bg-[#f0f2f5] z-0">
-                        <div class="bg-white p-8 rounded-full shadow-sm mb-4"><i data-feather="message-square" class="w-10 h-10 text-gray-400"></i></div>
-                        <h3 class="text-xl font-bold text-gray-700">Sidor Pro</h3>
-                        <p class="text-gray-500 mt-2">בחר לקוח מהרשימה כדי להתחיל בשיחה</p>
+                    <div id="empty-state" class="absolute inset-0 flex flex-col items-center justify-center z-10 pointer-events-none">
+                        <div class="bg-white p-6 rounded-full shadow-sm mb-4"><i data-feather="message-square" class="w-8 h-8 text-gray-400"></i></div>
+                        <h3 class="text-xl font-bold text-gray-600">Sidor Pro</h3>
+                        <p class="text-gray-400 text-sm mt-1">בחר שיחה כדי להתחיל לעבוד</p>
                     </div>
 
-                    <!-- Header -->
-                    <div id="chat-header" class="p-3 bg-[#f0f2f5] border-b flex justify-between items-center hidden shadow-sm z-10 relative">
+                    <!-- Chat Header -->
+                    <div id="chat-header" class="p-3 bg-[#f0f2f5] border-b flex justify-between items-center hidden shadow-sm z-20 relative">
                         <div class="flex items-center gap-3">
-                            <img id="chat-client-avatar" src="" class="w-10 h-10 rounded-full border border-gray-300 bg-white object-cover">
+                            <img id="header-avatar" src="" class="w-10 h-10 rounded-full border border-white shadow-sm object-cover bg-gray-200">
                             <div>
-                                <h3 class="font-bold text-gray-800" id="chat-client-name">...</h3>
-                                <p class="text-xs text-gray-500 flex items-center gap-1">
-                                    <span id="chat-client-num"></span>
-                                </p>
+                                <h3 class="font-bold text-gray-800 text-sm" id="header-name">...</h3>
+                                <p class="text-xs text-gray-500" id="header-status">...</p>
                             </div>
                         </div>
-                        <button onclick="closeChat()" class="lg:hidden p-2"><i data-feather="x"></i></button>
+                        <button onclick="app.closeChat()" class="p-2 hover:bg-gray-200 rounded-full lg:hidden"><i data-feather="x"></i></button>
                     </div>
 
-                    <!-- Messages -->
-                    <div id="chat-messages-area" class="flex-1 overflow-y-auto p-4 space-y-2 flex flex-col scroll-smooth pb-20 relative z-0 hidden"></div>
+                    <!-- Messages Area -->
+                    <div id="messages-area" class="flex-1 overflow-y-auto p-4 space-y-2 flex flex-col scroll-smooth pb-20 relative z-10 hidden"></div>
 
-                    <!-- Input -->
-                    <form id="chat-form" class="p-3 bg-[#f0f2f5] hidden items-center gap-2 absolute bottom-0 w-full z-20 border-t border-gray-200">
-                        <input id="message-input" type="text" placeholder="הקלד הודעה..." class="flex-1 p-3 rounded-lg border-none focus:ring-0 outline-none bg-white shadow-sm text-sm" autocomplete="off">
-                        <button type="submit" class="p-3 bg-[#00a884] text-white rounded-full shadow hover:scale-105 transition hit-area"><i data-feather="send" class="w-5 h-5"></i></button>
+                    <!-- Input Area -->
+                    <form id="chat-form" class="p-3 bg-[#f0f2f5] hidden items-center gap-3 absolute bottom-0 w-full z-20 border-t border-gray-200">
+                        <button type="button" class="text-gray-500 hover:text-gray-700"><i data-feather="paperclip"></i></button>
+                        <input id="msg-input" type="text" placeholder="הקלד הודעה..." class="flex-1 p-3 rounded-xl border-none focus:ring-0 outline-none bg-white shadow-sm text-sm h-10" autocomplete="off">
+                        <button type="submit" class="p-3 bg-[#00a884] text-white rounded-full shadow hover:scale-105 transition hit-area flex items-center justify-center w-10 h-10">
+                            <i data-feather="send" class="w-4 h-4"></i>
+                        </button>
                     </form>
                 </div>
             </div>
         </main>
     </div>
 
+    <!-- APP LOGIC -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
         import { getFirestore, collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, doc, getDoc, updateDoc, limit } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
+        // --- Config ---
         const firebaseConfig = {
             apiKey: "AIzaSyDq0oVwS6zbEfsgrYBRkeBq80dDUKMedzo",
             authDomain: "saban94-78949.firebaseapp.com",
@@ -198,416 +240,402 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // Global State
-        let currentUser = null;
-        let selectedRoomId = null;
-        let unsubscribeChat = null;
-        let lastUnreadCount = 0;
-        let blinkingInterval = null;
-        const originalTitle = document.title;
-        
-        let roomsState = {}; 
-        let customersMap = {}; 
-
-        const getEl = (id) => document.getElementById(id);
-
-        // --- Sound Control ---
-        window.stopSound = () => {
-            const audio = getEl('notif-sound');
-            if(audio) { audio.pause(); audio.currentTime = 0; }
+        // --- State ---
+        const state = {
+            user: null,
+            rooms: {}, // { roomId: { name, avatar, unread, lastMsg, time, ... } }
+            activeRoom: null,
+            customers: {},
+            unsubChat: null,
+            unsubMain: null,
+            artDeltas: [],
+            blinkInterval: null,
+            audioLocked: false
         };
 
-        function startBlinking(enable) {
-            if(blinkingInterval) clearInterval(blinkingInterval);
-            if(!enable) { document.title = originalTitle; return; }
-            let toggle = false;
-            blinkingInterval = setInterval(() => { 
-                document.title = toggle ? "🔔 הודעה חדשה!" : originalTitle; 
-                toggle = !toggle; 
-            }, 1000);
-        }
+        // --- DOM Helpers ---
+        const el = (id) => document.getElementById(id);
+        const playSound = (id) => {
+            const audio = el(id);
+            if (audio && !state.audioLocked) {
+                audio.currentTime = 0;
+                audio.play().catch(() => state.audioLocked = true);
+            }
+        };
 
-        // --- Navigation ---
-        window.switchTab = (tab) => {
-            const tabs = ['dashboard', 'chat'];
-            tabs.forEach(t => {
-                const el = getEl(`tab-${t}`);
-                const btn = getEl(`btn-${t}`);
-                if(el) el.classList.add('hidden');
-                if(btn) btn.classList.remove('text-blue-600', 'bg-blue-50');
-            });
-            const targetEl = getEl(`tab-${tab}`);
-            const targetBtn = getEl(`btn-${tab}`);
-            if(targetEl) targetEl.classList.remove('hidden');
-            if(targetBtn) targetBtn.classList.add('text-blue-600', 'bg-blue-50');
+        // --- Global Actions (Attached to window.app) ---
+        window.app = {
+            logout: () => signOut(auth),
             
-            // If switching to chat, refresh list
-            if(tab === 'chat') renderChatList();
-        };
-        
-        window.closeChat = () => {
-            selectedRoomId = null;
-            if(unsubscribeChat) unsubscribeChat();
-            getEl('empty-chat-state').classList.remove('hidden');
-            getEl('chat-header').classList.add('hidden');
-            getEl('chat-messages-area').classList.add('hidden');
-            getEl('chat-form').classList.add('hidden');
-        };
+            stopSound: () => {
+                ['alert-sound', 'sla-sound'].forEach(id => { const a = el(id); if(a) { a.pause(); a.currentTime=0; }});
+                if(state.blinkInterval) clearInterval(state.blinkInterval);
+                document.title = "Sidor Pro";
+            },
 
-        // --- Core Logic ---
-        function initApp() {
-            if(!auth.currentUser) return;
-
-            // 1. Load Customers
-            onSnapshot(collection(db, 'customers'), snap => {
-                snap.docs.forEach(d => { customersMap[d.id] = { id: d.id, ...d.data() }; });
-                renderChatList();
-            });
-
-            // 2. Load Presence
-            onSnapshot(collection(db, 'presence'), snap => {
-                let online = 0;
-                snap.docs.forEach(d => {
-                    const p = d.data();
-                    if(p.isOnline && (Date.now() - (p.lastSeen?.toMillis() || 0) < 120000)) online++;
-                    
-                    const roomId = p.currentRoom || d.id;
-                    if(roomsState[roomId]) roomsState[roomId].isOnline = p.isOnline;
+            switchTab: (tab) => {
+                ['dashboard', 'chat'].forEach(t => {
+                    el(`tab-${t}`).classList.add('hidden');
+                    el(`btn-${t}`).classList.remove('text-blue-600', 'bg-blue-50');
                 });
-                getEl('stat-online').innerText = online;
-                renderChatList();
+                el(`tab-${tab}`).classList.remove('hidden');
+                el(`btn-${tab}`).classList.add('text-blue-600', 'bg-blue-50');
+                if(tab === 'chat') ui.renderList();
+            },
+
+            openChat: (roomId) => {
+                window.app.stopSound(); // Silence immediately
+                state.activeRoom = roomId;
+                
+                // UI Updates
+                ui.renderList(); // Update active state in list
+                el('empty-state').classList.add('hidden');
+                el('chat-header').classList.remove('hidden'); el('chat-header').classList.add('flex');
+                el('messages-area').classList.remove('hidden'); el('messages-area').classList.add('flex');
+                el('chat-form').classList.remove('hidden'); el('chat-form').classList.add('flex');
+
+                // Header Info
+                const room = state.rooms[roomId] || {};
+                el('header-name').innerText = room.name || 'לקוח';
+                el('header-status').innerText = room.custNum ? `לקוח #${room.custNum}` : 'מזהה חדר: ' + roomId.substring(0,6);
+                el('header-avatar').src = room.avatar || ui.getAvatar(room.name);
+
+                // Messages Listener
+                if (state.unsubChat) state.unsubChat();
+                const q = query(collection(db, 'messages'), where('roomId', '==', roomId), orderBy('createdAt', 'asc'));
+                
+                state.unsubChat = onSnapshot(q, (snap) => {
+                    const area = el('messages-area');
+                    if(!area) return;
+
+                    // 1. Mark Read Logic
+                    snap.docChanges().forEach(change => {
+                        if(change.type === 'added') {
+                            const m = change.doc.data();
+                            if(m.senderId !== state.user.uid && !m.readByWorker) {
+                                updateDoc(change.doc.ref, { 
+                                    readByWorker: true, 
+                                    status: 'read', 
+                                    readAt: serverTimestamp() 
+                                });
+                            }
+                        }
+                    });
+
+                    // 2. Render Messages
+                    const msgsHTML = snap.docs.map(doc => ui.renderMessage(doc.data(), room)).join('');
+                    area.innerHTML = msgsHTML;
+                    area.scrollTop = area.scrollHeight;
+                    feather.replace();
+
+                }, err => console.error("Chat Error", err));
+            },
+
+            closeChat: () => {
+                state.activeRoom = null;
+                if(state.unsubChat) state.unsubChat();
+                el('empty-state').classList.remove('hidden');
+                el('chat-header').classList.add('hidden');
+                el('messages-area').classList.add('hidden');
+                el('chat-form').classList.add('hidden');
+                ui.renderList();
+            },
+            
+            setOrderStatus: (msgId, status) => {
+                 updateDoc(doc(db, 'messages', msgId), { orderStatus: status });
+            }
+        };
+
+        // --- UI Renderers ---
+        const ui = {
+            getAvatar: (name) => `https://ui-avatars.com/api/?name=${encodeURIComponent(name||'C')}&background=random&color=fff`,
+            
+            renderList: () => {
+                const listEl = el('chat-list');
+                if(!listEl) return;
+
+                const sortedRooms = Object.entries(state.rooms).sort(([,a], [,b]) => {
+                    // Unread > Time
+                    if (a.unread !== b.unread) return b.unread - a.unread;
+                    return b.time - a.time;
+                });
+
+                el('list-count').innerText = sortedRooms.length;
+
+                listEl.innerHTML = sortedRooms.map(([id, r]) => {
+                    if(!r.lastMsg && r.unread === 0) return ''; // Skip empty rooms
+                    const active = id === state.activeRoom ? 'active' : '';
+                    const unreadClass = r.unread > 0 ? 'unread-active' : '';
+                    const time = r.time ? new Date(r.time).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : '';
+                    
+                    // Safe Strings for HTML injection
+                    const safeId = id.replace(/'/g, "\\'");
+                    
+                    return `
+                    <div onclick="app.openChat('${safeId}')" class="chat-list-item p-4 cursor-pointer ${active} ${unreadClass} hit-area relative">
+                        <div class="flex items-center gap-3">
+                            <div class="relative">
+                                <img src="${r.avatar || ui.getAvatar(r.name)}" class="w-12 h-12 rounded-full object-cover border border-gray-200">
+                                ${r.isOnline ? '<span class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>' : ''}
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex justify-between items-start mb-1">
+                                    <h3 class="font-bold text-gray-800 truncate text-sm">${r.name}</h3>
+                                    ${r.unread > 0 ? `<span class="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">${r.unread}</span>` : ''}
+                                </div>
+                                <div class="flex justify-between items-center mt-1">
+                                    <p class="text-xs text-gray-500 truncate max-w-[140px] ${r.unread>0?'font-bold text-gray-900':''}">${r.lastMsg}</p>
+                                    <span class="text-[10px] text-gray-400">${time}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>`;
+                }).join('');
+            },
+
+            renderMessage: (m, room) => {
+                const isMe = m.senderId === state.user.uid;
+                const align = isMe ? 'items-end' : 'items-start';
+                const bg = isMe ? 'bg-[#d9fdd3]' : 'bg-white';
+                const bubbleAvatar = !isMe ? `<img src="${room.avatar || ui.getAvatar(room.name)}" class="w-6 h-6 rounded-full mr-2 border border-gray-200 self-end mb-1 object-cover">` : '';
+                
+                let content = `<div class="text-sm whitespace-pre-wrap">${m.text || ''}</div>`;
+                
+                if(m.type === 'ORDER') {
+                    const items = m.orderPayload?.items?.map(i => `<li class="flex justify-between border-b border-blue-100 pb-1 last:border-0"><span>${i.name}</span><span class="font-bold">x${i.qty}</span></li>`).join('') || '';
+                    const status = m.orderStatus || 'חדש';
+                    content = `
+                        <div class="bg-blue-50 -m-1 p-3 rounded-lg mb-1 min-w-[200px]">
+                            <div class="font-bold text-blue-800 mb-2 flex justify-between"><span class="flex items-center gap-2"><i data-feather="shopping-cart" class="w-4"></i> הזמנה</span><span class="text-xs bg-white px-2 py-0.5 rounded text-blue-600">${status}</span></div>
+                            <ul class="text-xs space-y-1 text-gray-700 mb-2">${items}</ul>
+                            ${!isMe ? `<div class="flex gap-2"><button onclick="app.setOrderStatus('${m.id}','בטיפול')" class="bg-white border border-blue-200 text-blue-600 text-[10px] px-2 py-1 rounded hover:bg-blue-100">בטיפול</button><button onclick="app.setOrderStatus('${m.id}','הושלם')" class="bg-green-500 text-white text-[10px] px-2 py-1 rounded hover:bg-green-600">סיים</button></div>` : ''}
+                        </div>`;
+                }
+                if(m.type === 'IMAGE') content = `<img src="${m.mediaUrl}" class="rounded-lg max-h-64 max-w-full cursor-pointer border hover:opacity-90" onclick="window.open(this.src)">`;
+                if(m.type === 'AUDIO') content = `<div class="flex items-center gap-2 bg-gray-50 p-2 rounded-lg"><div class="p-2 bg-white rounded-full shadow-sm"><i data-feather="mic" class="w-4 h-4 text-gray-500"></i></div><audio controls src="${m.mediaUrl}" class="h-8 w-48"></audio></div>`;
+                if(m.type === 'LOCATION') {
+                     const loc = m.location;
+                     content = `<div class="bg-white p-1 rounded border"><div class="h-24 bg-gray-100 flex items-center justify-center mb-2"><i data-feather="map-pin" class="text-red-500"></i></div><a href="https://waze.com/ul?ll=${loc.lat},${loc.lon}&navigate=yes" target="_blank" class="block text-center bg-blue-500 text-white text-xs py-2 rounded font-bold hover:bg-blue-600">נווט ב-Waze</a></div>`;
+                }
+
+                const time = m.createdAt ? new Date(m.createdAt.seconds * 1000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : '...';
+                
+                return `
+                <div class="flex flex-col ${align} mb-3 w-full fade-in">
+                    <div class="flex gap-2 max-w-[85%] ${isMe ? 'flex-row-reverse' : 'flex-row'}">
+                        ${bubbleAvatar}
+                        <div class="p-2 px-3 rounded-xl shadow-sm ${bg} ${isMe?'rounded-tr-none':'rounded-tl-none'} relative group">
+                            ${content}
+                            <div class="text-[10px] text-gray-400 text-left mt-1 flex justify-end items-center gap-1">
+                                ${time}
+                                ${isMe ? `<i data-feather="${m.status==='read'?'check-circle':'check'}" class="w-3 h-3 ${m.status==='read'?'text-blue-500':''}"></i>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+            }
+        };
+
+        // --- Logic Engine ---
+        function initLogic() {
+            // 1. Load Customers (Profile Mapping)
+            onSnapshot(collection(db, 'customers'), snap => {
+                snap.docs.forEach(d => { state.customers[d.id] = { id: d.id, ...d.data() }; });
+                // After customers load, refresh list to show names
+                ui.renderList();
             });
 
-            // 3. Messages Engine
+            // 2. Main Messages Listener
             const q = query(collection(db, 'messages'), orderBy('createdAt', 'desc'), limit(500));
-            onSnapshot(q, (snap) => {
-                // Reset accumulators
-                Object.keys(roomsState).forEach(k => roomsState[k].unread = 0);
-                
-                let globalUnread = 0;
-                let ordersToday = 0;
-                let totalRespTime = 0;
-                let respCount = 0;
+            onSnapshot(q, snap => {
+                // Reset counters
+                Object.values(state.rooms).forEach(r => r.unread = 0);
+                let totalUnread = 0, ordersCount = 0;
                 const activity = [];
+                let newUnreadEvent = false;
 
                 snap.docs.forEach(d => {
                     const m = d.data();
                     if(!m.roomId) return;
 
-                    // Initialize Room if needed
-                    if(!roomsState[m.roomId]) {
-                        roomsState[m.roomId] = { 
-                            name: m.senderName || 'לקוח', 
+                    // Create Room State if missing
+                    if(!state.rooms[m.roomId]) {
+                        state.rooms[m.roomId] = { 
+                            name: 'טוען...', 
+                            avatar: '', 
                             unread: 0, 
                             time: 0, 
                             lastMsg: '',
-                            senderId: m.senderId 
+                            senderId: m.senderId
                         };
                     }
+                    const room = state.rooms[m.roomId];
 
-                    // Enrich Room Data
-                    if(customersMap[m.senderId]) {
-                        roomsState[m.roomId].name = customersMap[m.senderId].name;
-                        roomsState[m.roomId].avatar = customersMap[m.senderId].avatarUrl;
-                        roomsState[m.roomId].custNum = customersMap[m.senderId].customerNumber;
-                    } else if(m.senderAvatar && !roomsState[m.roomId].avatar) {
-                        roomsState[m.roomId].avatar = m.senderAvatar;
+                    // Enrich from Customer Data
+                    if(state.customers[m.senderId]) {
+                        room.name = state.customers[m.senderId].name;
+                        room.avatar = state.customers[m.senderId].avatarUrl;
+                        room.custNum = state.customers[m.senderId].customerNumber;
+                    } else if (m.senderAvatar && !room.avatar) {
+                        room.avatar = m.senderAvatar;
+                        if(m.senderName) room.name = m.senderName;
                     }
 
-                    const time = m.createdAt ? m.createdAt.toMillis() : Date.now();
-                    
-                    // Update Latest Message Info
-                    if(time > roomsState[m.roomId].time) {
-                        roomsState[m.roomId].time = time;
-                        let preview = m.text;
-                        if(m.type === 'ORDER') preview = '🛒 הזמנה חדשה';
-                        if(m.type === 'IMAGE') preview = '📷 תמונה';
-                        if(m.type === 'AUDIO') preview = '🎤 הודעה קולית';
-                        if(m.type === 'LOCATION') preview = '📍 מיקום';
-                        roomsState[m.roomId].lastMsg = preview;
+                    // Update Latest Msg
+                    const mTime = m.createdAt ? m.createdAt.toMillis() : Date.now();
+                    if(mTime > room.time) {
+                        room.time = mTime;
+                        let prev = m.text;
+                        if(m.type === 'ORDER') prev = '🛒 הזמנה';
+                        if(m.type === 'IMAGE') prev = '📷 תמונה';
+                        if(m.type === 'AUDIO') prev = '🎤 קולי';
+                        if(m.type === 'LOCATION') prev = '📍 מיקום';
+                        room.lastMsg = prev;
                     }
 
                     // Unread Count
-                    if(!m.readByWorker && m.senderId !== currentUser.uid) {
-                        roomsState[m.roomId].unread++;
-                        globalUnread++;
+                    if(!m.readByWorker && m.senderId !== state.user.uid) {
+                        room.unread++;
+                        totalUnread++;
+                        
+                        // Check if this is a NEW event for blinking
+                        const change = snap.docChanges().find(c => c.doc.id === d.id);
+                        if(change && change.type === 'added') newUnreadEvent = true;
                     }
 
                     // ART Calc
                     if(m.readByWorker && m.readAt && m.createdAt) {
                         const diff = m.readAt.toMillis() - m.createdAt.toMillis();
-                        if(diff > 0 && diff < 86400000) { totalRespTime += diff; respCount++; }
+                        if(diff > 0 && diff < 86400000) state.artDeltas.push(diff);
                     }
 
-                    if(m.type === 'ORDER' && time > Date.now() - 86400000) ordersToday++;
-                    
-                    if(activity.length < 8) {
+                    if(m.type === 'ORDER' && mTime > Date.now() - 86400000) ordersCount++;
+
+                    if(activity.length < 10) {
                         activity.push({
-                            name: m.senderName || '?',
-                            text: m.text || (m.type==='ORDER'?'הזמנה':(m.type==='AUDIO'?'קולי':'מדיה')),
-                            time: m.createdAt?.toDate(),
-                            avatar: m.senderAvatar || roomsState[m.roomId].avatar,
-                            roomId: m.roomId // Store roomId for click
+                            text: m.type === 'ORDER' ? `הזמנה מ-${room.name}` : `הודעה מ-${room.name}`,
+                            sub: room.lastMsg,
+                            roomId: m.roomId
                         });
                     }
                 });
 
-                // Sound & Blink
-                if(globalUnread > lastUnreadCount) {
-                    const audio = getEl('notif-sound');
-                    if(audio) { try{audio.play()}catch(e){} }
-                    startBlinking(true);
-                } else if (globalUnread === 0) {
-                    startBlinking(false);
-                }
-                lastUnreadCount = globalUnread;
-
                 // Update Dashboard
-                getEl('stat-orders').innerText = ordersToday;
-                getEl('stat-unread').innerText = globalUnread;
-                getEl('global-badge').classList.toggle('hidden', globalUnread === 0);
+                el('stat-orders').innerText = ordersCount;
+                el('stat-unread').innerText = totalUnread;
+                el('global-badge').classList.toggle('hidden', totalUnread === 0);
                 
-                if(respCount > 0) {
-                    const avg = totalRespTime / respCount;
-                    const m = Math.floor(avg / 60000);
-                    const s = Math.floor((avg % 60000) / 1000);
-                    getEl('stat-avg-resp').innerText = `${m}:${s.toString().padStart(2,'0')}`;
+                if(state.artDeltas.length > 0) {
+                    const avg = state.artDeltas.reduce((a,b)=>a+b,0) / state.artDeltas.length;
+                    const mm = Math.floor(avg/60000);
+                    const ss = Math.floor((avg%60000)/1000);
+                    el('stat-avg-resp').innerText = `${mm}:${ss.toString().padStart(2,'0')}`;
                 }
 
-                // Render Activity List
-                const actEl = getEl('activity-stream');
-                if(actEl) {
-                    actEl.innerHTML = activity.map(a => {
-                        const safeName = (a.name || '').replace(/'/g, "\\'");
-                        const safeAvatar = (a.avatar || '').replace(/'/g, "\\'");
-                        // Correctly passing params to openChat
-                        return `
-                        <div class="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg cursor-pointer border-b border-gray-50" 
-                             onclick="window.goToChat('${a.roomId}', '${safeName}', '', '${safeAvatar}')">
-                            <img src="${a.avatar || 'https://ui-avatars.com/api/?name=User'}" class="w-8 h-8 rounded-full object-cover">
-                            <div class="flex-1 min-w-0">
-                                <div class="font-bold text-sm text-gray-800 truncate">${a.name}</div>
-                                <div class="text-xs text-gray-500 truncate">${a.text}</div>
-                            </div>
-                            <div class="text-xs text-gray-400 whitespace-nowrap">${a.time?.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div>
-                        </div>`;
-                    }).join('');
+                // Alert Logic
+                if(totalUnread > 0 && newUnreadEvent) {
+                    playSound('alert-sound');
+                    startBlinking();
+                } else if (totalUnread === 0) {
+                    stopBlinking();
                 }
 
-                renderChatList();
+                // Render Activity
+                el('activity-log').innerHTML = activity.map(a => `
+                    <div class="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg cursor-pointer border-b border-gray-50" onclick="window.app.openChat('${a.roomId}')">
+                        <div class="p-2 bg-blue-100 text-blue-600 rounded-full"><i data-feather="message-circle" class="w-4 h-4"></i></div>
+                        <div><div class="font-bold text-sm">${a.text}</div><div class="text-xs text-gray-400">${a.sub}</div></div>
+                    </div>
+                `).join('');
+
+                ui.renderList();
+                updateSLA();
                 feather.replace();
-
-            }, err => console.error("Messages Error:", err));
+            });
         }
 
-        function renderChatList() {
-            const list = getEl('chat-rooms-list');
-            const countEl = getEl('list-count');
-            if(!list) return;
+        // SLA Timer
+        function updateSLA() {
+            const container = el('sla-list');
+            let html = '';
+            let breach = false;
 
-            const sortedIds = Object.keys(roomsState).sort((a,b) => {
-                const rA = roomsState[a], rB = roomsState[b];
-                if(rA.unread !== rB.unread) return rB.unread - rA.unread; // Unread first
-                return rB.time - rA.time; // Newer first
+            Object.entries(state.rooms).forEach(([id, r]) => {
+                if(r.unread > 0 && r.time > 0) {
+                    const elapsed = Date.now() - r.time;
+                    const mins = Math.floor(elapsed / 60000);
+                    let badgeClass = 'sla-ok';
+                    
+                    if(mins >= 1) badgeClass = 'sla-warn';
+                    if(mins >= 3) { badgeClass = 'sla-danger'; breach = true; }
+
+                    html += `
+                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded border mb-2 cursor-pointer hover:bg-gray-100" onclick="window.app.openChat('${id}')">
+                        <div class="flex items-center gap-2">
+                            <img src="${r.avatar || ui.getAvatar(r.name)}" class="w-8 h-8 rounded-full">
+                            <span class="font-bold text-sm">${r.name}</span>
+                        </div>
+                        <span class="sla-badge ${badgeClass}">${mins} דק'</span>
+                    </div>`;
+                }
             });
             
-            if(countEl) countEl.innerText = sortedIds.length;
+            if(html === '') html = '<div class="text-center text-gray-400 py-10">אין פניות ממתינות</div>';
+            container.innerHTML = html;
+            
+            if(breach) playSound('sla-sound');
+        }
+        setInterval(updateSLA, 15000);
 
-            list.innerHTML = sortedIds.map(id => {
-                const r = roomsState[id];
-                if(!r.lastMsg && r.unread === 0) return ''; // Hide empty inactive rooms
-                
-                const active = id === selectedRoomId ? 'active' : '';
-                const unreadClass = r.unread > 0 ? 'unread-active' : '';
-                const timeStr = r.time ? new Date(r.time).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : '';
-                const avatar = r.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(r.name)}&background=random`;
-                
-                const sId = id.replace(/'/g, "\\'");
-                const sName = r.name.replace(/'/g, "\\'");
-                const sAv = avatar.replace(/'/g, "\\'");
-                const sNum = (r.custNum || '').replace(/'/g, "\\'");
-
-                return `
-                <div onclick="window.openChat('${sId}', '${sName}', '${sNum}', '${sAv}')" class="chat-list-item p-4 cursor-pointer ${active} ${unreadClass} hit-area">
-                    <div class="flex items-center gap-3">
-                        <div class="relative">
-                            <img src="${avatar}" class="avatar w-12 h-12">
-                            ${r.isOnline ? '<span class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>' : ''}
-                        </div>
-                        <div class="flex-1 min-w-0">
-                            <div class="flex justify-between items-start mb-1">
-                                <h3 class="font-bold text-gray-800 truncate text-sm">${r.name}</h3>
-                                ${r.unread > 0 ? `<span class="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">${r.unread}</span>` : ''}
-                            </div>
-                            <div class="flex justify-between items-center mt-1">
-                                <p class="text-xs text-gray-500 truncate max-w-[140px] ${r.unread>0?'font-bold text-gray-800':''}">${r.lastMsg}</p>
-                                <span class="text-[10px] text-gray-400">${timeStr}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>`;
-            }).join('');
+        // Blinking Title
+        function startBlinking() {
+            if(state.blinkInterval) clearInterval(state.blinkInterval);
+            let t = false;
+            state.blinkInterval = setInterval(() => { document.title = t ? "🔔 הודעה חדשה!" : "Sidor Pro"; t=!t; }, 1000);
+        }
+        function stopBlinking() {
+            if(state.blinkInterval) clearInterval(state.blinkInterval);
+            document.title = "Sidor Pro";
         }
 
-        // Helper to switch tab AND open chat
-        window.goToChat = (id, name, num, av) => {
-            window.switchTab('chat');
-            setTimeout(() => window.openChat(id, name, num, av), 100);
-        };
-
-        window.openChat = (roomId, name, custNum, avatar) => {
-            window.stopSound();
-            startBlinking(false);
-            selectedRoomId = roomId;
-            renderChatList();
-
-            getEl('empty-chat-state').classList.add('hidden');
-            getEl('chat-header').classList.remove('hidden'); getEl('chat-header').classList.add('flex');
-            getEl('chat-messages-area').classList.remove('hidden'); getEl('chat-messages-area').classList.add('flex');
-            getEl('chat-form').classList.remove('hidden'); getEl('chat-form').classList.add('flex');
-
-            if(getEl('chat-client-name')) getEl('chat-client-name').innerText = name;
-            if(getEl('chat-client-num')) getEl('chat-client-num').innerText = custNum || '';
-            if(getEl('chat-client-avatar')) {
-                getEl('chat-client-avatar').src = avatar;
-                getEl('chat-client-avatar').classList.remove('hidden');
-            }
-
-            if(unsubscribeChat) unsubscribeChat();
-
-            // IMPORTANT: Listener for Specific Room Messages
-            const q = query(collection(db, 'messages'), where('roomId', '==', roomId), orderBy('createdAt', 'asc'));
-            unsubscribeChat = onSnapshot(q, (snap) => {
-                const area = getEl('chat-messages-area');
-                if(!area) return;
-                
-                // Mark as Read
-                snap.docChanges().forEach(change => {
-                    if(change.type === 'added') {
-                        const m = change.doc.data();
-                        if(m.senderId !== currentUser.uid && !m.readByWorker) {
-                            updateDoc(change.doc.ref, { readByWorker: true, status: 'read', readAt: serverTimestamp() });
-                        }
-                    }
-                });
-
-                const html = snap.docs.map(doc => {
-                    const m = doc.data();
-                    const isMe = m.senderId === currentUser.uid;
-                    const bubbleAvatar = !isMe ? `<img src="${m.senderAvatar || avatar}" class="w-6 h-6 rounded-full mr-2 border border-gray-200 self-end mb-1 object-cover">` : '';
-                    
-                    // Content Generators
-                    let content = `<div class="text-sm whitespace-pre-wrap">${m.text}</div>`;
-                    
-                    if(m.type === 'AUDIO') {
-                        content = `
-                            <div class="flex items-center gap-2 min-w-[200px]">
-                                <div class="p-2 bg-gray-100 rounded-full"><i data-feather="mic" class="w-4 h-4 text-gray-500"></i></div>
-                                <audio controls src="${m.mediaUrl}" class="h-8 w-full" preload="metadata"></audio>
-                            </div>`;
-                    }
-                    
-                    if(m.type === 'LOCATION') {
-                        const loc = m.location || {};
-                        content = `
-                            <div class="bg-white p-1 rounded border border-blue-100">
-                                <div class="h-24 bg-gray-200 rounded mb-2 flex items-center justify-center bg-cover bg-center" style="background-image: url('https://static-maps.yandex.ru/1.x/?lang=en-US&ll=${loc.lon},${loc.lat}&z=15&l=map&size=300,150&pt=${loc.lon},${loc.lat},pm2rdm');"></div>
-                                <a href="https://waze.com/ul?ll=${loc.lat},${loc.lon}&navigate=yes" target="_blank" class="block w-full text-center bg-blue-500 text-white py-2 rounded text-xs font-bold hover:bg-blue-600 transition">
-                                    <i data-feather="navigation" class="inline w-3 h-3 mr-1"></i> נווט ב-Waze
-                                </a>
-                            </div>`;
-                    }
-
-                    if(m.type === 'ORDER') {
-                         const items = m.orderPayload?.items?.map(i => `<li class="flex justify-between border-b border-blue-100 pb-1 last:border-0"><span>${i.name}</span><span class="font-bold">x${i.qty}</span></li>`).join('') || '';
-                         content = `
-                            <div class="bg-blue-50 -m-1 p-3 rounded-lg mb-1">
-                                <div class="font-bold text-blue-800 mb-2 flex items-center gap-2"><i data-feather="shopping-cart" class="w-4 h-4"></i> הזמנה חדשה</div>
-                                <ul class="text-xs space-y-1 text-gray-700">${items}</ul>
-                            </div>
-                            <div class="flex gap-2 mt-2">
-                                <button onclick="setOrderStatus('${doc.id}', 'בטיפול')" class="bg-white border border-blue-200 text-blue-600 text-xs px-3 py-1.5 rounded-full hover:bg-blue-50">בטיפול</button>
-                                <button onclick="setOrderStatus('${doc.id}', 'הושלם')" class="bg-green-500 text-white text-xs px-3 py-1.5 rounded-full hover:bg-green-600">אשר ביצוע</button>
-                            </div>`;
-                    }
-
-                    if(m.type === 'IMAGE') {
-                        content = `<img src="${m.mediaUrl}" class="rounded-lg max-h-64 max-w-full cursor-pointer hover:opacity-90 transition border" onclick="window.open(this.src)"/>`;
-                    }
-
-                    // Alignment
-                    const alignClass = isMe ? 'items-end' : 'items-start';
-                    const bubbleColor = isMe ? 'bg-[#d9fdd3]' : 'bg-white';
-                    const bubbleCorner = isMe ? 'rounded-tr-none' : 'rounded-tl-none';
-
-                    return `
-                        <div class="flex flex-col ${alignClass} mb-3 w-full fade-in">
-                            <div class="flex gap-2 max-w-[85%] ${isMe ? 'flex-row-reverse' : 'flex-row'}">
-                                ${!isMe ? bubbleAvatar : ''}
-                                <div class="p-2 px-3 rounded-xl shadow-sm ${bubbleColor} ${bubbleCorner} relative group min-w-[120px]">
-                                    ${content}
-                                    <div class="text-[10px] text-gray-400 text-left mt-1 flex justify-end items-center gap-1">
-                                        ${m.createdAt?.toDate().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}
-                                        ${isMe ? `<i data-feather="${m.status==='read'?'check-circle':'check'}" class="w-3 h-3 ${m.status==='read'?'text-blue-500':''}"></i>` : ''}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>`;
-                }).join('');
-                
-                area.innerHTML = html;
-                area.scrollTop = area.scrollHeight;
-                feather.replace();
-            }, err => console.error("Chat Fetch Error:", err));
-        };
-
-        window.setOrderStatus = (id, status) => updateDoc(doc(db, 'messages', id), { orderStatus: status });
-
-        // Send Message
-        const chatForm = getEl('chat-form');
-        if(chatForm) {
-            chatForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const input = getEl('message-input');
-                const text = input.value.trim();
-                if(!text || !selectedRoomId) return;
-                input.value = '';
-                await addDoc(collection(db, 'messages'), { 
-                    roomId: selectedRoomId, 
-                    senderId: currentUser.uid, 
-                    senderName: 'נציג', 
-                    type: 'TEXT', 
-                    createdAt: serverTimestamp(), 
-                    text: text, 
-                    readByWorker: true, 
-                    status: 'sent' 
-                });
-            });
-        }
-
-        onAuthStateChanged(auth, async (user) => {
-            const shell = getEl('shell-wrapper');
-            const loginView = getEl('login-view');
-            const adminName = getEl('admin-name');
-            if (user) {
-                currentUser = user;
-                if(loginView) loginView.classList.add('hidden');
-                if(shell) shell.classList.remove('hidden');
-                if(adminName) adminName.innerText = user.displayName || 'צוות';
-                initApp();
-            } else {
-                if(shell) shell.classList.add('hidden');
-                if(loginView) loginView.classList.remove('hidden');
-            }
-        });
-
-        getEl('login-form').addEventListener('submit', async (e) => {
+        // Listeners
+        el('chat-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            try { await signInWithEmailAndPassword(auth, getEl('email').value, getEl('password').value); }
-            catch(e) { alert("שגיאה בהתחברות: " + e.message); }
+            const input = el('msg-input');
+            const text = input.value.trim();
+            if(!text || !state.activeRoom) return;
+            input.value = '';
+            await addDoc(collection(db, 'messages'), { 
+                roomId: state.activeRoom, 
+                senderId: state.user.uid, 
+                senderName: 'נציג', 
+                type: 'TEXT', 
+                createdAt: serverTimestamp(), 
+                text, 
+                readByWorker: true 
+            });
         });
 
-        window.logout = () => signOut(auth);
+        el('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            try { await signInWithEmailAndPassword(auth, el('email').value, el('password').value); }
+            catch(e) { alert("שגיאה: " + e.message); }
+        });
+
+        // Init
+        onAuthStateChanged(auth, u => {
+            if(u) {
+                state.user = u;
+                el('login-view').classList.add('hidden');
+                el('shell-wrapper').classList.remove('hidden');
+                el('admin-name').innerText = u.displayName || 'צוות';
+                initLogic();
+            } else {
+                el('shell-wrapper').classList.add('hidden');
+                el('login-view').classList.remove('hidden');
+            }
+        });
+        
         feather.replace();
     </script>
 </body>
