@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ח. סבן | צ'אט והזמנות</title>
+    <title>ח. סבן | הזמנות וצ'אט</title>
     <link rel="manifest" href="manifest.json">
     
     <!-- OneSignal -->
@@ -40,10 +40,8 @@
         .wa-bubble-in { background-color: #ffffff; border-radius: 7.5px; border-top-right-radius: 0; box-shadow: 0 1px 0.5px rgba(0,0,0,0.13); }
         
         /* Animations */
-        .slide-in { animation: slideIn 0.2s ease-out; }
-        @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
-        .pop-up { animation: popUp 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        @keyframes popUp { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .slide-up { animation: slideUp 0.3s ease-out forwards; }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
         
         /* Utils */
         .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -103,23 +101,108 @@
             );
         };
 
-        const ProductCatalog = ({ onSelect }) => {
+        // קטלוג מוצרים משודרג
+        const CatalogModal = ({ onClose, onSendOrder }) => {
+            const [cart, setCart] = useState([]);
             const products = [
-                { id: 1, name: "בלוק 20", price: "₪320 / משטח", img: "https://placehold.co/100x100?text=Block" },
-                { id: 2, name: "מלט שחור", price: "₪28 / שק", img: "https://placehold.co/100x100?text=Cement" },
-                { id: 3, name: "חול ים (בלה)", price: "₪150", img: "https://placehold.co/100x100?text=Sand" },
-                { id: 4, name: "טיט מוכן", price: "₪25", img: "https://placehold.co/100x100?text=Tit" },
+                { id: 1, name: "לוח גבס לבן (סטנדרט)", price: 38, unit: "יח'", img: "https://placehold.co/100x100?text=Gevs" },
+                { id: 2, name: "לוח גבס ירוק (עמיד מים)", price: 45, unit: "יח'", img: "https://placehold.co/100x100?text=GreenGevs" },
+                { id: 3, name: "ניצב 70 (3 מטר)", price: 18, unit: "יח'", img: "https://placehold.co/100x100?text=Nizav" },
+                { id: 4, name: "מסלול 70 (3 מטר)", price: 16, unit: "יח'", img: "https://placehold.co/100x100?text=Maslul" },
+                { id: 5, name: "שפכטל אמריקאי (פח)", price: 65, unit: "פח", img: "https://placehold.co/100x100?text=Putty" },
+                { id: 6, name: "צבע אקרילי לבן (18ל')", price: 120, unit: "דלי", img: "https://placehold.co/100x100?text=Paint" },
+                { id: 7, name: "חול ים (בלה)", price: 150, unit: "בלה", img: "https://placehold.co/100x100?text=Sand" },
+                { id: 8, name: "מלט שחור", price: 28, unit: "שק", img: "https://placehold.co/100x100?text=Cement" },
             ];
+
+            const addToCart = (p) => {
+                setCart(prev => {
+                    const existing = prev.find(i => i.id === p.id);
+                    if(existing) return prev.map(i => i.id === p.id ? {...i, qty: i.qty + 1} : i);
+                    return [...prev, {...p, qty: 1}];
+                });
+            };
+
+            const removeFromCart = (id) => {
+                setCart(prev => prev.filter(i => i.id !== id));
+            };
+
+            const updateQty = (id, delta) => {
+                setCart(prev => prev.map(i => i.id === id ? {...i, qty: Math.max(1, i.qty + delta)} : i));
+            };
+
             return (
-                <div className="p-4 grid grid-cols-2 gap-3 bg-[#e5ded8] h-full overflow-y-auto pb-20">
-                    {products.map(p => (
-                        <div key={p.id} className="bg-white p-3 rounded-xl shadow-sm flex flex-col items-center text-center" onClick={()=>onSelect(p)}>
-                            <img src={p.img} className="rounded-lg mb-2 w-full h-24 object-cover"/>
-                            <h4 className="font-bold text-sm">{p.name}</h4>
-                            <p className="text-xs text-gray-500">{p.price}</p>
-                            <button className="mt-2 bg-[#00a884] text-white text-xs px-4 py-1 rounded-full">שלח</button>
+                <div className="fixed inset-0 bg-white z-50 flex flex-col slide-up">
+                    <div className="bg-[#008069] p-4 text-white flex justify-between items-center shadow-md">
+                        <h2 className="text-lg font-bold">קטלוג והזמנה</h2>
+                        <button onClick={onClose}><Icon name="x" /></button>
+                    </div>
+                    
+                    <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
+                        <h3 className="font-bold text-gray-700 mb-3">מוצרים פופולריים</h3>
+                        <div className="grid grid-cols-2 gap-3 mb-6">
+                            {products.map(p => (
+                                <div key={p.id} className="bg-white p-3 rounded-xl shadow-sm flex flex-col items-center text-center border border-gray-100" onClick={()=>addToCart(p)}>
+                                    <img src={p.img} className="rounded-lg mb-2 w-full h-20 object-cover"/>
+                                    <h4 className="font-bold text-sm line-clamp-1">{p.name}</h4>
+                                    <p className="text-xs text-blue-600 font-bold">₪{p.price} / {p.unit}</p>
+                                    <button className="mt-2 bg-blue-50 text-blue-600 text-xs px-4 py-1 rounded-full font-bold">+ הוסף</button>
+                                </div>
+                            ))}
                         </div>
-                    ))}
+
+                        {cart.length > 0 && (
+                            <div className="bg-white p-4 rounded-xl shadow-lg border border-blue-100 mb-20">
+                                <h3 className="font-bold text-lg mb-3 border-b pb-2">סיכום הזמנה</h3>
+                                <div className="space-y-3">
+                                    {cart.map(item => (
+                                        <div key={item.id} className="flex justify-between items-center">
+                                            <div className="flex-1">
+                                                <div className="font-bold text-sm">{item.name}</div>
+                                                <div className="text-xs text-gray-500">₪{item.price} ליח'</div>
+                                            </div>
+                                            <div className="flex items-center gap-3 bg-gray-100 rounded-lg p-1">
+                                                <button onClick={()=>updateQty(item.id, -1)} className="w-6 h-6 bg-white rounded shadow text-sm font-bold">-</button>
+                                                <span className="text-sm font-bold w-4 text-center">{item.qty}</span>
+                                                <button onClick={()=>updateQty(item.id, 1)} className="w-6 h-6 bg-white rounded shadow text-sm font-bold">+</button>
+                                            </div>
+                                            <button onClick={()=>removeFromCart(item.id)} className="mr-3 text-red-400"><Icon name="trash-2" size={16}/></button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {cart.length > 0 && (
+                        <div className="p-4 bg-white border-t shadow-lg absolute bottom-0 w-full">
+                            <button onClick={() => onSendOrder(cart)} className="w-full bg-[#00a884] text-white py-3 rounded-xl font-bold shadow-lg text-lg flex justify-center gap-2">
+                                שלח הזמנה <Icon name="send"/>
+                            </button>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // מסך הזמנה חופשית (טקסט)
+        const QuickOrderModal = ({ onClose, onSend }) => {
+            const [text, setText] = useState('');
+            return (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl">
+                        <h3 className="text-xl font-bold mb-4 text-gray-800">הזמנה מהירה (טקסט)</h3>
+                        <textarea 
+                            className="w-full p-3 border rounded-xl bg-gray-50 h-32 text-sm focus:ring-2 focus:ring-green-500 outline-none"
+                            placeholder="רשום כאן את רשימת הציוד שאתה צריך..."
+                            value={text}
+                            onChange={e=>setText(e.target.value)}
+                        ></textarea>
+                        <div className="flex gap-3 mt-4">
+                            <button onClick={onClose} className="flex-1 py-2 text-gray-500 font-bold">ביטול</button>
+                            <button onClick={()=>onSend(text)} className="flex-1 py-2 bg-[#00a884] text-white rounded-xl font-bold shadow-lg">שלח</button>
+                        </div>
+                    </div>
                 </div>
             );
         };
@@ -129,7 +212,7 @@
             const [input, setInput] = useState('');
             const [menuOpen, setMenuOpen] = useState(false);
             const [showCatalog, setShowCatalog] = useState(false);
-            const [isRecording, setIsRecording] = useState(false);
+            const [showQuickOrder, setShowQuickOrder] = useState(false);
             const bottomRef = useRef(null);
             const fileInput = useRef(null);
 
@@ -164,24 +247,32 @@
                 };
 
                 if (type === 'TEXT') { if(!input.trim()) return; msg.text = input; setInput(''); }
-                else if (type === 'ORDER') { msg.text = 'הזמנה חדשה'; msg.orderPayload = payload; msg.orderStatus = 'new'; }
+                else if (type === 'ORDER') { 
+                    msg.text = 'הזמנה חדשה מהקטלוג'; 
+                    msg.orderPayload = { items: payload, total: payload.length }; 
+                    msg.orderStatus = 'new'; 
+                }
+                else if (type === 'QUICK_ORDER') {
+                    msg.type = 'ORDER'; // Treat as order
+                    msg.text = 'הזמנה מהירה (טקסט)';
+                    msg.orderPayload = { note: payload, items: [] }; // Special payload
+                    msg.orderStatus = 'new';
+                }
                 else if (type === 'IMAGE') { msg.text = 'תמונה'; msg.mediaUrl = payload; }
-                else if (type === 'AUDIO') { msg.text = 'הודעה קולית'; msg.mediaUrl = payload; }
                 else if (type === 'LOCATION') { msg.text = 'מיקום'; msg.location = payload; }
 
                 setShowCatalog(false);
+                setShowQuickOrder(false);
                 setMenuOpen(false);
-                await addDoc(collection(db, 'messages'), msg);
                 
-                // Trigger Push (Stub)
-                if(window.OneSignalDeferred) window.OneSignalDeferred.push(OS => console.log("Push sent logic"));
+                try { await addDoc(collection(db, 'messages'), msg); } catch(e) { alert("שגיאה בשליחה"); }
             };
 
             const handleFile = (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
                 const reader = new FileReader();
-                reader.onload = (ev) => sendMessage('IMAGE', ev.target.result); // Base64 for demo
+                reader.onload = (ev) => sendMessage('IMAGE', ev.target.result); 
                 reader.readAsDataURL(file);
             };
 
@@ -195,14 +286,37 @@
                 const isMe = m.senderId === user.uid;
                 const time = m.createdAt ? new Date(m.createdAt.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '';
                 
-                let content = <span className="text-sm">{m.text}</span>;
+                let content = <span className="text-sm whitespace-pre-wrap">{m.text}</span>;
                 
                 if (m.type === 'ORDER') {
+                    // Check if catalog order or text order
+                    const isCatalog = m.orderPayload?.items?.length > 0;
+                    
                     content = (
-                        <div className="bg-green-50 p-2 rounded border border-green-100 -mx-1 -mt-1 mb-1">
-                            <div className="font-bold text-xs text-green-800 flex items-center gap-1"><i data-lucide="shopping-cart" width="12"></i> הזמנה</div>
-                            <div className="text-sm font-medium">{m.orderPayload.name}</div>
-                            <div className="text-xs text-gray-500">{m.orderPayload.price}</div>
+                        <div className="bg-green-50 p-2 rounded border border-green-100 -mx-1 -mt-1 mb-1 min-w-[200px]">
+                            <div className="font-bold text-xs text-green-800 flex items-center gap-1 mb-2 border-b border-green-200 pb-1">
+                                <i data-lucide="shopping-cart" width="12"></i> הזמנה #{m.id.slice(-4)}
+                            </div>
+                            
+                            {isCatalog ? (
+                                <ul className="space-y-1">
+                                    {m.orderPayload.items.map((item, i) => (
+                                        <li key={i} className="flex justify-between text-xs">
+                                            <span>{item.name}</span>
+                                            <span className="font-bold">x{item.qty}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : (
+                                <div className="text-sm text-gray-700 italic p-2 bg-white rounded border border-gray-100">
+                                    "{m.orderPayload.note}"
+                                </div>
+                            )}
+                            
+                            <div className="mt-2 pt-1 border-t border-green-200 flex justify-between items-center">
+                                <span className="text-[10px] text-gray-500">סטטוס:</span>
+                                <span className="text-[10px] font-bold bg-white px-2 rounded text-green-600">{m.orderStatus || 'חדש'}</span>
+                            </div>
                         </div>
                     );
                 } else if (m.type === 'IMAGE') {
@@ -218,7 +332,7 @@
 
                 return (
                     <div key={m.id} className={`flex mb-2 ${isMe ? 'justify-start' : 'justify-end'}`}>
-                        <div className={`max-w-[80%] p-2 px-3 rounded-lg shadow-sm relative ${isMe ? 'wa-bubble-out rounded-tr-none' : 'wa-bubble-in rounded-tl-none'}`}>
+                        <div className={`max-w-[85%] p-2 px-3 rounded-lg shadow-sm relative ${isMe ? 'wa-bubble-out rounded-tr-none' : 'wa-bubble-in rounded-tl-none'}`}>
                             {content}
                             <div className="flex justify-end items-center gap-1 mt-1">
                                 <span className="text-[10px] text-gray-500">{time}</span>
@@ -236,8 +350,8 @@
             return (
                 <div className="flex flex-col h-full wa-bg">
                     <div className="wa-header p-3 flex items-center shadow-sm z-10">
-                        <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center mr-3">
-                            <i data-lucide="user" className="text-white"></i>
+                        <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center mr-3 text-white font-bold text-lg">
+                            {room.name ? room.name[0] : 'S'}
                         </div>
                         <div className="flex-1">
                             <div className="font-bold text-sm">{room.name}</div>
@@ -247,17 +361,17 @@
                     </div>
 
                     <div className="flex-1 overflow-y-auto p-4 relative">
-                        {showCatalog ? <ProductCatalog onSelect={(p)=>sendMessage('ORDER', p)} /> : messages.map(renderMessage)}
+                        {messages.map(renderMessage)}
                         <div ref={bottomRef}></div>
                     </div>
 
                     {/* Attachment Menu */}
                     {menuOpen && (
                         <div className="absolute bottom-16 left-4 right-4 bg-white rounded-xl shadow-xl p-4 grid grid-cols-4 gap-4 z-20 pop-up">
-                            <div onClick={()=>setShowCatalog(true)} className="flex flex-col items-center gap-1"><div className="p-3 bg-purple-100 rounded-full text-purple-600"><i data-lucide="shopping-bag"></i></div><span className="text-xs">קטלוג</span></div>
-                            <div onClick={()=>fileInput.current.click()} className="flex flex-col items-center gap-1"><div className="p-3 bg-pink-100 rounded-full text-pink-600"><i data-lucide="image"></i></div><span className="text-xs">גלריה</span></div>
-                            <div onClick={handleLocation} className="flex flex-col items-center gap-1"><div className="p-3 bg-green-100 rounded-full text-green-600"><i data-lucide="map-pin"></i></div><span className="text-xs">מיקום</span></div>
-                            <div className="flex flex-col items-center gap-1"><div className="p-3 bg-blue-100 rounded-full text-blue-600"><i data-lucide="file-text"></i></div><span className="text-xs">מסמך</span></div>
+                            <div onClick={()=>setShowCatalog(true)} className="flex flex-col items-center gap-1 hit-area"><div className="p-3 bg-purple-100 rounded-full text-purple-600"><i data-lucide="shopping-bag"></i></div><span className="text-xs font-bold">קטלוג</span></div>
+                            <div onClick={()=>setShowQuickOrder(true)} className="flex flex-col items-center gap-1 hit-area"><div className="p-3 bg-orange-100 rounded-full text-orange-600"><i data-lucide="clipboard-list"></i></div><span className="text-xs font-bold">רשימה</span></div>
+                            <div onClick={()=>fileInput.current.click()} className="flex flex-col items-center gap-1 hit-area"><div className="p-3 bg-pink-100 rounded-full text-pink-600"><i data-lucide="image"></i></div><span className="text-xs font-bold">גלריה</span></div>
+                            <div onClick={handleLocation} className="flex flex-col items-center gap-1 hit-area"><div className="p-3 bg-green-100 rounded-full text-green-600"><i data-lucide="map-pin"></i></div><span className="text-xs font-bold">מיקום</span></div>
                         </div>
                     )}
 
@@ -276,12 +390,11 @@
                             />
                         </div>
                         
-                        {input ? (
-                            <button onClick={()=>sendMessage('TEXT')} className="p-3 bg-[#008069] text-white rounded-full shadow-md hit-area"><i data-lucide="send" width="18"></i></button>
-                        ) : (
-                            <button className="p-3 bg-[#008069] text-white rounded-full shadow-md hit-area"><i data-lucide="mic" width="18"></i></button>
-                        )}
+                        <button onClick={()=>sendMessage('TEXT')} className="p-3 bg-[#008069] text-white rounded-full shadow-md hit-area"><i data-lucide="send" width="18"></i></button>
                     </div>
+                    
+                    {showCatalog && <CatalogModal onClose={()=>setShowCatalog(false)} onSendOrder={(cart)=>sendMessage('ORDER', cart)} />}
+                    {showQuickOrder && <QuickOrderModal onClose={()=>setShowQuickOrder(false)} onSend={(text)=>sendMessage('QUICK_ORDER', text)} />}
                 </div>
             );
         };
@@ -299,9 +412,8 @@
                         if (snap.exists()) {
                             const data = snap.data();
                             setProfile(data);
-                            setProject(data.projects?.[0] || { projectId: 'new_room', name: 'חדר כללי' });
+                            setProject(data.projects?.[0] || { projectId: 'room_'+u.uid, name: 'פרויקט ראשי' });
                         } else {
-                            // Create default profile
                             const def = { name: u.displayName || 'אורח', projects: [{ projectId: 'room_'+u.uid, name: 'פרויקט ראשי' }] };
                             await setDoc(doc(db, 'customers', u.uid), def);
                             setProfile(def);
