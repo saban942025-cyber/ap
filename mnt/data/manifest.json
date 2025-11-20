@@ -1,6 +1,7 @@
 {
   "name": "Saban Logistics",
   "short_name": "SabanApp",
+  "description": "מערכת ניהול לוגיסטיקה מתקדמת",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#ffffff",
