@@ -362,18 +362,20 @@
                 if(!listEl) return;
 
                 const sortedRooms = Object.entries(state.rooms).sort(([,a], [,b]) => {
-                    if (a.unread !== b.unread) return b.unread - a.unread; // Unread first
-                    return b.time - a.time; // Newer first
+                    // Unread > Time
+                    if (a.unread !== b.unread) return b.unread - a.unread;
+                    return b.time - a.time;
                 });
 
                 el('list-count').innerText = sortedRooms.length;
 
                 listEl.innerHTML = sortedRooms.map(([id, r]) => {
-                    if(!r.lastMsg && r.unread === 0) return ''; 
+                    if(!r.lastMsg && r.unread === 0) return ''; // Skip empty rooms
                     const active = id === state.activeRoom ? 'active' : '';
                     const unreadClass = r.unread > 0 ? 'unread-active' : '';
                     const time = r.time ? new Date(r.time).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : '';
                     
+                    // Safe Strings for HTML injection
                     const safeId = id.replace(/'/g, "\\'");
                     
                     return `
