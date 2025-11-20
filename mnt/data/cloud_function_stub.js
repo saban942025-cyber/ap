@@ -5,7 +5,18 @@
  * 2. Install dependencies: npm install onesignal-node axios firebase-admin
  * 3. Deploy this function.
  */
+// Firebase Cloud Function Stub for Push Notifications
+const functions = require('firebase-functions');
+const admin = require('firebase-admin');
+admin.initializeApp();
 
+exports.sendPush = functions.firestore.document('messages/{msgId}').onCreate(async (snap) => {
+    const msg = snap.data();
+    if (msg.senderName === 'נציג') return; // Don't notify on own messages
+
+    // Logic to send to OneSignal REST API would go here
+    console.log("Sending push for message:", msg.text);
+});
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const OneSignal = require('onesignal-node');
