@@ -32,32 +32,21 @@
         body { font-family: 'Rubik', sans-serif; background-color: #f0f2f5; overflow: hidden; }
         .hit-area { cursor: pointer; touch-action: manipulation; min-height: 44px; min-width: 44px; display: flex; align-items: center; justify-content: center; }
         .scroll-smooth { -webkit-overflow-scrolling: touch; }
-        
-        /* Animations */
         @keyframes pulse-border { 0% { border-color: transparent; } 50% { border-color: #ef4444; } 100% { border-color: transparent; } }
         .unread-active { background-color: #fff1f2 !important; border-right: 4px solid #ef4444; animation: pulse-border 2s infinite; }
-        
         .chat-list-item { transition: all 0.2s ease; border-bottom: 1px solid #f0f0f0; }
         .chat-list-item:hover { background-color: #f9fafb; }
         .chat-list-item.active { background-color: #eff6ff; border-right: 4px solid #3b82f6; }
-        
         @keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); } 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); } }
         .online-dot { width: 10px; height: 10px; background: #22c55e; border-radius: 50%; animation: pulse-ring 2s infinite; }
         .avatar { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 2px solid #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        
-        /* SLA Timer Styles */
-        .sla-timer { font-weight: bold; padding: 2px 6px; border-radius: 4px; font-size: 10px; }
-        .sla-green { background: #dcfce7; color: #166534; }
-        .sla-yellow { background: #fef9c3; color: #854d0e; }
-        .sla-red { background: #fee2e2; color: #991b1b; animation: pulse 1s infinite; }
-
         @media (min-width: 1024px) { #shell-wrapper { max-width: 1400px; margin: 0 auto; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); height: 100vh; border-left: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; } }
     </style>
 </head>
 <body>
 
+    <!-- Audio for Alerts -->
     <audio id="notif-sound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
-    <audio id="sla-warning" src="https://assets.mixkit.co/active_storage/sfx/2868/2868-preview.mp3" preload="auto"></audio>
 
     <!-- Login -->
     <div id="login-view" class="fixed inset-0 bg-gray-900 flex items-center justify-center z-50">
@@ -82,6 +71,7 @@
                     <i data-feather="message-circle"></i>
                     <span id="global-badge" class="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full hidden"></span>
                 </button>
+                <button onclick="stopSound()" class="p-3 rounded-xl text-red-400 bg-red-50 hit-area" title="השתק"><i data-feather="volume-x"></i></button>
             </nav>
             <button onclick="logout()" class="text-red-400 p-3 hit-area"><i data-feather="log-out"></i></button>
         </aside>
@@ -114,40 +104,45 @@
                         <div class="text-xs text-purple-400 mt-1">דקות:שניות</div>
                     </div>
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                        <div class="text-gray-500 mb-1 text-sm">חריגות SLA</div>
-                        <div class="text-3xl font-bold text-red-600" id="stat-sla">0</div>
+                        <div class="text-gray-500 mb-1 text-sm">לקוחות מחוברים</div>
+                        <div class="text-3xl font-bold text-green-600" id="stat-online">0</div>
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                        <h3 class="font-bold text-lg mb-4 flex items-center gap-2"><i data-feather="activity" class="w-4"></i> פניות חיות (SLA)</h3>
-                        <div id="sla-stream" class="space-y-2"></div>
-                    </div>
-                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                        <h3 class="font-bold text-lg mb-4">לוג פעילות</h3>
-                        <div id="activity-stream" class="space-y-3"></div>
-                    </div>
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                    <h3 class="font-bold text-lg mb-4">פעילות אחרונה</h3>
+                    <div id="activity-stream" class="space-y-3"></div>
                 </div>
             </div>
 
-            <!-- Chat Tab -->
+            <!-- Chat Tab (Split View) -->
             <div id="tab-chat" class="flex-1 flex hidden w-full h-full bg-white">
-                <div class="w-96 border-l bg-white flex flex-col z-10 shadow-sm">
-                    <div class="p-4 border-b bg-gray-50"><h2 class="font-bold text-lg">לקוחות פעילים</h2></div>
+                <!-- List -->
+                <div class="w-80 border-l bg-white flex flex-col z-10 shadow-sm">
+                    <div class="p-4 border-b bg-gray-50">
+                        <h2 class="font-bold text-lg">לקוחות</h2>
+                    </div>
                     <div id="chat-rooms-list" class="flex-1 overflow-y-auto scroll-smooth"></div>
                 </div>
+
+                <!-- Chat Room -->
                 <div class="flex-1 flex flex-col bg-[#efeae2] relative bg-[url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')]">
                     <div id="chat-header" class="p-3 bg-[#f0f2f5] border-b flex justify-between items-center hidden shadow-sm z-10">
                         <div class="flex items-center gap-3">
-                            <img id="chat-client-avatar" src="" class="w-10 h-10 rounded-full border border-gray-300 bg-white">
+                            <img id="chat-client-avatar" src="" class="w-10 h-10 rounded-full border border-gray-300 bg-white hidden">
                             <div>
                                 <h3 class="font-bold text-gray-800" id="chat-client-name">...</h3>
-                                <p class="text-xs text-gray-500"><span id="chat-client-num"></span> • <span id="chat-client-project"></span></p>
+                                <p class="text-xs text-gray-500" id="chat-client-status">...</p>
                             </div>
                         </div>
                     </div>
-                    <div id="chat-messages-area" class="flex-1 overflow-y-auto p-4 space-y-2 flex flex-col scroll-smooth pb-20"><div class="m-auto text-center text-gray-500 bg-[#f0f2f5] p-4 rounded-xl shadow-sm" id="empty-chat-state"><p>בחר לקוח להתחלת צ'אט</p></div></div>
+
+                    <div id="chat-messages-area" class="flex-1 overflow-y-auto p-4 space-y-2 flex flex-col scroll-smooth pb-20">
+                        <div class="m-auto text-center text-gray-500 bg-[#f0f2f5] p-4 rounded-xl shadow-sm" id="empty-chat-state">
+                            <p>בחר שיחה כדי להתחיל</p>
+                        </div>
+                    </div>
+
                     <form id="chat-form" class="p-3 bg-[#f0f2f5] hidden items-center gap-2 absolute bottom-0 w-full z-20">
                         <input id="message-input" type="text" placeholder="הקלד הודעה..." class="flex-1 p-3 rounded-lg border-none focus:ring-0 outline-none bg-white shadow-sm" autocomplete="off">
                         <button type="submit" class="p-3 bg-[#00a884] text-white rounded-full shadow hover:scale-105 transition hit-area"><i data-feather="send"></i></button>
@@ -184,87 +179,80 @@
         
         let roomsState = {}; 
         let customersMap = {}; 
-        let slaTimers = {};
 
-        // Init PWA
-        window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); document.getElementById('pwa-install-btn')?.classList.remove('hidden'); });
+        // Safe DOM Elements Access
+        const getEl = (id) => document.getElementById(id);
 
-        // Helper: Tabs
+        window.stopSound = () => {
+            const audio = getEl('notif-sound');
+            if(audio) { audio.pause(); audio.currentTime = 0; }
+        };
+
         window.switchTab = (tab) => {
-            ['dashboard','chat'].forEach(t => {
-                document.getElementById(`tab-${t}`).classList.add('hidden');
-                document.getElementById(`btn-${t}`).classList.remove('text-blue-600', 'bg-blue-50');
-            });
-            document.getElementById(`tab-${tab}`).classList.remove('hidden');
-            document.getElementById(`btn-${tab}`).classList.add('text-blue-600', 'bg-blue-50');
+            const tabDashboard = getEl('tab-dashboard');
+            const tabChat = getEl('tab-chat');
+            const btnDashboard = getEl('btn-dashboard');
+            const btnChat = getEl('btn-chat');
+            const targetTab = getEl(`tab-${tab}`);
+            const targetBtn = getEl(`btn-${tab}`);
+
+            if (tabDashboard) tabDashboard.classList.add('hidden');
+            if (tabChat) tabChat.classList.add('hidden');
+            if (btnDashboard) btnDashboard.classList.remove('text-blue-600', 'bg-blue-50');
+            if (btnChat) btnChat.classList.remove('text-blue-600', 'bg-blue-50');
+            
+            if (targetTab) targetTab.classList.remove('hidden');
+            if (targetBtn) targetBtn.classList.add('text-blue-600', 'bg-blue-50');
         };
 
         function startBlinking(enable) {
             if(blinkingInterval) clearInterval(blinkingInterval);
             if(!enable) { document.title = originalTitle; return; }
+            
             let toggle = false;
-            blinkingInterval = setInterval(() => { document.title = toggle ? "🔔 הודעה חדשה!" : originalTitle; toggle = !toggle; }, 1000);
+            blinkingInterval = setInterval(() => {
+                document.title = toggle ? "🔔 הודעה חדשה!" : originalTitle;
+                toggle = !toggle;
+            }, 1000);
         }
 
-        // SLA Logic
-        function updateSLA() {
-            const slaContainer = document.getElementById('sla-stream');
-            if(!slaContainer) return;
-            slaContainer.innerHTML = '';
-            let slaBreaches = 0;
-
-            Object.entries(roomsState).forEach(([id, r]) => {
-                if(r.unread > 0 && r.time > 0) {
-                    const elapsed = Date.now() - r.time;
-                    const mins = Math.floor(elapsed / 60000);
-                    let slaClass = 'sla-green';
-                    
-                    if(mins >= 1) slaClass = 'sla-yellow';
-                    if(mins >= 2) slaClass = 'sla-red';
-                    if(mins >= 3) { // Breach
-                        slaClass = 'bg-red-600 text-white animate-pulse';
-                        slaBreaches++;
-                        // Auto-reply check could go here
-                    }
-
-                    slaContainer.innerHTML += `
-                        <div class="flex justify-between items-center p-2 bg-gray-50 rounded border text-sm">
-                            <span>${r.name}</span>
-                            <span class="sla-timer ${slaClass}">${mins} דק'</span>
-                        </div>
-                    `;
-                }
-            });
-            document.getElementById('stat-sla').innerText = slaBreaches;
-            if(slaBreaches > 0) document.getElementById('sla-warning').play().catch(()=>{});
-        }
-        setInterval(updateSLA, 10000); // Check SLA every 10s
-
-        // Init
+        // --- Core App Logic ---
         function initApp() {
-            onSnapshot(collection(db, 'customers'), snap => {
-                snap.docs.forEach(d => { customersMap[d.id] = { id: d.id, ...d.data() }; });
-                renderChatList();
-            });
+            // 1. Fetch Customer Profiles
+            if (!auth.currentUser) return;
 
+            onSnapshot(collection(db, 'customers'), snap => {
+                snap.docs.forEach(d => {
+                    customersMap[d.id] = { id: d.id, ...d.data() };
+                });
+                renderChatList(); 
+            }, err => console.error("Customers Listener Error:", err));
+
+            // 2. Listen to Online Presence
             onSnapshot(collection(db, 'presence'), snap => {
                 let onlineCount = 0;
                 snap.docs.forEach(d => {
                     const p = d.data();
                     const isOnline = p.isOnline && (Date.now() - (p.lastSeen?.toMillis() || 0) < 120000);
                     if(isOnline) onlineCount++;
+                    
                     const roomId = p.currentRoom || d.id;
-                    if(!roomsState[roomId]) roomsState[roomId] = { name: 'טוען...', unread: 0, time: 0, senderId: d.id };
+                    if(!roomsState[roomId]) {
+                         roomsState[roomId] = { name: 'טוען...', unread: 0, lastMsg: '', time: 0, senderId: d.id };
+                    }
                     roomsState[roomId].isOnline = isOnline;
+                    
                     if(customersMap[d.id]) {
                         roomsState[roomId].name = customersMap[d.id].name;
                         roomsState[roomId].avatar = customersMap[d.id].avatarUrl;
                     }
                 });
-                document.getElementById('stat-online').innerText = onlineCount;
+                const statOnline = getEl('stat-online');
+                if(statOnline) statOnline.innerText = onlineCount;
                 renderChatList();
-            });
+            }, err => console.error("Presence Listener Error:", err));
 
+            // 3. Main Message Listener
             const q = query(collection(db, 'messages'), orderBy('createdAt', 'desc'), limit(300));
             onSnapshot(q, (snap) => {
                 Object.keys(roomsState).forEach(k => roomsState[k].unread = 0);
@@ -275,71 +263,97 @@
                     const m = d.data();
                     if(!m.roomId) return;
                     
-                    if(!roomsState[m.roomId]) roomsState[m.roomId] = { name: m.senderName||'לקוח', unread: 0, time: 0, senderId: m.senderId };
+                    if(!roomsState[m.roomId]) {
+                         roomsState[m.roomId] = { name: m.senderName || 'לקוח', unread: 0, time: 0, senderId: m.senderId };
+                    }
                     
                     if(customersMap[m.senderId]) {
                          roomsState[m.roomId].name = customersMap[m.senderId].name;
                          roomsState[m.roomId].avatar = customersMap[m.senderId].avatarUrl;
                          roomsState[m.roomId].custNum = customersMap[m.senderId].customerNumber;
+                    } else if (m.senderAvatar && !roomsState[m.roomId].avatar) {
+                         roomsState[m.roomId].avatar = m.senderAvatar;
                     }
 
                     const time = m.createdAt ? m.createdAt.toMillis() : Date.now();
                     if(time > roomsState[m.roomId].time) {
                         roomsState[m.roomId].time = time;
-                        roomsState[m.roomId].lastMsg = m.type === 'ORDER' ? '🛒 הזמנה' : (m.type==='AUDIO'?'🎤 קולי':m.text);
-                        roomsState[m.roomId].projectName = m.roomId;
+                        roomsState[m.roomId].lastMsg = m.type === 'ORDER' ? '🛒 הזמנה חדשה' : (m.type === 'IMAGE' ? '📷 תמונה' : m.text);
+                        roomsState[m.roomId].projectName = m.roomId; 
                     }
 
-                    if(!m.readByWorker && m.senderId !== currentUser.uid) { roomsState[m.roomId].unread++; globalUnread++; }
-                    
-                    // ART
+                    if(!m.readByWorker && m.senderId !== currentUser.uid) {
+                        roomsState[m.roomId].unread++;
+                        globalUnread++;
+                    }
+
                     if(m.readByWorker && m.readAt && m.createdAt) {
                         const diff = m.readAt.toMillis() - m.createdAt.toMillis();
-                        if(diff > 0 && diff < 86400000) { totalRespTime += diff; respCount++; }
+                        if(diff > 0 && diff < 86400000) { 
+                            totalRespTime += diff;
+                            respCount++;
+                        }
                     }
-                    
                     if(m.type === 'ORDER' && time > Date.now() - 86400000) ordersToday++;
                     
                     if(activity.length < 8) {
                         activity.push({
                             text: m.type === 'ORDER' ? `הזמנה מ-${m.senderName}` : `הודעה מ-${m.senderName}`,
+                            sub: m.text ? m.text.substring(0, 30) : 'מדיה',
                             time: m.createdAt?.toDate(),
-                            avatar: m.senderAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.senderName||'C')}&background=random`
+                            avatar: m.senderAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.senderName || 'C')}&background=random`
                         });
                     }
                 });
 
+                // Alerts
                 if(globalUnread > lastUnreadCount) {
-                    document.getElementById('notif-sound').play().catch(()=>{});
+                    const audio = getEl('notif-sound');
+                    if(audio) { try { audio.play(); } catch(e) {} }
                     startBlinking(true);
-                } else if (globalUnread === 0) startBlinking(false);
+                } else if (globalUnread === 0) {
+                    startBlinking(false);
+                }
                 lastUnreadCount = globalUnread;
 
-                document.getElementById('stat-orders').innerText = ordersToday;
-                document.getElementById('stat-unread').innerText = globalUnread;
-                document.getElementById('global-badge').classList.toggle('hidden', globalUnread === 0);
+                // Update UI Safe
+                const statOrders = getEl('stat-orders'); if(statOrders) statOrders.innerText = ordersToday;
+                const statUnread = getEl('stat-unread'); if(statUnread) statUnread.innerText = globalUnread;
+                const badge = getEl('global-badge'); if(badge) badge.classList.toggle('hidden', globalUnread === 0);
                 
-                if(respCount > 0) {
-                    const avgMs = totalRespTime / respCount;
-                    const mins = Math.floor(avgMs / 60000);
-                    const secs = Math.floor((avgMs % 60000) / 1000);
-                    document.getElementById('stat-avg-resp').innerText = `${mins}:${secs.toString().padStart(2,'0')}`;
+                const statArt = getEl('stat-avg-resp');
+                if(statArt) {
+                    if(respCount > 0) {
+                        const avgMs = totalRespTime / respCount;
+                        const mins = Math.floor(avgMs / 60000);
+                        const secs = Math.floor((avgMs % 60000) / 1000);
+                        statArt.innerText = `${mins}:${secs.toString().padStart(2,'0')}`;
+                    } else {
+                        statArt.innerText = "--:--";
+                    }
                 }
 
-                document.getElementById('activity-stream').innerHTML = activity.map(a => `
-                    <div class="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg cursor-pointer" onclick="switchTab('chat')">
-                        <img src="${a.avatar}" class="avatar">
-                        <div><div class="font-bold text-sm">${a.text}</div><div class="text-xs text-gray-500">${a.time?.toLocaleTimeString()}</div></div>
-                    </div>`).join('');
+                const activityEl = getEl('activity-stream');
+                if(activityEl) {
+                    activityEl.innerHTML = activity.map(a => `
+                        <div class="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg cursor-pointer" onclick="window.switchTab('chat')">
+                            <img src="${a.avatar}" class="avatar">
+                            <div>
+                                <div class="font-bold text-sm text-gray-800">${a.text}</div>
+                                <div class="text-xs text-gray-500">${a.sub}</div>
+                            </div>
+                            <div class="mr-auto text-xs text-gray-400">${a.time?.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div>
+                        </div>
+                    `).join('');
+                }
                 
-                renderChatList();
-                updateSLA();
+                renderChatList(); 
                 feather.replace();
-            });
+            }, error => console.error("Messages Error:", error));
         }
 
         function renderChatList() {
-            const list = document.getElementById('chat-rooms-list');
+            const list = getEl('chat-rooms-list');
             if(!list) return;
             
             const sortedIds = Object.keys(roomsState).sort((a,b) => {
@@ -355,9 +369,16 @@
                 const unreadStyle = r.unread > 0 ? 'unread-active' : '';
                 const timeStr = r.time ? new Date(r.time).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : '';
                 const avatar = r.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(r.name)}&background=random`;
-                const safeName = r.name.replace(/'/g, "\\'"); const safeAvatar = avatar.replace(/'/g, "\\'");
+                const custNum = r.custNum ? `#${r.custNum}` : '';
+                
+                // Safe strings for onclick
+                const sId = id.replace(/'/g, "\\'");
+                const sName = r.name.replace(/'/g, "\\'");
+                const sNum = custNum.replace(/'/g, "\\'");
+                const sAv = avatar.replace(/'/g, "\\'");
 
-                return `<div onclick="window.openChat('${id}', '${safeName}', '${r.custNum||''}', '${safeAvatar}')" class="chat-list-item p-4 cursor-pointer ${active} ${unreadStyle}">
+                return `
+                    <div onclick="window.openChat('${sId}', '${sName}', '${sNum}', '${sAv}')" class="chat-list-item p-4 cursor-pointer ${active} ${unreadStyle}">
                         <div class="flex items-center gap-3">
                             <div class="relative">
                                 <img src="${avatar}" class="avatar">
@@ -365,7 +386,10 @@
                             </div>
                             <div class="flex-1 min-w-0">
                                 <div class="flex justify-between items-start mb-1">
-                                    <h3 class="font-bold text-gray-800 truncate">${r.name}</h3>
+                                    <div>
+                                        <h3 class="font-bold text-gray-800 truncate">${r.name}</h3>
+                                        <p class="text-[10px] text-gray-400 font-mono">${custNum}</p>
+                                    </div>
                                     ${r.unread > 0 ? `<span class="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">${r.unread}</span>` : ''}
                                 </div>
                                 <div class="flex justify-between items-center mt-1">
@@ -374,29 +398,41 @@
                                 </div>
                             </div>
                         </div>
-                    </div>`;
+                    </div>
+                `;
             }).join('');
         }
 
+        // Attach to window for HTML onclick access (Critical Fix)
         window.openChat = (roomId, name, custNum, avatar) => {
+            // Stop sound immediately on click
+            window.stopSound();
+            startBlinking(false);
+
             selectedRoomId = roomId;
-            renderChatList();
+            renderChatList(); 
             
-            document.getElementById('empty-chat-state').classList.add('hidden');
-            document.getElementById('chat-header').classList.remove('hidden');
-            document.getElementById('chat-header').classList.add('flex');
-            document.getElementById('chat-form').classList.remove('hidden');
-            document.getElementById('chat-form').classList.add('flex');
+            const emptyState = getEl('empty-chat-state');
+            const chatHeader = getEl('chat-header');
+            const chatForm = getEl('chat-form');
             
-            document.getElementById('chat-client-name').innerText = name;
-            document.getElementById('chat-client-num').innerText = custNum || '';
-            document.getElementById('chat-client-project').innerText = roomId;
-            document.getElementById('chat-client-avatar').src = avatar;
+            if(emptyState) emptyState.classList.add('hidden');
+            if(chatHeader) { chatHeader.classList.remove('hidden'); chatHeader.classList.add('flex'); }
+            if(chatForm) { chatForm.classList.remove('hidden'); chatForm.classList.add('flex'); }
+            
+            if(getEl('chat-client-name')) getEl('chat-client-name').innerText = name;
+            if(getEl('chat-client-status')) getEl('chat-client-status').innerText = custNum || '';
+            const clientAvatar = getEl('chat-client-avatar');
+            if(clientAvatar) {
+                clientAvatar.src = avatar;
+                clientAvatar.classList.remove('hidden');
+            }
 
             if (unsubscribeChat) unsubscribeChat();
+
             const q = query(collection(db, 'messages'), where('roomId', '==', roomId), orderBy('createdAt', 'asc'));
             unsubscribeChat = onSnapshot(q, (snap) => {
-                const area = document.getElementById('chat-messages-area');
+                const area = getEl('chat-messages-area');
                 if(!area) return;
                 
                 snap.docChanges().forEach(change => {
@@ -414,11 +450,11 @@
                     const bubbleAvatar = !isMe ? `<img src="${m.senderAvatar || avatar}" class="w-6 h-6 rounded-full mr-2 border border-gray-200">` : '';
                     
                     let content = `<div class="text-sm">${m.text}</div>`;
-                    if(m.type === 'ORDER') content = `<div class="font-bold text-green-700 mb-1">🛒 הזמנה חדשה</div><ul class="text-xs bg-gray-50 p-2 rounded">${m.orderPayload?.items?.map(i=>`<li>${i.name} x${i.qty}</li>`).join('')}</ul>`;
+                    if(m.type === 'ORDER') content = `<div class="font-bold text-green-700 mb-1">🛒 הזמנה חדשה</div><ul class="text-xs bg-gray-50 p-2 rounded">${m.orderPayload?.items?.map(i=>`<li>${i.name} x${i.qty}</li>`).join('')}</ul><div class="flex gap-2 mt-2"><button class="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded hover:bg-blue-200" onclick="setOrderStatus('${doc.id}', 'בטיפול')">בטיפול</button><button class="bg-green-100 text-green-700 text-xs px-2 py-1 rounded hover:bg-green-200" onclick="setOrderStatus('${doc.id}', 'הושלם')">הושלם</button></div>`;
                     if(m.type === 'IMAGE') content = `<img src="${m.mediaUrl}" class="rounded-lg max-h-48 cursor-pointer" onclick="window.open(this.src)"/>`;
-                    if(m.type === 'AUDIO') content = `<audio controls src="${m.mediaUrl}" class="w-full mt-1"/>`;
 
-                    return `<div class="flex flex-col ${isMe ? 'items-end' : 'items-start'} mb-2">
+                    return `
+                        <div class="flex flex-col ${isMe ? 'items-end' : 'items-start'} mb-2">
                             <div class="flex items-end ${isMe ? 'justify-end' : ''} w-full">
                                 ${bubbleAvatar}
                                 <div class="max-w-[75%] p-2 px-3 rounded-lg shadow-sm ${isMe ? 'bg-[#d9fdd3]' : 'bg-white'}">
@@ -431,39 +467,62 @@
                             </div>
                         </div>`;
                 }).join('');
+                
                 area.innerHTML = html;
                 area.scrollTop = area.scrollHeight;
                 feather.replace();
-            });
+            }, err => console.error("Chat details error:", err));
         };
 
-        document.getElementById('chat-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const input = document.getElementById('message-input');
-            const text = input.value.trim();
-            if(!text || !selectedRoomId) return;
-            input.value = '';
-            await addDoc(collection(db, 'messages'), { roomId: selectedRoomId, senderId: currentUser.uid, senderName: 'נציג', type: 'TEXT', createdAt: serverTimestamp(), text: text, readByWorker: true, status: 'sent' });
-        });
+        window.setOrderStatus = (id, status) => updateDoc(doc(db, 'messages', id), { orderStatus: status });
+
+        // Listeners
+        const chatForm = getEl('chat-form');
+        if(chatForm) {
+            chatForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const input = getEl('message-input');
+                const text = input.value.trim();
+                if(!text || !selectedRoomId) return;
+                input.value = '';
+                await addDoc(collection(db, 'messages'), { 
+                    roomId: selectedRoomId, 
+                    senderId: currentUser.uid, 
+                    senderName: 'נציג', 
+                    type: 'TEXT', 
+                    createdAt: serverTimestamp(), 
+                    text: text, 
+                    readByWorker: true, 
+                    status: 'sent' 
+                });
+            });
+        }
 
         onAuthStateChanged(auth, async (user) => {
+            const shell = getEl('shell-wrapper');
+            const loginView = getEl('login-view');
+            const adminName = getEl('admin-name');
+
             if (user) {
                 currentUser = user;
-                document.getElementById('login-view').classList.add('hidden');
-                document.getElementById('shell-wrapper').classList.remove('hidden');
-                document.getElementById('admin-name').innerText = user.displayName || 'צוות';
+                if(loginView) loginView.classList.add('hidden');
+                if(shell) shell.classList.remove('hidden');
+                if(adminName) adminName.innerText = user.displayName || 'צוות';
                 initApp();
             } else {
-                document.getElementById('shell-wrapper').classList.add('hidden');
-                document.getElementById('login-view').classList.remove('hidden');
+                if(shell) shell.classList.add('hidden');
+                if(loginView) loginView.classList.remove('hidden');
             }
         });
 
-        document.getElementById('login-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            try { await signInWithEmailAndPassword(auth, document.getElementById('email').value, document.getElementById('password').value); }
-            catch(e) { alert("שגיאה בהתחברות"); }
-        });
+        const loginForm = getEl('login-form');
+        if(loginForm) {
+            loginForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                try { await signInWithEmailAndPassword(auth, getEl('email').value, getEl('password').value); }
+                catch(e) { alert("שגיאה בהתחברות"); }
+            });
+        }
 
         window.logout = () => signOut(auth);
         feather.replace();
