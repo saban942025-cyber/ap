@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Sidor Pro | עובדים</title>
+    <link rel="manifest" href="manifest.json">
     
     <!-- OneSignal Fixed -->
     <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
@@ -14,7 +15,7 @@
           appId: "de3834d3-1e11-40af-96d2-b25eda821c8f",
           safari_web_id: "web.onesignal.auto.00000000-0000-0000-0000-000000000000",
           notifyButton: { enable: true },
-          allowLocalhostAsSecureOrigin: true // Important Fix
+          allowLocalhostAsSecureOrigin: true 
         });
         OneSignal.User.addTag("role", "worker");
       });
@@ -28,7 +29,7 @@
         body { font-family: 'Rubik', sans-serif; background-color: #f0f2f5; overflow: hidden; }
         
         /* Interaction Tweaks */
-        .hit-area { cursor: pointer; touch-action: manipulation; }
+        .hit-area { cursor: pointer; touch-action: manipulation; min-height: 44px; min-width: 44px; display: flex; align-items: center; justify-content: center; }
         .scroll-smooth { -webkit-overflow-scrolling: touch; }
         
         /* Unread Animation */
@@ -47,9 +48,17 @@
         /* Online Ring */
         @keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); } 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); } }
         .online-dot { width: 10px; height: 10px; background: #22c55e; border-radius: 50%; animation: pulse-ring 2s infinite; }
+        
+        /* Shell Wrapper for Desktop centered look */
+        @media (min-width: 1024px) {
+            #shell-wrapper { max-width: 1400px; margin: 0 auto; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); height: 100vh; border-left: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; }
+        }
     </style>
 </head>
 <body>
+
+    <!-- Audio for Alerts -->
+    <audio id="notif-sound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
 
     <!-- Login -->
     <div id="login-view" class="fixed inset-0 bg-gray-900 flex items-center justify-center z-50">
@@ -63,8 +72,8 @@
         </div>
     </div>
 
-    <!-- App -->
-    <div id="app-view" class="flex h-screen hidden">
+    <!-- App Shell -->
+    <div id="shell-wrapper" class="hidden bg-white h-screen flex">
         <!-- Sidebar -->
         <aside class="w-16 bg-white border-l flex flex-col items-center py-6 gap-6 shadow-lg z-20">
             <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold">S</div>
@@ -74,14 +83,15 @@
                     <i data-feather="message-circle"></i>
                     <span id="global-badge" class="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full hidden"></span>
                 </button>
+                <button id="pwa-install-btn" class="hidden p-3 rounded-xl text-green-600 bg-green-50 hit-area"><i data-feather="download"></i></button>
             </nav>
             <button onclick="logout()" class="text-red-400 p-3 hit-area"><i data-feather="log-out"></i></button>
         </aside>
 
-        <!-- Main -->
+        <!-- Main Content -->
         <main class="flex-1 flex overflow-hidden relative">
             
-            <!-- Dashboard -->
+            <!-- Dashboard Tab -->
             <div id="tab-dashboard" class="flex-1 p-8 overflow-y-auto bg-[#f8f9fa] w-full">
                 <header class="flex justify-between items-center mb-8">
                     <h1 class="text-2xl font-bold text-gray-800">דשבורד ניהול</h1>
@@ -91,17 +101,22 @@
                     </div>
                 </header>
 
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                        <div class="text-gray-500 mb-1">הזמנות היום</div>
+                        <div class="text-gray-500 mb-1 text-sm">הזמנות היום</div>
                         <div class="text-3xl font-bold text-blue-600" id="stat-orders">0</div>
                     </div>
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                        <div class="text-gray-500 mb-1">הודעות שלא נקראו</div>
+                        <div class="text-gray-500 mb-1 text-sm">הודעות שלא נקראו</div>
                         <div class="text-3xl font-bold text-orange-500" id="stat-unread">0</div>
                     </div>
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                        <div class="text-gray-500 mb-1">לקוחות מחוברים</div>
+                        <div class="text-gray-500 mb-1 text-sm">זמן מענה ממוצע (ART)</div>
+                        <div class="text-3xl font-bold text-purple-600" id="stat-avg-resp">--:--</div>
+                        <div class="text-xs text-purple-400 mt-1">דקות:שניות</div>
+                    </div>
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+                        <div class="text-gray-500 mb-1 text-sm">לקוחות מחוברים</div>
                         <div class="text-3xl font-bold text-green-600" id="stat-online">0</div>
                     </div>
                 </div>
@@ -112,7 +127,7 @@
                 </div>
             </div>
 
-            <!-- Chat (Split View) -->
+            <!-- Chat Tab (Split View) -->
             <div id="tab-chat" class="flex-1 flex hidden w-full h-full bg-white">
                 <!-- List -->
                 <div class="w-80 border-l bg-white flex flex-col z-10 shadow-sm">
@@ -170,11 +185,21 @@
         let currentUser = null;
         let selectedRoomId = null;
         let unsubscribeChat = null;
+        let deferredPrompt;
         
-        // State for List Sorting
-        let roomsState = {}; // { roomId: { name, lastMsg, time, unread, isOnline } }
+        let roomsState = {}; 
+        let blinkingInterval = null;
 
-        // --- UI Helpers ---
+        // PWA Install
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault(); deferredPrompt = e;
+            document.getElementById('pwa-install-btn').classList.remove('hidden');
+        });
+        document.getElementById('pwa-install-btn').addEventListener('click', async () => {
+            if(deferredPrompt) { deferredPrompt.prompt(); deferredPrompt = null; }
+        });
+
+        // Helpers
         window.switchTab = (tab) => {
             document.getElementById('tab-dashboard').classList.add('hidden');
             document.getElementById('tab-chat').classList.add('hidden');
@@ -185,18 +210,28 @@
             document.getElementById(`btn-${tab}`).classList.add('text-blue-600', 'bg-blue-50');
         };
 
-        // --- Core Logic (Snapshot aggregation) ---
+        function startBlinking(enable) {
+            if(blinkingInterval) clearInterval(blinkingInterval);
+            if(!enable) { document.title = "Sidor Pro | עובדים"; return; }
+            
+            let toggle = false;
+            blinkingInterval = setInterval(() => {
+                document.title = toggle ? "🔔 הודעה חדשה!" : "Sidor Pro | עובדים";
+                toggle = !toggle;
+            }, 1000);
+        }
+
+        // Core Logic
         function initApp() {
-            // 1. Listen to Presence to build base rooms list & online status
+            // Presence
             onSnapshot(collection(db, 'presence'), snap => {
                 let onlineCount = 0;
                 snap.docs.forEach(d => {
                     const p = d.data();
-                    // Check if online (lastSeen within 2 min)
                     const isOnline = p.isOnline && (Date.now() - (p.lastSeen?.toMillis() || 0) < 120000);
                     if(isOnline) onlineCount++;
                     
-                    const roomId = p.currentRoom || d.id; // Fallback
+                    const roomId = p.currentRoom || d.id;
                     if(!roomsState[roomId]) roomsState[roomId] = { name: p.name, unread: 0, lastMsg: '', time: 0 };
                     roomsState[roomId].isOnline = isOnline;
                     roomsState[roomId].name = p.name;
@@ -205,42 +240,46 @@
                 renderChatList();
             });
 
-            // 2. Listen to ALL recent messages to calculate Unread & Last Msg
-            // In a real scaled app, use a 'chat_rooms' collection. Here we aggregate messages.
-            const q = query(collection(db, 'messages'), orderBy('createdAt', 'desc'), limit(200));
+            // Messages Aggregation (Dashboard + ART + Alerts)
+            const q = query(collection(db, 'messages'), orderBy('createdAt', 'desc'), limit(300));
             onSnapshot(q, snap => {
-                // Reset counts for recalculation (simplified for demo)
                 Object.keys(roomsState).forEach(k => roomsState[k].unread = 0);
                 
                 let globalUnread = 0;
                 let ordersToday = 0;
+                let totalRespTime = 0;
+                let respCount = 0;
                 const activity = [];
 
-                // Process messages
                 snap.docs.forEach(d => {
                     const m = d.data();
                     if(!m.roomId) return;
                     
-                    // Init room if missing
                     if(!roomsState[m.roomId]) roomsState[m.roomId] = { name: m.senderName, unread: 0, time: 0 };
                     
-                    // Update Last Msg
                     const time = m.createdAt?.toMillis() || 0;
                     if(time > roomsState[m.roomId].time) {
                         roomsState[m.roomId].time = time;
-                        roomsState[m.roomId].lastMsg = m.type === 'ORDER' ? '🛒 הזמנה חדשה' : m.text;
+                        roomsState[m.roomId].lastMsg = m.type === 'ORDER' ? '🛒 הזמנה' : (m.type === 'IMAGE' ? '📷 תמונה' : m.text);
                     }
 
-                    // Count Unread
+                    // Unread
                     if(!m.readByWorker && m.senderId !== currentUser.uid) {
                         roomsState[m.roomId].unread++;
                         globalUnread++;
                     }
 
+                    // ART Calculation
+                    if(m.readByWorker && m.readAt && m.createdAt) {
+                        const diff = m.readAt.toMillis() - m.createdAt.toMillis();
+                        if(diff > 0 && diff < 86400000) { // Filter outliers
+                            totalRespTime += diff;
+                            respCount++;
+                        }
+                    }
+
                     // Stats
                     if(m.type === 'ORDER' && time > Date.now() - 86400000) ordersToday++;
-                    
-                    // Activity (First 10)
                     if(activity.length < 8) {
                         activity.push({
                             text: m.type === 'ORDER' ? `הזמנה מ-${m.senderName}` : `הודעה מ-${m.senderName}`,
@@ -251,13 +290,32 @@
                     }
                 });
 
-                // Update DOM Stats
+                // Alerts Logic
+                const prevUnread = parseInt(document.getElementById('stat-unread').innerText || 0);
+                if(globalUnread > prevUnread) {
+                    document.getElementById('notif-sound').play().catch(()=>{});
+                    startBlinking(true);
+                } else if (globalUnread === 0) {
+                    startBlinking(false);
+                }
+
+                // Update UI
                 document.getElementById('stat-orders').innerText = ordersToday;
                 document.getElementById('stat-unread').innerText = globalUnread;
                 document.getElementById('global-badge').classList.toggle('hidden', globalUnread === 0);
+                
+                // ART UI
+                if(respCount > 0) {
+                    const avgMs = totalRespTime / respCount;
+                    const mins = Math.floor(avgMs / 60000);
+                    const secs = Math.floor((avgMs % 60000) / 1000);
+                    document.getElementById('stat-avg-resp').innerText = `${mins}:${secs.toString().padStart(2,'0')}`;
+                } else {
+                    document.getElementById('stat-avg-resp').innerText = "--:--";
+                }
 
-                // Render Activity
-                const activityHTML = activity.map(a => `
+                // Activity Stream
+                document.getElementById('activity-stream').innerHTML = activity.map(a => `
                     <div class="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg cursor-pointer" onclick="switchTab('chat')">
                         <div class="p-2 rounded-full ${a.isOrder ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'}">
                             <i data-feather="${a.isOrder ? 'shopping-cart' : 'message-circle'}" class="w-4 h-4"></i>
@@ -268,7 +326,6 @@
                         </div>
                     </div>
                 `).join('');
-                document.getElementById('activity-stream').innerHTML = activityHTML;
                 
                 renderChatList();
                 feather.replace();
@@ -277,23 +334,20 @@
 
         function renderChatList() {
             const list = document.getElementById('chat-rooms-list');
-            
-            // SORTING LOGIC: Unread > Time
             const sortedIds = Object.keys(roomsState).sort((a,b) => {
-                const roomA = roomsState[a];
-                const roomB = roomsState[b];
-                if(roomA.unread !== roomB.unread) return roomB.unread - roomA.unread;
-                return roomB.time - roomA.time;
+                const rA = roomsState[a], rB = roomsState[b];
+                // Priority: Unread -> Time
+                if(rA.unread !== rB.unread) return rB.unread - rA.unread;
+                return rB.time - rA.time;
             });
 
             list.innerHTML = sortedIds.map(id => {
                 const r = roomsState[id];
-                if(!r.lastMsg) return ''; // Hide empty rooms
-                const activeClass = id === selectedRoomId ? 'active' : '';
-                const unreadClass = r.unread > 0 ? 'unread-active' : '';
-                
+                if(!r.lastMsg) return '';
+                const active = id === selectedRoomId ? 'active' : '';
+                const unreadStyle = r.unread > 0 ? 'unread-active' : '';
                 return `
-                    <div onclick="openChat('${id}', '${r.name}')" class="chat-list-item p-4 cursor-pointer ${activeClass} ${unreadClass}">
+                    <div onclick="openChat('${id}', '${r.name}')" class="chat-list-item p-4 cursor-pointer ${active} ${unreadStyle}">
                         <div class="flex justify-between items-start mb-1">
                             <h3 class="font-bold text-gray-800 flex items-center gap-2">
                                 ${r.name}
@@ -312,27 +366,32 @@
 
         window.openChat = (roomId, name) => {
             selectedRoomId = roomId;
-            renderChatList(); // Re-render to update active state
-            
+            renderChatList();
             document.getElementById('empty-chat-state').classList.add('hidden');
             document.getElementById('chat-header').classList.remove('hidden');
             document.getElementById('chat-header').classList.add('flex');
             document.getElementById('chat-form').classList.remove('hidden');
             document.getElementById('chat-form').classList.add('flex');
             document.getElementById('chat-client-name').innerText = name;
+            document.getElementById('chat-client-status').innerText = roomsState[roomId]?.isOnline ? 'מחובר' : 'נראה לאחרונה...';
 
             if (unsubscribeChat) unsubscribeChat();
 
+            // Listen to specific room
             const q = query(collection(db, 'messages'), where('roomId', '==', roomId), orderBy('createdAt', 'asc'));
             unsubscribeChat = onSnapshot(q, (snap) => {
                 const area = document.getElementById('chat-messages-area');
                 
-                // Mark Read
+                // Mark as Read Logic
                 snap.docChanges().forEach(change => {
                     if(change.type === 'added') {
                         const m = change.doc.data();
                         if(m.senderId !== currentUser.uid && !m.readByWorker) {
-                            updateDoc(change.doc.ref, { readByWorker: true, status: 'read' });
+                            updateDoc(change.doc.ref, { 
+                                readByWorker: true, 
+                                status: 'read',
+                                readAt: serverTimestamp() // Crucial for ART
+                            });
                         }
                     }
                 });
@@ -341,24 +400,32 @@
                     const m = doc.data();
                     const isMe = m.senderId === currentUser.uid;
                     
+                    // Render Logic (Order vs Text vs Image)
                     if(m.type === 'ORDER') {
                         return `
                             <div class="flex flex-col ${isMe ? 'items-end' : 'items-start'} mb-3 w-full">
                                 <div class="bg-white border p-3 rounded-lg shadow-sm w-3/4 border-blue-200 relative">
                                     <div class="absolute top-0 right-0 bg-blue-600 text-white text-[10px] px-2 rounded-bl">הזמנה</div>
-                                    <div class="font-bold mb-2 mt-2">פריטים:</div>
-                                    <ul class="text-sm space-y-1 mb-3 bg-gray-50 p-2 rounded">
-                                        ${m.orderPayload.items.map(i => `<li>${i.name} (x${i.qty})</li>`).join('')}
+                                    <ul class="text-sm space-y-1 mb-3 bg-gray-50 p-2 rounded mt-2">
+                                        ${m.orderPayload?.items?.map(i => `<li>${i.name} x${i.qty}</li>`).join('') || 'פריטים'}
                                     </ul>
                                     <div class="flex gap-2">
                                         <button onclick="setOrderStatus('${doc.id}', 'processing')" class="flex-1 bg-orange-100 text-orange-700 text-xs py-2 rounded hover:bg-orange-200 hit-area">בטיפול</button>
                                         <button onclick="setOrderStatus('${doc.id}', 'done')" class="flex-1 bg-green-100 text-green-700 text-xs py-2 rounded hover:bg-green-200 hit-area">טופל</button>
                                     </div>
                                 </div>
-                            </div>
-                        `;
+                            </div>`;
                     }
-
+                    if(m.type === 'IMAGE') {
+                        return `
+                            <div class="flex flex-col ${isMe ? 'items-end' : 'items-start'} mb-2">
+                                <div class="max-w-[75%] p-1 rounded-lg shadow-sm ${isMe ? 'bg-[#d9fdd3]' : 'bg-white'}">
+                                    <img src="${m.mediaUrl}" class="rounded-lg max-h-48 cursor-pointer" onclick="window.open(this.src)"/>
+                                    <div class="text-[9px] text-gray-500 text-right px-1">${m.createdAt?.toDate().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div>
+                                </div>
+                            </div>`;
+                    }
+                    // Text
                     return `
                         <div class="flex flex-col ${isMe ? 'items-end' : 'items-start'} mb-2">
                             <div class="max-w-[75%] p-2 px-3 rounded-lg text-sm shadow-sm ${isMe ? 'bg-[#d9fdd3]' : 'bg-white'}">
@@ -368,8 +435,7 @@
                                     ${isMe ? `<i data-feather="${m.status === 'read' ? 'check-circle' : 'check'}" class="w-3 h-3 ${m.status==='read'?'text-blue-500':''}"></i>` : ''}
                                 </div>
                             </div>
-                        </div>
-                    `;
+                        </div>`;
                 }).join('');
                 
                 area.innerHTML = html;
@@ -399,16 +465,15 @@
             });
         });
 
-        // Auth
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 currentUser = user;
+                document.getElementById('shell-wrapper').classList.remove('hidden');
                 document.getElementById('login-view').classList.add('hidden');
-                document.getElementById('app-view').classList.remove('hidden');
                 document.getElementById('admin-name').innerText = user.displayName || 'צוות';
                 initApp();
             } else {
-                document.getElementById('app-view').classList.add('hidden');
+                document.getElementById('shell-wrapper').classList.add('hidden');
                 document.getElementById('login-view').classList.remove('hidden');
             }
         });
