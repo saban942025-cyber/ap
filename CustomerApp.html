@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>ח. סבן | פורטל לקוחות</title>
     
-    <!-- OneSignal -->
+    <!-- OneSignal (Fixed Init) -->
     <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
     <script>
       window.OneSignalDeferred = window.OneSignalDeferred || [];
@@ -15,10 +15,9 @@
               appId: "de3834d3-1e11-40af-96d2-b25eda821c8f",
               safari_web_id: "web.onesignal.auto.00000000-0000-0000-0000-000000000000",
               notifyButton: { enable: false },
+              allowLocalhostAsSecureOrigin: true, // Critical for testing
             });
-        } catch (e) {
-            console.warn("OneSignal Init Failed (Preview Mode):", e);
-        }
+        } catch (e) { console.warn("Push Init Warning:", e); }
       });
     </script>
 
@@ -28,13 +27,19 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
-    <!-- Manifest -->
-    <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#128C7E">
     
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #e5ded8; overscroll-behavior: none; }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
+        
+        /* Touch Optimization */
+        button, .btn, .hit-area { 
+            touch-action: manipulation; 
+            -webkit-tap-highlight-color: rgba(0,0,0,0); 
+            cursor: pointer;
+            user-select: none;
+        }
         
         /* WhatsApp Background */
         .wa-bg {
@@ -46,10 +51,10 @@
 
         /* Animations */
         @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
-        .page-enter { animation: slideIn 0.2s ease-out forwards; }
+        .page-enter { animation: slideIn 0.2s ease-out forwards; will-change: transform; }
         
         @keyframes pop { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-        .msg-pop { animation: pop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        .msg-pop { animation: pop 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; will-change: transform, opacity; }
 
         .status-badge-new { @apply bg-blue-100 text-blue-800 border-blue-200; }
         .status-badge-processing { @apply bg-orange-100 text-orange-800 border-orange-200; }
@@ -66,7 +71,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
         import { getFirestore, collection, doc, onSnapshot, query, orderBy, where, getDoc, addDoc, serverTimestamp, limit, updateDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
-        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-storage.js";
+        import { getDatabase, ref as rtdbRef, onDisconnect, set, serverTimestamp as rtdbTimestamp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js"; // Using RTDB for reliable presence if needed, sticking to Firestore for file simplicity but with onDisconnect hook logic simulated via Firestore where possible or standard keep-alive.
 
         // *** Firebase Config ***
         const firebaseConfig = {
@@ -81,16 +86,9 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const storage = getStorage(app);
 
-        // *** OneSignal Push Stub ***
-        const sendPushToWorker = async (title, message) => {
-            console.log("Push sent:", title, message);
-        };
-
-        // --- Icons (Lucide Style) ---
+        // --- Icons (Lucide Style - Fixed JSX) ---
         const Icon = ({ name, className, size=24 }) => {
-            // תיקון: הוספת <>...</> לאייקונים המורכבים מכמה חלקים
             const icons = {
                 MessageSquare: <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>,
                 Home: <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>,
@@ -101,7 +99,6 @@
                 Check: <polyline points="20 6 9 17 4 12"/>,
                 CheckAll: <><polyline points="20 6 9 17 4 12"/><polyline points="20 12 9 23 4 18"/></>,
                 Plus: <><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></>,
-                Camera: <><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></>,
                 ShoppingCart: <><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></>,
                 MoreVertical: <><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></>
             };
@@ -110,18 +107,19 @@
 
         // --- Components ---
 
-        const AudioPlayer = ({ src }) => {
-            return <audio src={src} controls className="w-full h-10 mt-1" />;
+        const StatusDoubleCheck = ({ status }) => {
+            let color = 'text-gray-400';
+            if (status === 'read') color = 'text-blue-500';
+            
+            return (
+                <span className={`ml-1 flex ${color}`}>
+                    {status === 'sent' && <Icon name="Check" size={14} />}
+                    {(status === 'delivered' || status === 'read') && <Icon name="CheckAll" size={14} />}
+                </span>
+            );
         };
 
-        const StatusDoubleCheck = ({ read }) => (
-            <span className={`ml-1 flex ${read ? 'text-blue-500' : 'text-gray-400'}`}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{marginLeft: '-8px'}}><polyline points="20 6 9 17 4 12"/></svg>
-            </span>
-        );
-
-        // --- Login Screen ---
+        // --- Auth Screen ---
         function AuthScreen() {
             const [email, setEmail] = useState('');
             const [password, setPassword] = useState('');
@@ -137,67 +135,92 @@
             return (
                 <div className="flex flex-col items-center justify-center min-h-screen bg-[#111b21] text-white p-6">
                     <div className="w-24 h-24 bg-[#00a884] rounded-full flex items-center justify-center mb-8 shadow-lg">
-                        <svg viewBox="0 0 24 24" width="50" height="50" stroke="white" strokeWidth="2" fill="none"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2-2z"/></svg>
+                        <svg viewBox="0 0 24 24" width="50" height="50" stroke="white" strokeWidth="2" fill="none"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                     </div>
                     <h2 className="text-2xl font-light mb-8">ח. סבן | התחברות</h2>
                     <form onSubmit={handleLogin} className="w-full max-w-sm space-y-4">
                         <input type="email" placeholder="אימייל" value={email} onChange={e=>setEmail(e.target.value)} className="w-full p-4 bg-[#202c33] border border-[#2a3942] rounded-lg text-white focus:border-[#00a884] outline-none transition" />
                         <input type="password" placeholder="סיסמה" value={password} onChange={e=>setPassword(e.target.value)} className="w-full p-4 bg-[#202c33] border border-[#2a3942] rounded-lg text-white focus:border-[#00a884] outline-none transition" />
-                        <button disabled={loading} className="w-full p-4 bg-[#00a884] hover:bg-[#008f6f] text-black font-bold rounded-lg transition shadow-lg">{loading ? "מתחבר..." : "התחבר"}</button>
+                        <button disabled={loading} className="w-full p-4 bg-[#00a884] hover:bg-[#008f6f] text-black font-bold rounded-lg transition shadow-lg hit-area">{loading ? "מתחבר..." : "התחבר"}</button>
                     </form>
                 </div>
             );
         }
 
-        // --- Chat Room (WhatsApp Style) ---
+        // --- Chat Room ---
         function ChatRoom({ project, user, onBack }) {
             const [messages, setMessages] = useState([]);
             const [text, setText] = useState('');
             const endRef = useRef(null);
 
-            // Realtime Messages
+            // Presence & Listeners
             useEffect(() => {
-                // Set online status
-                const userRef = doc(db, 'customers', user.uid);
-                updateDoc(userRef, { isOnline: true, lastSeen: serverTimestamp() });
-                const cleanup = () => updateDoc(userRef, { isOnline: false, lastSeen: serverTimestamp() });
-                window.addEventListener('beforeunload', cleanup);
+                // 1. Update Presence
+                const presenceRef = doc(db, 'presence', user.uid);
+                setDoc(presenceRef, { 
+                    uid: user.uid, name: user.displayName || 'לקוח', 
+                    isOnline: true, lastSeen: serverTimestamp(), 
+                    currentRoom: project.projectId 
+                }, {merge: true});
 
+                const interval = setInterval(() => {
+                    updateDoc(presenceRef, { lastSeen: serverTimestamp() }); // Heartbeat
+                }, 60000);
+
+                // 2. Listen to Messages
                 const q = query(collection(db, 'messages'), where('roomId', '==', project.projectId), orderBy('createdAt', 'asc'));
                 const unsub = onSnapshot(q, snap => {
-                    const msgs = snap.docs.map(d => ({id: d.id, ...d.data()}));
+                    const msgs = snap.docs.map(d => {
+                        const data = d.data();
+                        // Local status override for immediate feedback
+                        if (data.readByWorker) data.status = 'read';
+                        else if (!data.status) data.status = 'sent';
+                        return {id: d.id, ...data};
+                    });
                     setMessages(msgs);
-                    // Play sound if new message from others
+                    
+                    // Play sound for incoming
                     if (snap.docChanges().some(c => c.type === 'added' && c.doc.data().senderId !== user.uid)) {
                         new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3').play().catch(()=>{});
                     }
                 });
-                return () => { cleanup(); unsub(); };
+
+                return () => { 
+                    clearInterval(interval); 
+                    updateDoc(presenceRef, { isOnline: false });
+                    unsub(); 
+                };
             }, [project.projectId]);
 
-            useEffect(() => endRef.current?.scrollIntoView({ behavior: 'smooth' }), [messages]);
+            useEffect(() => endRef.current?.scrollIntoView({ behavior: 'auto' }), [messages]);
 
             const sendMessage = async () => {
                 if (!text.trim()) return;
                 const msgText = text.trim();
                 setText('');
                 
+                // Optimistic UI handled by snapshot listener usually, but we send 'sent' initially
                 await addDoc(collection(db, 'messages'), {
-                    roomId: project.projectId, senderId: user.uid, senderName: user.displayName || 'לקוח',
-                    type: 'TEXT', createdAt: serverTimestamp(), text: msgText,
+                    roomId: project.projectId, 
+                    senderId: user.uid, 
+                    senderName: user.displayName || 'לקוח',
+                    type: 'TEXT', 
+                    createdAt: serverTimestamp(), 
+                    text: msgText,
                     readByWorker: false,
                     status: 'sent'
                 });
-
-                // Push Notification Logic
-                sendPushToWorker(`הודעה מ-${user.displayName}`, msgText);
+                
+                // Simulate Push Trigger (Client Side for this env)
+                // In real app: Cloud Function triggers on 'onCreate'
+                console.log("Push triggered for worker");
             };
 
             return (
                 <div className="flex flex-col h-full wa-bg page-enter relative z-50">
                     {/* Header */}
                     <div className="bg-[#008069] p-2 flex items-center text-white shadow-md sticky top-0 z-10">
-                        <button onClick={onBack} className="p-1 mr-1 rounded-full hover:bg-white/10"><Icon name="ArrowRight" /></button>
+                        <button onClick={onBack} className="p-2 mr-1 rounded-full hover:bg-white/10 hit-area"><Icon name="ArrowRight" /></button>
                         <div className="w-9 h-9 bg-gray-300 rounded-full flex items-center justify-center ml-2 overflow-hidden">
                             <img src="https://ui-avatars.com/api/?name=Support&background=random" />
                         </div>
@@ -221,12 +244,10 @@
                                 <div key={m.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} msg-pop group`}>
                                     <div className={`max-w-[80%] p-1.5 px-2 rounded-lg text-sm shadow-sm relative ${isMe ? 'bg-[#d9fdd3] rounded-tr-none' : 'bg-white rounded-tl-none'}`}>
                                         
-                                        {/* Order Card Styling */}
                                         {m.type === 'ORDER' && (
                                             <div className="bg-white/40 p-2 rounded border border-green-600/20 mb-1 w-64">
                                                 <div className="flex justify-between border-b border-gray-300/50 pb-1 mb-1">
                                                     <span className="font-bold text-green-800 text-xs">🛒 הזמנה #{m.id.slice(-4)}</span>
-                                                    {/* Status Badge */}
                                                     <span className={`text-[10px] px-1.5 py-0.5 rounded border font-bold ${
                                                         m.orderStatus === 'done' ? 'bg-green-100 text-green-700 border-green-200' :
                                                         m.orderStatus === 'processing' ? 'bg-orange-100 text-orange-700 border-orange-200' :
@@ -245,7 +266,7 @@
                                         <span className="text-[#111b21] leading-relaxed block min-w-[60px]">{m.text}</span>
                                         <div className="text-[9px] text-gray-500 text-left mt-0.5 flex justify-end items-end h-3">
                                             <span>{m.createdAt?.toDate().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</span>
-                                            {isMe && <StatusDoubleCheck read={m.readByWorker} />}
+                                            {isMe && <StatusDoubleCheck status={m.status} />}
                                         </div>
                                     </div>
                                 </div>
@@ -256,16 +277,16 @@
 
                     {/* Input Area */}
                     <div className="fixed bottom-0 left-0 right-0 bg-[#f0f2f5] p-2 flex items-center gap-2 z-20 max-w-md mx-auto">
-                        <button className="p-2 text-gray-500"><Icon name="Plus" /></button>
+                        <button className="p-2 text-gray-500 hit-area"><Icon name="Plus" /></button>
                         <div className="flex-1 bg-white rounded-lg flex items-center px-4 py-2 shadow-sm">
-                            <input className="flex-1 bg-transparent border-none focus:ring-0 outline-none text-sm" 
+                            <input className="flex-1 bg-transparent border-none focus:ring-0 outline-none text-sm h-10" 
                                    placeholder="הודעה" 
                                    value={text} 
                                    onChange={e=>setText(e.target.value)} 
                                    onKeyDown={e => e.key === 'Enter' && sendMessage()}
                             />
                         </div>
-                        <button onClick={sendMessage} className={`p-3 rounded-full shadow-md transition ${text.trim() ? 'bg-[#00a884] text-white' : 'bg-gray-200 text-gray-500'}`}>
+                        <button onClick={sendMessage} className={`p-3 rounded-full shadow-md transition hit-area ${text.trim() ? 'bg-[#00a884] text-white' : 'bg-gray-200 text-gray-500'}`}>
                             <Icon name="Send" size={18} />
                         </button>
                     </div>
@@ -273,7 +294,7 @@
             );
         }
 
-        // --- Simple Catalog for demo ---
+        // --- Simple Catalog ---
         const PRODUCTS = [
             { id: 1, name: 'לוח גבס', price: '38 ₪', img: 'https://via.placeholder.com/100?text=Gev' },
             { id: 2, name: 'מסלול 70', price: '16 ₪', img: 'https://via.placeholder.com/100?text=Mas' },
@@ -286,11 +307,11 @@
                     <h2 className="text-2xl font-bold text-gray-800 mb-4">מוצרים</h2>
                     <div className="grid grid-cols-2 gap-3">
                         {PRODUCTS.map(p => (
-                            <div key={p.id} className="bg-white p-3 rounded-xl shadow-sm flex flex-col">
+                            <div key={p.id} className="bg-white p-3 rounded-xl shadow-sm flex flex-col hit-area" onClick={() => onAddOrder([ { ...p, qty: 10 } ])}>
                                 <div className="h-24 bg-gray-200 rounded-lg mb-2"></div>
                                 <h3 className="font-bold">{p.name}</h3>
                                 <p className="text-blue-600 font-bold text-sm">{p.price}</p>
-                                <button onClick={() => onAddOrder([ { ...p, qty: 10 } ])} className="mt-2 bg-[#00a884] text-white text-xs py-2 rounded-lg font-bold">הוסף להזמנה (10 יח')</button>
+                                <button className="mt-2 bg-[#00a884] text-white text-xs py-2 rounded-lg font-bold w-full">הוסף 10 יח'</button>
                             </div>
                         ))}
                     </div>
@@ -307,13 +328,10 @@
 
             useEffect(() => onAuthStateChanged(auth, async (u) => {
                 if (u) {
-                    // OneSignal Login
                     if(window.OneSignalDeferred) window.OneSignalDeferred.push(OneSignal => OneSignal.login(u.uid));
-                    
                     const snap = await getDoc(doc(db, 'customers', u.uid));
                     if(snap.exists()) {
                         setProfile(snap.data());
-                        // Auto open chat if only 1 project
                         const projects = snap.data().projects || [];
                         if(projects.length > 0) setActiveProject(projects[0]);
                     }
@@ -328,7 +346,8 @@
                 await addDoc(collection(db, 'messages'), {
                     roomId: roomId, senderId: user.uid, senderName: user.displayName || 'לקוח',
                     type: 'ORDER', orderPayload: { items, total: items.length },
-                    createdAt: serverTimestamp(), readByWorker: false, orderStatus: 'new' // new, processing, done
+                    createdAt: serverTimestamp(), readByWorker: false, orderStatus: 'new',
+                    status: 'sent'
                 });
                 alert("הזמנה נשלחה!");
                 setView('chats');
@@ -347,7 +366,7 @@
                              <div className="p-4">
                                 <h2 className="text-2xl font-bold mb-4 text-gray-800">הפרויקטים שלי</h2>
                                 {profile?.projects?.map(p => (
-                                    <div key={p.projectId} onClick={()=>setActiveProject(p)} className="bg-white p-4 rounded-xl shadow-sm flex items-center gap-4 cursor-pointer active:bg-gray-50">
+                                    <div key={p.projectId} onClick={()=>setActiveProject(p)} className="bg-white p-4 rounded-xl shadow-sm flex items-center gap-4 cursor-pointer active:bg-gray-50 hit-area">
                                         <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold text-lg">{p.name[0]}</div>
                                         <div>
                                             <div className="font-bold text-gray-900">{p.name}</div>
@@ -362,15 +381,15 @@
 
                     {/* Bottom Nav */}
                     <div className="bg-white border-t flex justify-around p-3 pb-6">
-                        <button onClick={()=>setView('chats')} className={`flex flex-col items-center ${view==='chats'?'text-[#00a884]':'text-gray-400'}`}>
+                        <button onClick={()=>setView('chats')} className={`flex flex-col items-center hit-area ${view==='chats'?'text-[#00a884]':'text-gray-400'}`}>
                             <Icon name="MessageSquare" />
                             <span className="text-[10px] font-bold mt-1">צ'אטים</span>
                         </button>
-                        <button onClick={()=>setView('catalog')} className={`flex flex-col items-center ${view==='catalog'?'text-[#00a884]':'text-gray-400'}`}>
+                        <button onClick={()=>setView('catalog')} className={`flex flex-col items-center hit-area ${view==='catalog'?'text-[#00a884]':'text-gray-400'}`}>
                             <Icon name="ShoppingCart" />
                             <span className="text-[10px] font-bold mt-1">חנות</span>
                         </button>
-                        <button onClick={()=>signOut(auth)} className="flex flex-col items-center text-gray-400">
+                        <button onClick={()=>signOut(auth)} className="flex flex-col items-center text-gray-400 hit-area">
                             <Icon name="User" />
                             <span className="text-[10px] font-bold mt-1">יציאה</span>
                         </button>
