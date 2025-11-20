@@ -49,6 +49,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
         import { getFirestore, collection, doc, onSnapshot, query, orderBy, where, getDoc, addDoc, serverTimestamp, limit, updateDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+        // import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-functions.js"; // Uncomment if using Cloud Functions
 
         const firebaseConfig = {
           apiKey: "AIzaSyDq0oVwS6zbEfsgrYBRkeBq80dDUKMedzo", 
@@ -62,6 +63,7 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
+        // const functions = getFunctions(app); // Optional for Real Push
 
         // Icons
         const Icon = ({ name, className, size=24 }) => {
@@ -143,32 +145,40 @@
             const fileInputRef = useRef(null);
 
             useEffect(() => {
+                if (!project?.projectId) return;
+
                 const userRef = doc(db, 'customers', user.uid);
                 updateDoc(userRef, { isOnline: true, lastSeen: serverTimestamp() });
                 window.addEventListener('beforeunload', () => updateDoc(userRef, { isOnline: false }));
 
+                // Query requires Composite Index on 'roomId' (Ascending) and 'createdAt' (Ascending)
                 const q = query(collection(db, 'messages'), where('roomId', '==', project.projectId), orderBy('createdAt', 'asc'));
-                return onSnapshot(q, snap => {
+                return onSnapshot(q, (snap) => {
                     const msgs = snap.docs.map(d => {
                         const m = d.data();
-                        // Local logic for checks
                         if(m.readByWorker) m.status = 'read';
                         return {id: d.id, ...m};
                     });
                     setMessages(msgs);
                     
-                    // Play Sound on Receive
                     const last = msgs[msgs.length-1];
                     if(last && last.senderId !== user.uid) {
                         const audio = document.getElementById('notif-sound');
                         if(audio) audio.play().catch(()=>{});
                     }
+                }, (error) => {
+                    console.error("Firestore Error (Check Console for Index Link):", error);
+                    if(error.code === 'failed-precondition') {
+                        alert("חסר אינדקס ב-Firebase. בדוק את הקונסול ליצירה אוטומטית.");
+                    }
                 });
-            }, [project.projectId]);
+            }, [project?.projectId]);
 
             useEffect(() => endRef.current?.scrollIntoView({ behavior: 'auto' }), [messages]);
 
             const handleSend = async (type, payload) => {
+                if (!project?.projectId) return alert("שגיאה: אין פרויקט משויך");
+
                 let msg = {
                     roomId: project.projectId, senderId: user.uid, senderName: user.displayName||'לקוח',
                     type, createdAt: serverTimestamp(), readByWorker: false, status: 'sent'
@@ -182,9 +192,15 @@
                 setShowMenu(false);
                 setModalProduct(null);
 
-                await addDoc(collection(db, 'messages'), msg);
-                // Stub for Push
-                if(window.OneSignalDeferred) window.OneSignalDeferred.push(OS => console.log("Push sent"));
+                try {
+                    await addDoc(collection(db, 'messages'), msg);
+                    // Optional: Trigger Cloud Function for Real Push
+                    // const sendPush = httpsCallable(functions, 'sendPushOnMessage');
+                    // sendPush({ text: msg.text, roomId: msg.roomId });
+                } catch (e) {
+                    console.error("Send Error:", e);
+                    alert("שגיאה בשליחה");
+                }
             };
 
             const handleFile = (e) => {
@@ -222,7 +238,7 @@
                                         {m.text && <div className="mt-1">{m.text}</div>}
                                         
                                         <div className="text-[9px] text-gray-500 flex justify-end gap-1 mt-1">
-                                            {m.createdAt?.toDate().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}
+                                            {m.createdAt?.toDate ? m.createdAt.toDate().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : '...'}
                                             {isMe && (
                                                 <span className={m.status==='read' ? 'text-blue-500' : 'text-gray-400'}>
                                                     {m.status === 'read' ? <Icon name="CheckAll" size={14}/> : <Icon name="Check" size={14}/>}
@@ -281,7 +297,7 @@
 
             if (!user) return <AuthScreen />;
             if (project) return <ChatRoom project={project} user={user} onBack={()=>{}} />;
-            return <div className="p-10 text-center">טוען פרויקטים...</div>;
+            return <div className="p-10 text-center">טוען פרויקטים... (ודא שיש פרויקט ב-Firestore)</div>;
         }
 
         createRoot(document.getElementById('root')).render(<App />);
