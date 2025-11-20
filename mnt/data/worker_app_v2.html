@@ -2,7 +2,7 @@
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Sidor Pro | עובדים</title>
     <link rel="manifest" href="manifest.json">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>👷</text></svg>">
@@ -24,43 +24,43 @@
       });
     </script>
 
-    <!-- Tailwind CSS (Dev Mode) -->
+    <!-- Tailwind & Icons -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/feather-icons"></script>
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;700&display=swap" rel="stylesheet">
     
     <style>
-        body { font-family: 'Rubik', sans-serif; background-color: #f0f2f5; overflow: hidden; }
-        .hit-area { cursor: pointer; touch-action: manipulation; min-height: 44px; min-width: 44px; display: flex; align-items: center; justify-content: center; transition: transform 0.1s; }
-        .hit-area:active { transform: scale(0.96); }
+        /* CSS Reset & Base */
+        body { font-family: 'Rubik', sans-serif; background-color: #f0f2f5; overflow: hidden; margin: 0; padding: 0; }
+        
+        /* Interaction */
+        .hit-area { cursor: pointer; touch-action: manipulation; min-height: 44px; min-width: 44px; display: flex; align-items: center; justify-content: center; transition: background 0.1s; }
+        .hit-area:active { background-color: rgba(0,0,0,0.05); }
         .scroll-smooth { -webkit-overflow-scrolling: touch; }
         
         /* Animations */
         @keyframes pulse-border { 0% { border-color: transparent; } 50% { border-color: #ef4444; } 100% { border-color: transparent; } }
-        .unread-active { background-color: #fff1f2 !important; border-right: 4px solid #ef4444; animation: pulse-border 2s infinite; }
+        .unread-active { background-color: #fff1f2 !important; border-right: 4px solid #ef4444; }
         
+        /* Lists */
         .chat-list-item { transition: all 0.2s ease; border-bottom: 1px solid #f0f0f0; }
         .chat-list-item:hover { background-color: #f9fafb; }
         .chat-list-item.active { background-color: #eff6ff; border-right: 4px solid #3b82f6; }
         
+        /* Status Dots */
         @keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); } 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); } }
         .online-dot { width: 10px; height: 10px; background: #22c55e; border-radius: 50%; animation: pulse-ring 2s infinite; }
         .avatar { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 2px solid #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1); background: #e5e7eb; }
         
-        /* SLA Colors */
-        .sla-badge { font-weight: bold; padding: 2px 8px; border-radius: 12px; font-size: 11px; display: inline-block; min-width: 60px; text-align: center; }
-        .sla-green { background: #dcfce7; color: #166534; }
-        .sla-yellow { background: #fef9c3; color: #854d0e; }
-        .sla-orange { background: #ffedd5; color: #9a3412; }
-        .sla-red { background: #fee2e2; color: #991b1b; animation: pulse 1s infinite; }
-
-        @media (min-width: 1024px) { #shell-wrapper { max-width: 1400px; margin: 0 auto; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); height: 100vh; border-left: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; } }
+        /* Layout Fixes */
+        @media (min-width: 1024px) { 
+            #shell-wrapper { max-width: 1600px; margin: 0 auto; box-shadow: 0 0 50px rgba(0,0,0,0.1); height: 100vh; border-left: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; } 
+        }
     </style>
 </head>
 <body>
 
-    <audio id="alert-sound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
-    <audio id="sla-sound" src="https://assets.mixkit.co/active_storage/sfx/2868/2868-preview.mp3" preload="auto"></audio>
+    <audio id="notif-sound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
 
     <!-- Login View -->
     <div id="login-view" class="fixed inset-0 bg-gray-900 flex items-center justify-center z-50">
@@ -77,11 +77,11 @@
     <!-- Main App Shell -->
     <div id="shell-wrapper" class="hidden bg-white h-screen flex">
         <!-- Sidebar Navigation -->
-        <aside class="w-16 bg-white border-l flex flex-col items-center py-6 gap-6 shadow-lg z-20">
+        <aside class="w-16 bg-white border-l flex flex-col items-center py-6 gap-6 shadow-lg z-20 flex-shrink-0">
             <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold shadow-blue-200">S</div>
             <nav class="flex-1 flex flex-col gap-4 w-full items-center">
-                <button onclick="switchTab('dashboard')" id="btn-dashboard" class="p-3 rounded-xl text-blue-600 bg-blue-50 hit-area" aria-label="דשבורד"><i data-feather="grid"></i></button>
-                <button onclick="switchTab('chat')" id="btn-chat" class="p-3 rounded-xl text-gray-400 relative hit-area" aria-label="צ'אט">
+                <button onclick="switchTab('dashboard')" id="btn-dashboard" class="p-3 rounded-xl text-blue-600 bg-blue-50 hit-area" title="דשבורד"><i data-feather="grid"></i></button>
+                <button onclick="switchTab('chat')" id="btn-chat" class="p-3 rounded-xl text-gray-400 relative hit-area" title="צ'אט">
                     <i data-feather="message-circle"></i>
                     <span id="global-badge" class="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full hidden border-2 border-white"></span>
                 </button>
@@ -102,7 +102,7 @@
                     </div>
                     <div class="flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-sm border">
                         <div class="online-dot"></div>
-                        <span class="text-sm font-bold text-green-600">מערכת מחוברת</span>
+                        <span class="text-sm font-bold text-green-600">מחובר</span>
                     </div>
                 </header>
 
@@ -117,9 +117,8 @@
                         <div class="text-3xl font-bold text-orange-500" id="stat-unread">0</div>
                     </div>
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between h-32">
-                        <div class="text-gray-500 mb-1 text-sm font-medium">זמן מענה ממוצע (ART)</div>
+                        <div class="text-gray-500 mb-1 text-sm font-medium">זמן מענה (ART)</div>
                         <div class="text-3xl font-bold text-purple-600" id="stat-avg-resp">--:--</div>
-                        <div class="text-xs text-purple-400 mt-1">דקות:שניות</div>
                     </div>
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between h-32">
                         <div class="text-gray-500 mb-1 text-sm font-medium">לקוחות מחוברים</div>
@@ -127,20 +126,10 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <!-- SLA Stream -->
-                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 h-96 overflow-y-auto">
-                        <h3 class="font-bold text-lg mb-4 flex items-center gap-2 text-gray-800"><i data-feather="clock" class="w-5"></i> פניות חיות (SLA Timer)</h3>
-                        <div id="sla-stream" class="space-y-2">
-                            <div class="text-center text-gray-400 py-10">אין פניות ממתינות כרגע</div>
-                        </div>
-                    </div>
-
-                    <!-- Activity Stream -->
-                    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 h-96 overflow-y-auto">
-                        <h3 class="font-bold text-lg mb-4 text-gray-800">לוג פעילות אחרונה</h3>
-                        <div id="activity-stream" class="space-y-3"></div>
-                    </div>
+                <!-- Activity Stream -->
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 h-96 overflow-y-auto">
+                    <h3 class="font-bold text-lg mb-4 text-gray-800">פניות אחרונות</h3>
+                    <div id="activity-stream" class="space-y-3"></div>
                 </div>
             </div>
 
@@ -171,7 +160,7 @@
                             <div>
                                 <h3 class="font-bold text-gray-800" id="chat-client-name">...</h3>
                                 <p class="text-xs text-gray-500 flex items-center gap-1">
-                                    <span id="chat-client-num"></span> • <span id="chat-client-project"></span>
+                                    <span id="chat-client-num"></span>
                                 </p>
                             </div>
                         </div>
@@ -196,7 +185,6 @@
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
         import { getFirestore, collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, doc, getDoc, updateDoc, limit } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
-        // --- Firebase Config ---
         const firebaseConfig = {
             apiKey: "AIzaSyDq0oVwS6zbEfsgrYBRkeBq80dDUKMedzo",
             authDomain: "saban94-78949.firebaseapp.com",
@@ -210,28 +198,23 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // --- Global State ---
+        // Global State
         let currentUser = null;
         let selectedRoomId = null;
         let unsubscribeChat = null;
-        let lastUnreadCount = 0; 
+        let lastUnreadCount = 0;
         let blinkingInterval = null;
-        const originalTitle = document.title || 'Sidor';
+        const originalTitle = document.title;
         
-        // Store Data
-        let roomsState = {};     // Map: roomId -> { name, unread, time, lastMsg, avatar, custNum, isOnline }
-        let customersMap = {};   // Map: uid -> { ...profileData }
-        let responseDeltas = []; // For ART calculation
+        let roomsState = {}; 
+        let customersMap = {}; 
 
-        // Safe DOM Access
         const getEl = (id) => document.getElementById(id);
 
-        // --- Audio & Alerts ---
+        // --- Sound Control ---
         window.stopSound = () => {
-            ['notif-sound', 'alert-sound', 'sla-warning'].forEach(id => {
-                const audio = getEl(id);
-                if(audio) { audio.pause(); audio.currentTime = 0; }
-            });
+            const audio = getEl('notif-sound');
+            if(audio) { audio.pause(); audio.currentTime = 0; }
         };
 
         function startBlinking(enable) {
@@ -257,8 +240,11 @@
             const targetBtn = getEl(`btn-${tab}`);
             if(targetEl) targetEl.classList.remove('hidden');
             if(targetBtn) targetBtn.classList.add('text-blue-600', 'bg-blue-50');
+            
+            // If switching to chat, refresh list
+            if(tab === 'chat') renderChatList();
         };
-
+        
         window.closeChat = () => {
             selectedRoomId = null;
             if(unsubscribeChat) unsubscribeChat();
@@ -266,286 +252,239 @@
             getEl('chat-header').classList.add('hidden');
             getEl('chat-messages-area').classList.add('hidden');
             getEl('chat-form').classList.add('hidden');
-            renderChatList();
         };
 
         // --- Core Logic ---
         function initApp() {
-            if (!auth.currentUser) return;
+            if(!auth.currentUser) return;
 
-            // 1. Customers Listener (Profile Data)
+            // 1. Load Customers
             onSnapshot(collection(db, 'customers'), snap => {
                 snap.docs.forEach(d => { customersMap[d.id] = { id: d.id, ...d.data() }; });
-                renderChatList(); // Refresh UI with new names/avatars
-            }, err => console.error("Customers Error:", err));
-
-            // 2. Presence Listener (Online Status)
-            onSnapshot(collection(db, 'presence'), snap => {
-                let onlineCount = 0;
-                snap.docs.forEach(d => {
-                    const p = d.data();
-                    const isOnline = p.isOnline && (Date.now() - (p.lastSeen?.toMillis() || 0) < 120000);
-                    if(isOnline) onlineCount++;
-                    
-                    const roomId = p.currentRoom || d.id;
-                    if(!roomsState[roomId]) roomsState[roomId] = { name: 'טוען...', unread: 0, time: 0, senderId: d.id };
-                    roomsState[roomId].isOnline = isOnline;
-                });
-                const statOnline = getEl('stat-online');
-                if(statOnline) statOnline.innerText = onlineCount;
                 renderChatList();
             });
 
-            // 3. Messages Aggregation (The Engine)
-            const q = query(collection(db, 'messages'), orderBy('createdAt', 'desc'), limit(300));
+            // 2. Load Presence
+            onSnapshot(collection(db, 'presence'), snap => {
+                let online = 0;
+                snap.docs.forEach(d => {
+                    const p = d.data();
+                    if(p.isOnline && (Date.now() - (p.lastSeen?.toMillis() || 0) < 120000)) online++;
+                    
+                    const roomId = p.currentRoom || d.id;
+                    if(roomsState[roomId]) roomsState[roomId].isOnline = p.isOnline;
+                });
+                getEl('stat-online').innerText = online;
+                renderChatList();
+            });
+
+            // 3. Messages Engine
+            const q = query(collection(db, 'messages'), orderBy('createdAt', 'desc'), limit(500));
             onSnapshot(q, (snap) => {
-                // Reset volatile counts
+                // Reset accumulators
                 Object.keys(roomsState).forEach(k => roomsState[k].unread = 0);
-                let globalUnread = 0, ordersToday = 0;
+                
+                let globalUnread = 0;
+                let ordersToday = 0;
+                let totalRespTime = 0;
+                let respCount = 0;
                 const activity = [];
-                let newMsgDetected = false;
 
                 snap.docs.forEach(d => {
                     const m = d.data();
                     if(!m.roomId) return;
-                    
-                    // Init room if new
+
+                    // Initialize Room if needed
                     if(!roomsState[m.roomId]) {
-                         roomsState[m.roomId] = { name: m.senderName || 'לקוח', unread: 0, time: 0, senderId: m.senderId };
+                        roomsState[m.roomId] = { 
+                            name: m.senderName || 'לקוח', 
+                            unread: 0, 
+                            time: 0, 
+                            lastMsg: '',
+                            senderId: m.senderId 
+                        };
                     }
-                    
-                    // Sync Profile Data
+
+                    // Enrich Room Data
                     if(customersMap[m.senderId]) {
-                         roomsState[m.roomId].name = customersMap[m.senderId].name;
-                         roomsState[m.roomId].avatar = customersMap[m.senderId].avatarUrl;
-                         roomsState[m.roomId].custNum = customersMap[m.senderId].customerNumber;
-                    } else if (m.senderAvatar && !roomsState[m.roomId].avatar) {
-                         roomsState[m.roomId].avatar = m.senderAvatar;
+                        roomsState[m.roomId].name = customersMap[m.senderId].name;
+                        roomsState[m.roomId].avatar = customersMap[m.senderId].avatarUrl;
+                        roomsState[m.roomId].custNum = customersMap[m.senderId].customerNumber;
+                    } else if(m.senderAvatar && !roomsState[m.roomId].avatar) {
+                        roomsState[m.roomId].avatar = m.senderAvatar;
                     }
 
                     const time = m.createdAt ? m.createdAt.toMillis() : Date.now();
                     
-                    // Update Last Msg Info
+                    // Update Latest Message Info
                     if(time > roomsState[m.roomId].time) {
                         roomsState[m.roomId].time = time;
-                        roomsState[m.roomId].lastMsg = m.type === 'ORDER' ? '🛒 הזמנה חדשה' : (m.type === 'IMAGE' ? '📷 תמונה' : m.text);
-                        roomsState[m.roomId].projectName = m.roomId; 
+                        let preview = m.text;
+                        if(m.type === 'ORDER') preview = '🛒 הזמנה חדשה';
+                        if(m.type === 'IMAGE') preview = '📷 תמונה';
+                        if(m.type === 'AUDIO') preview = '🎤 הודעה קולית';
+                        if(m.type === 'LOCATION') preview = '📍 מיקום';
+                        roomsState[m.roomId].lastMsg = preview;
                     }
 
-                    // Unread Count & New Message Detection
+                    // Unread Count
                     if(!m.readByWorker && m.senderId !== currentUser.uid) {
                         roomsState[m.roomId].unread++;
                         globalUnread++;
-                        // Check if truly new (added in this snapshot)
-                        const change = snap.docChanges().find(c => c.doc.id === d.id);
-                        if(change && change.type === 'added') newMsgDetected = true;
                     }
 
-                    // ART Calculation (on the fly)
+                    // ART Calc
                     if(m.readByWorker && m.readAt && m.createdAt) {
                         const diff = m.readAt.toMillis() - m.createdAt.toMillis();
-                        if(diff > 0 && diff < 86400000) responseDeltas.push(diff);
+                        if(diff > 0 && diff < 86400000) { totalRespTime += diff; respCount++; }
                     }
 
                     if(m.type === 'ORDER' && time > Date.now() - 86400000) ordersToday++;
                     
                     if(activity.length < 8) {
                         activity.push({
-                            text: m.type === 'ORDER' ? `הזמנה מ-${m.senderName}` : `הודעה מ-${m.senderName}`,
-                            sub: m.text ? m.text.substring(0, 40) : 'מדיה',
+                            name: m.senderName || '?',
+                            text: m.text || (m.type==='ORDER'?'הזמנה':(m.type==='AUDIO'?'קולי':'מדיה')),
                             time: m.createdAt?.toDate(),
-                            avatar: m.senderAvatar || roomsState[m.roomId].avatar || ''
+                            avatar: m.senderAvatar || roomsState[m.roomId].avatar,
+                            roomId: m.roomId // Store roomId for click
                         });
                     }
                 });
 
-                // Play Sound & Blink if new message
-                if(globalUnread > lastUnreadCount || newMsgDetected) {
+                // Sound & Blink
+                if(globalUnread > lastUnreadCount) {
                     const audio = getEl('notif-sound');
-                    if(audio) { try { audio.play(); } catch(e) {} }
+                    if(audio) { try{audio.play()}catch(e){} }
                     startBlinking(true);
                 } else if (globalUnread === 0) {
                     startBlinking(false);
                 }
                 lastUnreadCount = globalUnread;
 
-                // Update Dashboard UI
-                const statOrders = getEl('stat-orders'); if(statOrders) statOrders.innerText = ordersToday;
-                const statUnread = getEl('stat-unread'); if(statUnread) statUnread.innerText = globalUnread;
-                const badge = getEl('global-badge'); if(badge) badge.classList.toggle('hidden', globalUnread === 0);
+                // Update Dashboard
+                getEl('stat-orders').innerText = ordersToday;
+                getEl('stat-unread').innerText = globalUnread;
+                getEl('global-badge').classList.toggle('hidden', globalUnread === 0);
                 
-                // Update ART UI
-                const statArt = getEl('stat-avg-resp');
-                if(statArt && responseDeltas.length > 0) {
-                    // Rolling average of last 500
-                    const recentDeltas = responseDeltas.slice(-500);
-                    const avgMs = recentDeltas.reduce((a,b)=>a+b,0) / recentDeltas.length;
-                    const mins = Math.floor(avgMs / 60000);
-                    const secs = Math.floor((avgMs % 60000) / 1000);
-                    statArt.innerText = `${mins}:${secs.toString().padStart(2,'0')}`;
+                if(respCount > 0) {
+                    const avg = totalRespTime / respCount;
+                    const m = Math.floor(avg / 60000);
+                    const s = Math.floor((avg % 60000) / 1000);
+                    getEl('stat-avg-resp').innerText = `${m}:${s.toString().padStart(2,'0')}`;
                 }
 
-                // Render Activity
-                const activityEl = getEl('activity-stream');
-                if(activityEl) {
-                    activityEl.innerHTML = activity.map(a => `
-                        <div class="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg cursor-pointer transition" onclick="window.switchTab('chat')">
-                            <img src="${a.avatar || 'https://ui-avatars.com/api/?name=User'}" class="avatar w-8 h-8 rounded-full">
+                // Render Activity List
+                const actEl = getEl('activity-stream');
+                if(actEl) {
+                    actEl.innerHTML = activity.map(a => {
+                        const safeName = (a.name || '').replace(/'/g, "\\'");
+                        const safeAvatar = (a.avatar || '').replace(/'/g, "\\'");
+                        // Correctly passing params to openChat
+                        return `
+                        <div class="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg cursor-pointer border-b border-gray-50" 
+                             onclick="window.goToChat('${a.roomId}', '${safeName}', '', '${safeAvatar}')">
+                            <img src="${a.avatar || 'https://ui-avatars.com/api/?name=User'}" class="w-8 h-8 rounded-full object-cover">
                             <div class="flex-1 min-w-0">
-                                <div class="font-bold text-sm text-gray-800 truncate">${a.text}</div>
-                                <div class="text-xs text-gray-500 truncate">${a.sub}</div>
+                                <div class="font-bold text-sm text-gray-800 truncate">${a.name}</div>
+                                <div class="text-xs text-gray-500 truncate">${a.text}</div>
                             </div>
                             <div class="text-xs text-gray-400 whitespace-nowrap">${a.time?.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div>
-                        </div>
-                    `).join('');
+                        </div>`;
+                    }).join('');
                 }
-                
-                renderChatList(); 
-                updateSLA(); // Update SLA timers
+
+                renderChatList();
                 feather.replace();
-            }, error => console.error("Messages Listener Error:", error));
+
+            }, err => console.error("Messages Error:", err));
         }
 
         function renderChatList() {
             const list = getEl('chat-rooms-list');
             const countEl = getEl('list-count');
             if(!list) return;
-            
+
             const sortedIds = Object.keys(roomsState).sort((a,b) => {
                 const rA = roomsState[a], rB = roomsState[b];
-                // Sort: Unread first, then Time descending
-                if(rA.unread !== rB.unread) return rB.unread - rA.unread;
-                return rB.time - rA.time;
+                if(rA.unread !== rB.unread) return rB.unread - rA.unread; // Unread first
+                return rB.time - rA.time; // Newer first
             });
-
+            
             if(countEl) countEl.innerText = sortedIds.length;
 
             list.innerHTML = sortedIds.map(id => {
                 const r = roomsState[id];
-                if(!r.lastMsg) return ''; 
+                if(!r.lastMsg && r.unread === 0) return ''; // Hide empty inactive rooms
                 
-                const activeClass = id === selectedRoomId ? 'active' : '';
+                const active = id === selectedRoomId ? 'active' : '';
                 const unreadClass = r.unread > 0 ? 'unread-active' : '';
                 const timeStr = r.time ? new Date(r.time).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : '';
                 const avatar = r.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(r.name)}&background=random`;
-                const custNum = r.custNum ? `#${r.custNum}` : '';
                 
-                // Safe escaping
                 const sId = id.replace(/'/g, "\\'");
                 const sName = r.name.replace(/'/g, "\\'");
-                const sNum = custNum.replace(/'/g, "\\'");
                 const sAv = avatar.replace(/'/g, "\\'");
+                const sNum = (r.custNum || '').replace(/'/g, "\\'");
 
                 return `
-                    <div onclick="window.openChat('${sId}', '${sName}', '${sNum}', '${sAv}')" class="chat-list-item p-4 cursor-pointer ${activeClass} ${unreadClass} hit-area">
-                        <div class="flex items-center gap-3">
-                            <div class="relative">
-                                <img src="${avatar}" class="avatar w-12 h-12">
-                                ${r.isOnline ? '<span class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>' : ''}
+                <div onclick="window.openChat('${sId}', '${sName}', '${sNum}', '${sAv}')" class="chat-list-item p-4 cursor-pointer ${active} ${unreadClass} hit-area">
+                    <div class="flex items-center gap-3">
+                        <div class="relative">
+                            <img src="${avatar}" class="avatar w-12 h-12">
+                            ${r.isOnline ? '<span class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>' : ''}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex justify-between items-start mb-1">
+                                <h3 class="font-bold text-gray-800 truncate text-sm">${r.name}</h3>
+                                ${r.unread > 0 ? `<span class="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">${r.unread}</span>` : ''}
                             </div>
-                            <div class="flex-1 min-w-0">
-                                <div class="flex justify-between items-start mb-1">
-                                    <div>
-                                        <h3 class="font-bold text-gray-800 truncate text-sm">${r.name}</h3>
-                                        <p class="text-[10px] text-gray-400 font-mono">${custNum}</p>
-                                    </div>
-                                    ${r.unread > 0 ? `<span class="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">${r.unread}</span>` : ''}
-                                </div>
-                                <div class="flex justify-between items-center mt-1">
-                                    <p class="text-xs text-gray-500 truncate max-w-[140px] ${r.unread>0?'font-bold text-gray-700':''}">${r.lastMsg}</p>
-                                    <span class="text-[10px] text-gray-400">${timeStr}</span>
-                                </div>
+                            <div class="flex justify-between items-center mt-1">
+                                <p class="text-xs text-gray-500 truncate max-w-[140px] ${r.unread>0?'font-bold text-gray-800':''}">${r.lastMsg}</p>
+                                <span class="text-[10px] text-gray-400">${timeStr}</span>
                             </div>
                         </div>
                     </div>
-                `;
+                </div>`;
             }).join('');
         }
 
-        // SLA Logic
-        function updateSLA() {
-            const slaContainer = getEl('sla-stream');
-            if(!slaContainer) return;
-            
-            let html = '';
-            let hasBreach = false;
+        // Helper to switch tab AND open chat
+        window.goToChat = (id, name, num, av) => {
+            window.switchTab('chat');
+            setTimeout(() => window.openChat(id, name, num, av), 100);
+        };
 
-            // Check all rooms for unread messages
-            Object.entries(roomsState).forEach(([id, r]) => {
-                if(r.unread > 0 && r.time > 0) {
-                    const elapsed = Date.now() - r.time;
-                    const mins = Math.floor(elapsed / 60000);
-                    let slaClass = 'sla-green';
-                    
-                    if(mins >= 1) slaClass = 'sla-yellow';
-                    if(mins >= 2) slaClass = 'sla-orange';
-                    if(mins >= 3) { 
-                        slaClass = 'sla-red'; 
-                        hasBreach = true;
-                        // Auto-reply logic would go here (guarded to send once)
-                        checkAutoReply(id, r);
-                    }
-
-                    html += `
-                        <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg border hover:bg-gray-100 transition cursor-pointer" onclick="window.openChat('${id}', '${r.name.replace(/'/g, "\\'")}', '', '${r.avatar.replace(/'/g, "\\'")}')">
-                            <div class="flex items-center gap-2">
-                                <img src="${r.avatar}" class="w-6 h-6 rounded-full">
-                                <span class="font-medium text-sm">${r.name}</span>
-                            </div>
-                            <span class="sla-badge ${slaClass}">${mins} דק'</span>
-                        </div>
-                    `;
-                }
-            });
-            
-            if(html === '') html = '<div class="text-center text-gray-400 py-10">אין פניות ממתינות כרגע</div>';
-            slaContainer.innerHTML = html;
-            
-            if(hasBreach) {
-                const audio = getEl('sla-warning');
-                if(audio && Math.random() > 0.9) { try { audio.play(); } catch(e){} } // Occasional beep for breach
-            }
-        }
-
-        async function checkAutoReply(roomId, roomData) {
-             // Placeholder for auto-reply logic: Check if 'AUTO_REPLY' message exists for this room recently
-             // If not, addDoc(collection(db, 'messages'), { ... type: 'AUTO_REPLY', text: 'אנו בעומס...' })
-        }
-
-        // Open Chat Function (Global)
         window.openChat = (roomId, name, custNum, avatar) => {
             window.stopSound();
             startBlinking(false);
-
             selectedRoomId = roomId;
-            renderChatList(); // Update active state
-            
+            renderChatList();
+
             getEl('empty-chat-state').classList.add('hidden');
             getEl('chat-header').classList.remove('hidden'); getEl('chat-header').classList.add('flex');
             getEl('chat-messages-area').classList.remove('hidden'); getEl('chat-messages-area').classList.add('flex');
             getEl('chat-form').classList.remove('hidden'); getEl('chat-form').classList.add('flex');
-            
+
             if(getEl('chat-client-name')) getEl('chat-client-name').innerText = name;
             if(getEl('chat-client-num')) getEl('chat-client-num').innerText = custNum || '';
-            if(getEl('chat-client-project')) getEl('chat-client-project').innerText = roomId;
-            const clientAvatar = getEl('chat-client-avatar');
-            if(clientAvatar) { clientAvatar.src = avatar; clientAvatar.classList.remove('hidden'); }
+            if(getEl('chat-client-avatar')) {
+                getEl('chat-client-avatar').src = avatar;
+                getEl('chat-client-avatar').classList.remove('hidden');
+            }
 
-            if (unsubscribeChat) unsubscribeChat();
+            if(unsubscribeChat) unsubscribeChat();
 
-            // Mark messages as read immediately upon opening
-            // We query unread messages first to update them
-            // Note: Real-time listener below handles incoming ones
-            
+            // IMPORTANT: Listener for Specific Room Messages
             const q = query(collection(db, 'messages'), where('roomId', '==', roomId), orderBy('createdAt', 'asc'));
             unsubscribeChat = onSnapshot(q, (snap) => {
                 const area = getEl('chat-messages-area');
                 if(!area) return;
                 
+                // Mark as Read
                 snap.docChanges().forEach(change => {
                     if(change.type === 'added') {
                         const m = change.doc.data();
-                        // If message is from customer and not read -> Mark Read
                         if(m.senderId !== currentUser.uid && !m.readByWorker) {
                             updateDoc(change.doc.ref, { readByWorker: true, status: 'read', readAt: serverTimestamp() });
                         }
@@ -555,26 +494,48 @@
                 const html = snap.docs.map(doc => {
                     const m = doc.data();
                     const isMe = m.senderId === currentUser.uid;
-                    const bubbleAvatar = !isMe ? `<img src="${m.senderAvatar || avatar}" class="w-6 h-6 rounded-full mr-2 border border-gray-200 self-end mb-1">` : '';
+                    const bubbleAvatar = !isMe ? `<img src="${m.senderAvatar || avatar}" class="w-6 h-6 rounded-full mr-2 border border-gray-200 self-end mb-1 object-cover">` : '';
                     
+                    // Content Generators
                     let content = `<div class="text-sm whitespace-pre-wrap">${m.text}</div>`;
                     
-                    if(m.type === 'ORDER') {
-                        const items = m.orderPayload?.items?.map(i => `<li class="flex justify-between border-b border-blue-100 pb-1 last:border-0"><span>${i.name}</span><span class="font-bold">x${i.qty}</span></li>`).join('') || '';
+                    if(m.type === 'AUDIO') {
                         content = `
+                            <div class="flex items-center gap-2 min-w-[200px]">
+                                <div class="p-2 bg-gray-100 rounded-full"><i data-feather="mic" class="w-4 h-4 text-gray-500"></i></div>
+                                <audio controls src="${m.mediaUrl}" class="h-8 w-full" preload="metadata"></audio>
+                            </div>`;
+                    }
+                    
+                    if(m.type === 'LOCATION') {
+                        const loc = m.location || {};
+                        content = `
+                            <div class="bg-white p-1 rounded border border-blue-100">
+                                <div class="h-24 bg-gray-200 rounded mb-2 flex items-center justify-center bg-cover bg-center" style="background-image: url('https://static-maps.yandex.ru/1.x/?lang=en-US&ll=${loc.lon},${loc.lat}&z=15&l=map&size=300,150&pt=${loc.lon},${loc.lat},pm2rdm');"></div>
+                                <a href="https://waze.com/ul?ll=${loc.lat},${loc.lon}&navigate=yes" target="_blank" class="block w-full text-center bg-blue-500 text-white py-2 rounded text-xs font-bold hover:bg-blue-600 transition">
+                                    <i data-feather="navigation" class="inline w-3 h-3 mr-1"></i> נווט ב-Waze
+                                </a>
+                            </div>`;
+                    }
+
+                    if(m.type === 'ORDER') {
+                         const items = m.orderPayload?.items?.map(i => `<li class="flex justify-between border-b border-blue-100 pb-1 last:border-0"><span>${i.name}</span><span class="font-bold">x${i.qty}</span></li>`).join('') || '';
+                         content = `
                             <div class="bg-blue-50 -m-1 p-3 rounded-lg mb-1">
                                 <div class="font-bold text-blue-800 mb-2 flex items-center gap-2"><i data-feather="shopping-cart" class="w-4 h-4"></i> הזמנה חדשה</div>
                                 <ul class="text-xs space-y-1 text-gray-700">${items}</ul>
                             </div>
                             <div class="flex gap-2 mt-2">
-                                <button onclick="setOrderStatus('${doc.id}', 'בטיפול')" class="bg-white border border-blue-200 text-blue-600 text-xs px-3 py-1.5 rounded-full hover:bg-blue-50 transition">בטיפול</button>
-                                <button onclick="setOrderStatus('${doc.id}', 'הושלם')" class="bg-green-500 text-white text-xs px-3 py-1.5 rounded-full hover:bg-green-600 transition shadow-sm">אשר ביצוע</button>
+                                <button onclick="setOrderStatus('${doc.id}', 'בטיפול')" class="bg-white border border-blue-200 text-blue-600 text-xs px-3 py-1.5 rounded-full hover:bg-blue-50">בטיפול</button>
+                                <button onclick="setOrderStatus('${doc.id}', 'הושלם')" class="bg-green-500 text-white text-xs px-3 py-1.5 rounded-full hover:bg-green-600">אשר ביצוע</button>
                             </div>`;
                     }
-                    if(m.type === 'IMAGE') content = `<img src="${m.mediaUrl}" class="rounded-lg max-h-64 cursor-pointer hover:opacity-90 transition" onclick="window.open(this.src)"/>`;
-                    if(m.type === 'AUDIO') content = `<audio controls src="${m.mediaUrl}" class="w-full min-w-[200px] mt-1"/>`;
 
-                    // Alignments
+                    if(m.type === 'IMAGE') {
+                        content = `<img src="${m.mediaUrl}" class="rounded-lg max-h-64 max-w-full cursor-pointer hover:opacity-90 transition border" onclick="window.open(this.src)"/>`;
+                    }
+
+                    // Alignment
                     const alignClass = isMe ? 'items-end' : 'items-start';
                     const bubbleColor = isMe ? 'bg-[#d9fdd3]' : 'bg-white';
                     const bubbleCorner = isMe ? 'rounded-tr-none' : 'rounded-tl-none';
@@ -583,11 +544,11 @@
                         <div class="flex flex-col ${alignClass} mb-3 w-full fade-in">
                             <div class="flex gap-2 max-w-[85%] ${isMe ? 'flex-row-reverse' : 'flex-row'}">
                                 ${!isMe ? bubbleAvatar : ''}
-                                <div class="p-2 px-3 rounded-xl shadow-sm ${bubbleColor} ${bubbleCorner} relative group">
+                                <div class="p-2 px-3 rounded-xl shadow-sm ${bubbleColor} ${bubbleCorner} relative group min-w-[120px]">
                                     ${content}
                                     <div class="text-[10px] text-gray-400 text-left mt-1 flex justify-end items-center gap-1">
                                         ${m.createdAt?.toDate().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}
-                                        ${isMe ? `<i data-feather="${m.status === 'read' ? 'check-circle' : 'check'}" class="w-3 h-3 ${m.status==='read'?'text-blue-500':''}"></i>` : ''}
+                                        ${isMe ? `<i data-feather="${m.status==='read'?'check-circle':'check'}" class="w-3 h-3 ${m.status==='read'?'text-blue-500':''}"></i>` : ''}
                                     </div>
                                 </div>
                             </div>
@@ -597,12 +558,12 @@
                 area.innerHTML = html;
                 area.scrollTop = area.scrollHeight;
                 feather.replace();
-            }, err => console.error("Chat Error:", err));
+            }, err => console.error("Chat Fetch Error:", err));
         };
 
         window.setOrderStatus = (id, status) => updateDoc(doc(db, 'messages', id), { orderStatus: status });
 
-        // Submit Message
+        // Send Message
         const chatForm = getEl('chat-form');
         if(chatForm) {
             chatForm.addEventListener('submit', async (e) => {
@@ -624,12 +585,10 @@
             });
         }
 
-        // --- Authentication & Bootstrap ---
         onAuthStateChanged(auth, async (user) => {
             const shell = getEl('shell-wrapper');
             const loginView = getEl('login-view');
             const adminName = getEl('admin-name');
-
             if (user) {
                 currentUser = user;
                 if(loginView) loginView.classList.add('hidden');
@@ -642,14 +601,11 @@
             }
         });
 
-        const loginForm = getEl('login-form');
-        if(loginForm) {
-            loginForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                try { await signInWithEmailAndPassword(auth, getEl('email').value, getEl('password').value); }
-                catch(e) { alert("שגיאה בהתחברות: " + e.message); }
-            });
-        }
+        getEl('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            try { await signInWithEmailAndPassword(auth, getEl('email').value, getEl('password').value); }
+            catch(e) { alert("שגיאה בהתחברות: " + e.message); }
+        });
 
         window.logout = () => signOut(auth);
         feather.replace();
