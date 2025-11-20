@@ -3,53 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Saban 360 | מרכז שליטה</title>
+    <title>Saban 360 CRM | מערכת ניהול</title>
     
     <!-- ספריות -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & ReactDOM -->
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- אייקונים -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- גרפים -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
     <style>
-        body { font-family: 'Heebo', sans-serif; background-color: #f8fafc; color: #334155; }
+        body { font-family: system-ui, -apple-system, sans-serif; background-color: #f1f5f9; color: #1e293b; }
         
-        /* עיצוב יוקרתי בהיר */
-        .glass { 
-            background: rgba(255, 255, 255, 0.8); 
-            backdrop-filter: blur(12px); 
-            border: 1px solid rgba(255, 255, 255, 0.6); 
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
-        }
-        .glass:hover {
-            background: rgba(255, 255, 255, 0.95);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
-            transform: translateY(-2px);
-            transition: all 0.3s ease;
-        }
+        /* Sidebar styles */
+        .sidebar-link { display: flex; align-items: center; padding: 12px; border-radius: 8px; transition: all 0.2s; color: #94a3b8; font-weight: 500; cursor: pointer; }
+        .sidebar-link:hover { background-color: #1e293b; color: white; }
+        .sidebar-link.active { background-color: #2563eb; color: white; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2); }
         
-        .input-light { 
-            background: #ffffff; 
-            border: 1px solid #e2e8f0; 
-            color: #1e293b; 
-            transition: all 0.2s;
-        }
-        .input-light:focus { 
-            outline: none; 
-            border-color: #3b82f6; 
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); 
-        }
+        /* Card styles */
+        .card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.03); border: 1px solid #e2e8f0; transition: transform 0.2s; }
+        .card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.06); }
         
-        /* אנימציות */
-        .fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        /* Table styles */
+        .table-row { transition: background 0.1s; cursor: pointer; }
+        .table-row:hover { background-color: #f8fafc; }
+        
+        /* Animations */
+        .fade-in { animation: fadeIn 0.3s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
-        /* גלילה */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        
+        /* Loader */
+        .loader { border: 3px solid #e2e8f0; border-top: 3px solid #2563eb; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
@@ -59,6 +48,7 @@
         const { useState, useEffect, useMemo, useRef } = React;
         const { createRoot } = ReactDOM;
         
+        // --- Firebase Imports ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
         import { getFirestore, collection, doc, onSnapshot, query, orderBy, where, addDoc, updateDoc, deleteDoc, serverTimestamp, setDoc, getDoc, limit, writeBatch } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
@@ -76,48 +66,230 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // --- Icons (SVG Inline for Stability) ---
-        const Icon = ({ name, className, size=20 }) => {
-            const icons = {
-                LayoutDashboard: <><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></>,
-                Package: <><path d="M16.5 9.4L7.55 4.24"></path><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.29 7 12 12 20.71 7"></polyline><line x1="12" y1="22" x2="12" y2="12"></line></>,
-                Users: <><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></>,
-                Activity: <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>,
-                LogOut: <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></>,
-                Plus: <><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></>,
-                Edit: <><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></>,
-                Trash2: <><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></>,
-                Search: <><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></>,
-                Save: <><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></>,
-                X: <><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></>,
-                Upload: <><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></>,
-                Briefcase: <><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></>,
-                History: <path d="M3 3v5h5"></path>
-            };
-            return <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>{icons[name]}</svg>;
+        // --- Icons (Lucide) ---
+        const Icon = ({ name, size=20, className }) => {
+            useEffect(() => { lucide.createIcons(); }, [name]);
+            return <i data-lucide={name} className={className} style={{width: size, height: size}}></i>;
         };
 
         // --- Login Screen ---
         function LoginScreen({ onLogin }) {
             const [email, setEmail] = useState('');
             const [password, setPassword] = useState('');
+            const [loading, setLoading] = useState(false);
+
+            const handleSubmit = async (e) => {
+                e.preventDefault(); setLoading(true);
+                await onLogin(email, password);
+                setLoading(false);
+            };
+
             return (
-                <div className="flex h-screen items-center justify-center bg-slate-100 fade-in">
-                    <div className="glass p-10 rounded-3xl w-full max-w-sm text-center shadow-2xl border border-slate-200">
-                        <div className="w-16 h-16 bg-blue-600 rounded-2xl mx-auto mb-6 flex items-center justify-center shadow-xl text-white font-bold text-2xl">S</div>
-                        <h1 className="text-3xl font-bold text-slate-800 mb-2">Saban 360</h1>
-                        <p className="text-slate-500 mb-8">כניסת מנהלים בלבד</p>
-                        <form onSubmit={(e) => { e.preventDefault(); onLogin(email, password); }} className="space-y-4">
-                            <input type="email" placeholder="אימייל" value={email} onChange={e=>setEmail(e.target.value)} className="w-full p-4 rounded-xl input-light" required />
-                            <input type="password" placeholder="סיסמה" value={password} onChange={e=>setPassword(e.target.value)} className="w-full p-4 rounded-xl input-light" required />
-                            <button className="w-full p-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-all shadow-lg shadow-blue-200/50">כניסה למערכת</button>
+                <div className="flex h-screen items-center justify-center bg-slate-900">
+                    <div className="bg-white p-10 rounded-3xl w-full max-w-sm text-center shadow-2xl">
+                        <div className="w-16 h-16 bg-blue-600 rounded-2xl mx-auto mb-6 flex items-center justify-center text-white font-bold text-2xl shadow-lg">S</div>
+                        <h1 className="text-3xl font-bold text-slate-800 mb-2">Saban CRM</h1>
+                        <p className="text-slate-500 mb-8">ניהול מערכת מתקדם</p>
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            <input type="email" placeholder="אימייל מנהל" value={email} onChange={e=>setEmail(e.target.value)} className="w-full p-4 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none" required />
+                            <input type="password" placeholder="סיסמה" value={password} onChange={e=>setPassword(e.target.value)} className="w-full p-4 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none" required />
+                            <button disabled={loading} className="w-full p-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-all shadow-lg disabled:opacity-70">
+                                {loading ? 'מתחבר...' : 'כניסה למערכת'}
+                            </button>
                         </form>
                     </div>
                 </div>
             );
         }
 
-        // --- 1. Catalog Management ---
+        // --- Main Dashboard (Stats) ---
+        function DashboardPanel({ customers, products, orders }) {
+            const totalCustomers = customers.length;
+            const totalProducts = products.length;
+            const activeOrders = orders.filter(o => o.status !== 'הושלם' && o.status !== 'בוטל').length;
+
+            return (
+                <div className="space-y-6 fade-in">
+                    <h2 className="text-2xl font-bold text-slate-800">סקירה כללית</h2>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div className="card flex items-center gap-4">
+                            <div className="p-3 bg-blue-100 text-blue-600 rounded-xl"><Icon name="users" size={24}/></div>
+                            <div><p className="text-sm text-slate-500">לקוחות רשומים</p><h3 className="text-2xl font-bold">{totalCustomers}</h3></div>
+                        </div>
+                        <div className="card flex items-center gap-4">
+                            <div className="p-3 bg-emerald-100 text-emerald-600 rounded-xl"><Icon name="shopping-cart" size={24}/></div>
+                            <div><p className="text-sm text-slate-500">הזמנות פעילות</p><h3 className="text-2xl font-bold">{activeOrders}</h3></div>
+                        </div>
+                        <div className="card flex items-center gap-4">
+                            <div className="p-3 bg-purple-100 text-purple-600 rounded-xl"><Icon name="package" size={24}/></div>
+                            <div><p className="text-sm text-slate-500">מוצרים בקטלוג</p><h3 className="text-2xl font-bold">{totalProducts}</h3></div>
+                        </div>
+                        <div className="card flex items-center gap-4">
+                            <div className="p-3 bg-amber-100 text-amber-600 rounded-xl"><Icon name="activity" size={24}/></div>
+                            <div><p className="text-sm text-slate-500">פעילות היום</p><h3 className="text-2xl font-bold">גבוהה</h3></div>
+                        </div>
+                    </div>
+                    
+                    <div className="card">
+                        <h3 className="font-bold text-lg mb-4">הזמנות אחרונות</h3>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-sm">
+                                <thead className="bg-slate-50 text-slate-500">
+                                    <tr><th className="p-3">לקוח</th><th className="p-3">סטטוס</th><th className="p-3">תאריך</th></tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {orders.slice(0, 5).map(o => (
+                                        <tr key={o.id}>
+                                            <td className="p-3 font-bold">{o.customer?.name || 'לקוח'}</td>
+                                            <td className="p-3"><span className="px-2 py-1 bg-blue-50 text-blue-600 rounded-full text-xs">{o.status}</span></td>
+                                            <td className="p-3 text-slate-400">{o.createdAt?.toDate().toLocaleDateString('he-IL')}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // --- CRM Panel (Users & Customers - Edit/Delete) ---
+        function CRMPanel() {
+            const [users, setUsers] = useState([]);
+            const [customers, setCustomers] = useState([]);
+            const [tab, setTab] = useState('customers');
+            const [isModalOpen, setIsModalOpen] = useState(false);
+            const [modalType, setModalType] = useState('');
+            const [editingItem, setEditingItem] = useState(null); // For Edit
+            const [searchTerm, setSearchTerm] = useState('');
+
+            useEffect(() => {
+                const u1 = onSnapshot(collection(db, "users"), s => setUsers(s.docs.map(d => ({id: d.id, ...d.data()}))));
+                const u2 = onSnapshot(collection(db, "customers"), s => setCustomers(s.docs.map(d => ({id: d.id, ...d.data()}))));
+                return () => { u1(); u2(); };
+            }, []);
+
+            // הוספה / עריכה
+            const handleSave = async (e) => {
+                e.preventDefault();
+                const data = Object.fromEntries(new FormData(e.target));
+                const col = tab === 'customers' ? 'customers' : 'users';
+                
+                try {
+                    if (modalType === 'edit') {
+                        // עדכון קיים
+                        await updateDoc(doc(db, col, editingItem.id), data);
+                        logAction("עריכת משתמש", `עודכן: ${data.name} (${col})`);
+                    } else {
+                        // הוספה חדשה (דורש UID ידני לרוב, כאן נשתמש ב-setDoc אם סופק UID או addDoc אם לא)
+                        if (data.uid) {
+                            await setDoc(doc(db, col, data.uid), { ...data, createdAt: serverTimestamp() });
+                        } else {
+                            alert("חובה לספק UID (מ-Authentication) ביצירת משתמש חדש.");
+                            return;
+                        }
+                        logAction("הוספת משתמש", `נוצר: ${data.name} (${col})`);
+                    }
+                    setIsModalOpen(false);
+                } catch (err) { alert("שגיאה: " + err.message); }
+            };
+
+            // מחיקה
+            const handleDelete = async (id, name) => {
+                if(confirm(`האם למחוק את ${name}? פעולה זו אינה הפיכה.`)) {
+                    const col = tab === 'customers' ? 'customers' : 'users';
+                    await deleteDoc(doc(db, col, id));
+                    logAction("מחיקת משתמש", `נמחק: ${name} (${col})`);
+                }
+            };
+
+            const list = (tab === 'workers' ? users : customers).filter(i => i.name?.includes(searchTerm) || i.email?.includes(searchTerm));
+
+            return (
+                <div className="fade-in space-y-6">
+                    <div className="flex justify-between items-center">
+                        <div className="flex gap-2 bg-white p-1 rounded-xl border border-slate-200 shadow-sm">
+                            <button onClick={()=>setTab('customers')} className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${tab==='customers' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}>לקוחות</button>
+                            <button onClick={()=>setTab('workers')} className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${tab==='workers' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}>עובדים</button>
+                        </div>
+                        <div className="flex gap-3">
+                            <div className="relative">
+                                <input className="pl-10 pr-4 py-2 border rounded-lg text-sm w-64" placeholder="חיפוש..." value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} />
+                                <div className="absolute top-2.5 left-3 text-slate-400"><Icon name="search" size={16}/></div>
+                            </div>
+                            <button onClick={() => { setEditingItem(null); setModalType('add'); setIsModalOpen(true); }} className="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2 rounded-xl flex items-center gap-2 text-sm font-bold shadow-lg"><Icon name="plus" size={18}/> חדש</button>
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                        <table className="w-full text-left border-collapse">
+                            <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-100">
+                                <tr>
+                                    <th className="p-5 font-bold">שם</th>
+                                    <th className="p-5 font-bold">פרטים</th>
+                                    <th className="p-5 font-bold">{tab==='workers' ? 'תפקיד' : 'פרויקטים'}</th>
+                                    <th className="p-5 font-bold">פעולות</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                                {list.map(item => (
+                                    <tr key={item.id} className="hover:bg-blue-50/50 transition-colors">
+                                        <td className="p-5 font-bold text-slate-800">{item.name}</td>
+                                        <td className="p-5 text-sm text-slate-500 font-mono">{item.email}<br/><span className="text-xs bg-slate-100 px-1.5 py-0.5 rounded text-slate-400">{item.id.substring(0,6)}...</span></td>
+                                        <td className="p-5 text-sm">
+                                            {tab==='workers' ? 
+                                                <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-bold border border-slate-200 uppercase">{item.role}</span> : 
+                                                <div className="flex flex-wrap gap-2">{(item.projects || []).map(p=><span key={p.projectId} className="px-2 py-1 bg-blue-50 text-blue-600 rounded-md text-xs font-medium border border-blue-100">{p.name}</span>)}</div>
+                                            }
+                                        </td>
+                                        <td className="p-5 flex gap-2">
+                                            <button onClick={()=>{setEditingItem(item); setModalType('edit'); setIsModalOpen(true);}} className="p-2 bg-slate-100 rounded hover:bg-blue-100 text-blue-600 transition-colors"><Icon name="edit" size={16}/></button>
+                                            <button onClick={()=>handleDelete(item.id, item.name)} className="p-2 bg-slate-100 rounded hover:bg-red-100 text-red-600 transition-colors"><Icon name="trash-2" size={16}/></button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {isModalOpen && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                            <div className="bg-white p-8 rounded-3xl w-full max-w-md shadow-2xl animate-in fade-in zoom-in duration-200">
+                                <div className="flex justify-between mb-6 items-center border-b border-slate-100 pb-4">
+                                    <h3 className="text-xl font-bold text-slate-800">{modalType === 'edit' ? 'עריכה' : 'הוספה חדשה'}</h3>
+                                    <button onClick={()=>setIsModalOpen(false)}><Icon name="x"/></button>
+                                </div>
+                                <form onSubmit={handleSave} className="space-y-4">
+                                    {modalType === 'add' && (
+                                        <div className="bg-amber-50 border border-amber-100 text-amber-800 text-xs p-3 rounded-lg">
+                                            <strong>שים לב:</strong> יש ליצור קודם את המשתמש ב-Auth ולהעתיק את ה-UID.
+                                        </div>
+                                    )}
+                                    <input name="uid" defaultValue={editingItem?.id} placeholder="UID" className={`w-full p-3 border rounded-xl ${modalType==='edit'?'bg-slate-100 cursor-not-allowed':''}`} readOnly={modalType==='edit'} required />
+                                    <input name="name" defaultValue={editingItem?.name} placeholder="שם מלא" className="w-full p-3 border rounded-xl" required />
+                                    <input name="email" defaultValue={editingItem?.email} placeholder="אימייל" className="w-full p-3 border rounded-xl" required />
+                                    
+                                    {tab === 'workers' ? (
+                                        <select name="role" defaultValue={editingItem?.role} className="w-full p-3 border rounded-xl bg-white">
+                                            <option value="worker">עובד</option>
+                                            <option value="driver">נהג</option>
+                                            <option value="admin">מנהל</option>
+                                        </select>
+                                    ) : (
+                                        <input name="phone" defaultValue={editingItem?.phone} placeholder="טלפון" className="w-full p-3 border rounded-xl" />
+                                    )}
+
+                                    <button className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-lg mt-2">שמור</button>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+        
+        // --- 3. Catalog Panel ---
         function CatalogPanel() {
             const [products, setProducts] = useState([]);
             const [isModalOpen, setIsModalOpen] = useState(false);
@@ -134,32 +306,19 @@
                 e.preventDefault();
                 const data = Object.fromEntries(new FormData(e.target));
                 try {
-                    if (editingProduct) await updateDoc(doc(db, "products", editingProduct.id), data);
-                    else await addDoc(collection(db, "products"), { ...data, createdAt: serverTimestamp() });
+                    if (editingProduct) {
+                        await updateDoc(doc(db, "products", editingProduct.id), data);
+                        logAction("עדכון מוצר", `עודכן: ${data.name}`);
+                    } else {
+                        await addDoc(collection(db, "products"), { ...data, createdAt: serverTimestamp() });
+                        logAction("יצירת מוצר", `נוצר: ${data.name}`);
+                    }
                     setIsModalOpen(false);
                 } catch (err) { alert(err.message); }
             };
 
-            const handleDelete = async (id) => {
-                if (confirm("למחוק?")) await deleteDoc(doc(db, "products", id));
-            };
-
-            const handleFileUpload = (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = async (ev) => {
-                    try {
-                        const json = JSON.parse(ev.target.result);
-                        if (confirm(`לייבא ${json.length} מוצרים?`)) {
-                            const batch = writeBatch(db);
-                            json.forEach(p => batch.set(doc(collection(db, "products")), { ...p, createdAt: serverTimestamp() }));
-                            await batch.commit();
-                            alert("יובא בהצלחה!");
-                        }
-                    } catch (err) { alert("שגיאה בקובץ"); }
-                };
-                reader.readAsText(file);
+            const handleDelete = async (id, name) => {
+                if (confirm("למחוק?")) { await deleteDoc(doc(db, "products", id)); logAction("מחיקת מוצר", name); }
             };
 
             const filtered = products.filter(p => p.name.includes(searchTerm));
@@ -167,60 +326,38 @@
             return (
                 <div className="fade-in space-y-6">
                     <div className="flex justify-between items-center">
-                        <h2 className="text-2xl font-bold text-slate-800">קטלוג מוצרים</h2>
-                        <div className="flex gap-3">
-                            <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept=".json" />
-                            <button onClick={() => fileInputRef.current.click()} className="bg-white text-slate-600 border border-slate-200 px-5 py-2.5 rounded-xl flex items-center gap-2 font-medium hover:bg-slate-50"><Icon name="Upload"/> ייבוא</button>
-                            <button onClick={() => { setEditingProduct(null); setIsModalOpen(true); }} className="bg-blue-600 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 font-bold shadow-lg hover:bg-blue-700 transition-all"><Icon name="Plus"/> מוצר חדש</button>
-                        </div>
+                        <h2 className="text-2xl font-bold text-slate-800">קטלוג</h2>
+                        <button onClick={() => { setEditingProduct(null); setIsModalOpen(true); }} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 font-bold shadow"><Icon name="plus"/> חדש</button>
                     </div>
-
-                    <div className="relative">
-                        <input type="text" placeholder="חיפוש מהיר בקטלוג..." value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} className="w-full p-4 pl-12 rounded-2xl input-light shadow-sm" />
-                        <Icon name="Search" className="absolute top-4 left-4 text-slate-400" />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="relative"><input className="w-full p-3 pl-10 rounded-xl border border-slate-200" placeholder="חפש..." value={searchTerm} onChange={e=>setSearchTerm(e.target.value)} /><div className="absolute top-3 left-3 text-slate-400"><Icon name="search"/></div></div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         {filtered.map(p => (
-                            <div key={p.id} className="glass p-5 rounded-2xl flex flex-col gap-4 group hover:shadow-xl transition-all duration-300">
-                                <div className="flex gap-4">
-                                    <div className="w-24 h-24 rounded-xl bg-slate-100 overflow-hidden shadow-inner flex-shrink-0">
-                                        <img src={p.image || 'https://via.placeholder.com/100'} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
-                                    </div>
-                                    <div className="flex-1 py-1">
-                                        <h3 className="font-bold text-xl text-slate-800 line-clamp-1">{p.name}</h3>
-                                        <p className="text-slate-500 text-sm font-mono bg-slate-100 inline-block px-2 rounded mt-1">{p.sku}</p>
-                                        <p className="text-blue-600 font-bold text-lg mt-2">{p.price}</p>
+                            <div key={p.id} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col gap-2 group hover:shadow-md transition">
+                                <div className="flex gap-3">
+                                    <img src={p.image || 'https://via.placeholder.com/100'} className="w-16 h-16 rounded-lg object-cover bg-slate-100" />
+                                    <div>
+                                        <h3 className="font-bold text-slate-800">{p.name}</h3>
+                                        <p className="text-sm text-slate-500">{p.sku}</p>
+                                        <p className="font-bold text-green-600">{p.price}</p>
                                     </div>
                                 </div>
-                                <div className="flex gap-3 mt-auto pt-4 border-t border-slate-100/50">
-                                    <button onClick={() => { setEditingProduct(p); setIsModalOpen(true); }} className="flex-1 bg-slate-50 hover:bg-slate-100 py-2.5 rounded-lg text-sm font-medium text-slate-600 flex justify-center items-center gap-2 transition-colors"><Icon name="Edit" size={16}/> ערוך</button>
-                                    <button onClick={() => handleDelete(p.id)} className="flex-1 bg-red-50 hover:bg-red-100 text-red-500 py-2.5 rounded-lg text-sm font-medium flex justify-center items-center gap-2 transition-colors"><Icon name="Trash2" size={16}/> מחק</button>
+                                <div className="flex gap-2 mt-auto pt-3 border-t border-slate-50 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button onClick={()=>{setEditingProduct(p); setIsModalOpen(true);}} className="flex-1 bg-slate-50 hover:bg-blue-50 text-blue-600 py-1 rounded text-sm font-bold">ערוך</button>
+                                    <button onClick={()=>{handleDelete(p.id, p.name)}} className="flex-1 bg-slate-50 hover:bg-red-50 text-red-500 py-1 rounded text-sm font-bold">מחק</button>
                                 </div>
                             </div>
                         ))}
                     </div>
-
                     {isModalOpen && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
-                            <div className="bg-white p-8 rounded-3xl w-full max-w-lg shadow-2xl relative">
-                                <div className="flex justify-between mb-6 items-center">
-                                    <h3 className="text-2xl font-bold text-slate-800">{editingProduct ? 'עריכת מוצר' : 'מוצר חדש'}</h3>
-                                    <button onClick={() => setIsModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><Icon name="X" className="text-slate-500"/></button>
-                                </div>
-                                <form onSubmit={handleSave} className="space-y-5">
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500">שם המוצר</label><input name="name" defaultValue={editingProduct?.name} className="input-light p-3 rounded-xl w-full" required /></div>
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500">מק"ט</label><input name="sku" defaultValue={editingProduct?.sku} className="input-light p-3 rounded-xl w-full" /></div>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500">קטגוריה</label><input name="category" defaultValue={editingProduct?.category} className="input-light p-3 rounded-xl w-full" /></div>
-                                        <div className="space-y-1"><label className="text-xs font-bold text-slate-500">מחיר</label><input name="price" defaultValue={editingProduct?.price} className="input-light p-3 rounded-xl w-full" /></div>
-                                    </div>
-                                    <div className="space-y-1"><label className="text-xs font-bold text-slate-500">תמונה (URL)</label><input name="image" defaultValue={editingProduct?.image} className="input-light p-3 rounded-xl w-full" /></div>
-                                    <div className="space-y-1"><label className="text-xs font-bold text-slate-500">תיאור</label><textarea name="description" defaultValue={editingProduct?.description} rows="3" className="input-light p-3 rounded-xl w-full"></textarea></div>
-                                    <button type="submit" className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-lg shadow-blue-200 mt-2 transition-all">שמור שינויים</button>
+                        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+                            <div className="bg-white p-6 rounded-2xl w-full max-w-md shadow-xl">
+                                <div className="flex justify-between mb-4"><h3 className="font-bold text-lg">{editingProduct?'עריכה':'חדש'}</h3><button onClick={()=>setIsModalOpen(false)}><Icon name="x"/></button></div>
+                                <form onSubmit={handleSave} className="space-y-3">
+                                    <input name="name" defaultValue={editingProduct?.name} placeholder="שם" className="w-full p-2 border rounded" required />
+                                    <input name="sku" defaultValue={editingProduct?.sku} placeholder="מק''ט" className="w-full p-2 border rounded" />
+                                    <input name="price" defaultValue={editingProduct?.price} placeholder="מחיר" className="w-full p-2 border rounded" />
+                                    <input name="image" defaultValue={editingProduct?.image} placeholder="URL תמונה" className="w-full p-2 border rounded" />
+                                    <button className="w-full py-2 bg-blue-600 text-white rounded font-bold">שמור</button>
                                 </form>
                             </div>
                         </div>
@@ -229,153 +366,52 @@
             );
         }
 
-        // --- 2. CRM Panel (Users & Customers) ---
-        function CRMPanel() {
-            const [users, setUsers] = useState([]);
-            const [customers, setCustomers] = useState([]);
-            const [tab, setTab] = useState('customers');
-            const [isModalOpen, setIsModalOpen] = useState(false);
-            const [modalType, setModalType] = useState('');
-            const [editingItem, setEditingItem] = useState(null);
-            const [selectedCustomer, setSelectedCustomer] = useState(null);
-
+        // --- 4. History & Cleanup ---
+        function HistoryPanel() {
+            const [orders, setOrders] = useState([]);
+            
             useEffect(() => {
-                const u1 = onSnapshot(collection(db, "users"), s => setUsers(s.docs.map(d => ({id: d.id, ...d.data()}))));
-                const u2 = onSnapshot(collection(db, "customers"), s => setCustomers(s.docs.map(d => ({id: d.id, ...d.data()}))));
-                return () => { u1(); u2(); };
+                const q = query(collection(db, "orders"), orderBy("createdAt", "desc"), limit(50));
+                return onSnapshot(q, snap => setOrders(snap.docs.map(d => ({id: d.id, ...d.data()}))));
             }, []);
 
-            const handleSave = async (e) => {
-                e.preventDefault();
-                const data = Object.fromEntries(new FormData(e.target));
-                try {
-                    if (modalType === 'edit') {
-                         const col = tab === 'customers' ? 'customers' : 'users';
-                         await updateDoc(doc(db, col, editingItem.id), data);
-                    } else if (modalType === 'user') {
-                        await setDoc(doc(db, "users", data.uid), { name: data.name, role: data.role, email: data.email, createdAt: serverTimestamp() });
-                    } else if (modalType === 'customer') {
-                        await setDoc(doc(db, "customers", data.uid), { name: data.name, email: data.email, phone: data.phone, projects: [], createdAt: serverTimestamp() });
-                    } else if (modalType === 'project') {
-                        const projects = selectedCustomer.projects || [];
-                        await updateDoc(doc(db, "customers", selectedCustomer.id), { projects: [...projects, { projectId: data.projectId, name: data.projectName, address: data.address }] });
+            const handleCleanup = async () => {
+                const pass = prompt("הכנס סיסמת מנהל לניקוי:");
+                if(pass === "DELETE123") {
+                    if(confirm("בטוח? כל ההזמנות יימחקו.")) {
+                        const batch = writeBatch(db);
+                        orders.forEach(o => batch.delete(doc(db, "orders", o.id)));
+                        await batch.commit();
+                        alert("נמחק.");
                     }
-                    setIsModalOpen(false);
-                } catch (err) { alert(err.message); }
-            };
-            
-             const handleDelete = async (id) => {
-                if(confirm("פעולה זו תמחק את המשתמש לצמיתות. להמשיך?")) {
-                     const col = tab === 'customers' ? 'customers' : 'users';
-                     await deleteDoc(doc(db, col, id));
-                }
+                } else { alert("סיסמה שגויה"); }
             };
 
             return (
-                <div className="max-w-6xl mx-auto fade-in">
-                    <div className="flex justify-between items-center mb-8">
-                        <div className="flex gap-2 bg-white p-1 rounded-xl border border-slate-200 shadow-sm">
-                            <button onClick={()=>setTab('customers')} className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${tab==='customers' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}>לקוחות</button>
-                            <button onClick={()=>setTab('workers')} className={`px-6 py-2.5 rounded-lg text-sm font-bold transition-all ${tab==='workers' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}>עובדים</button>
-                        </div>
-                        <button onClick={() => { setEditingItem(null); setModalType(tab==='workers'?'user':'customer'); setIsModalOpen(true); }} className="bg-slate-900 hover:bg-slate-800 text-white px-5 py-3 rounded-xl flex items-center gap-2 text-sm font-bold shadow-lg transition-transform active:scale-95"><Icon name="Plus" size={18}/> {tab==='workers'?'הוסף עובד':'הוסף לקוח'}</button>
+                <div className="fade-in space-y-6">
+                    <div className="flex justify-between items-center">
+                        <h2 className="text-2xl font-bold text-slate-800">היסטוריה</h2>
+                        <button onClick={handleCleanup} className="bg-red-50 text-red-600 border border-red-200 px-4 py-2 rounded-lg flex items-center gap-2 font-bold hover:bg-red-100"><Icon name="trash-2"/> ניקוי מסד נתונים</button>
                     </div>
-
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                        <table className="w-full text-left border-collapse">
-                            <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-100">
-                                <tr>
-                                    <th className="p-5 font-bold">שם</th>
-                                    <th className="p-5 font-bold">פרטים מזהים</th>
-                                    <th className="p-5 font-bold">{tab==='workers' ? 'תפקיד' : 'פרויקטים'}</th>
-                                    <th className="p-5 font-bold">פעולות</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-50">
-                                {(tab==='workers' ? users : customers).map(item => (
-                                    <tr key={item.id} className="hover:bg-blue-50/50 transition-colors">
-                                        <td className="p-5 font-bold text-slate-800">{item.name}</td>
-                                        <td className="p-5 text-sm text-slate-500 font-mono">{item.email}<br/><span className="text-xs bg-slate-100 px-1.5 py-0.5 rounded text-slate-400">{item.id.substring(0,6)}...</span></td>
-                                        <td className="p-5 text-sm">
-                                            {tab==='workers' ? 
-                                                <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-bold border border-slate-200 uppercase">{item.role}</span> : 
-                                                <div className="flex flex-wrap gap-2">{(item.projects || []).map(p=><span key={p.projectId} className="px-2 py-1 bg-blue-50 text-blue-600 rounded-md text-xs font-medium border border-blue-100">{p.name}</span>)}</div>
-                                            }
-                                        </td>
-                                        <td className="p-5 flex gap-2">
-                                            {tab==='customers' && <button onClick={()=>{setSelectedCustomer(item); setModalType('project'); setIsModalOpen(true);}} className="text-blue-600 hover:text-blue-800 text-sm font-bold flex items-center gap-2 bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-xl transition-colors"><Icon name="Briefcase" size={16}/> פרויקט</button>}
-                                            <button onClick={()=>{setEditingItem(item); setModalType('edit'); setIsModalOpen(true);}} className="bg-slate-100 p-2 rounded hover:bg-slate-200 text-slate-600"><Icon name="Edit" size={16}/></button>
-                                            <button onClick={()=>{handleDelete(item.id)}} className="bg-red-50 p-2 rounded hover:bg-red-100 text-red-600"><Icon name="Trash2" size={16}/></button>
-                                        </td>
+                    <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-slate-50 text-slate-500"><tr><th className="p-4">תאריך</th><th className="p-4">לקוח</th><th className="p-4">סטטוס</th></tr></thead>
+                            <tbody className="divide-y">
+                                {orders.map(o => (
+                                    <tr key={o.id} className="hover:bg-slate-50">
+                                        <td className="p-4 text-slate-500">{o.createdAt?.toDate().toLocaleString()}</td>
+                                        <td className="p-4 font-bold">{o.customer?.name}</td>
+                                        <td className="p-4"><span className="px-2 py-1 bg-slate-100 rounded">{o.status}</span></td>
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
                     </div>
-
-                    {isModalOpen && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
-                            <div className="bg-white p-8 rounded-3xl w-full max-w-md shadow-2xl border border-white/20 animate-in fade-in zoom-in duration-200 relative">
-                                <div className="flex justify-between mb-6 items-center border-b border-slate-100 pb-4">
-                                    <h3 className="text-xl font-bold text-slate-800">
-                                        {modalType === 'edit' ? 'עריכת פרטים' : modalType === 'user' ? 'הוספת עובד' : modalType === 'customer' ? 'הוספת לקוח' : 'הוספת פרויקט'}
-                                    </h3>
-                                    <button onClick={()=>setIsModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors"><Icon name="X" className="text-slate-500"/></button>
-                                </div>
-                                
-                                <form onSubmit={handleSave} className="space-y-4">
-                                    {modalType === 'user' && (
-                                        <>
-                                            <div className="bg-amber-50 border border-amber-100 text-amber-800 text-xs p-3 rounded-lg"><strong>שים לב:</strong> יש ליצור קודם את המשתמש ב-Firebase Auth ולהעתיק את ה-UID.</div>
-                                            <input name="uid" placeholder="UID (הדבק כאן)" className="input-light p-3.5 rounded-xl w-full" required />
-                                            <input name="name" placeholder="שם מלא" className="input-light p-3.5 rounded-xl w-full" required />
-                                            <input name="email" placeholder="אימייל" className="input-light p-3.5 rounded-xl w-full" required />
-                                            <select name="role" className="input-light p-3.5 rounded-xl w-full bg-white"><option value="worker">עובד</option><option value="driver">נהג</option><option value="admin">מנהל</option></select>
-                                        </>
-                                    )}
-
-                                    {modalType === 'customer' && (
-                                        <>
-                                            <div className="bg-amber-50 border border-amber-100 text-amber-800 text-xs p-3 rounded-lg"><strong>שים לב:</strong> יש ליצור קודם את הלקוח ב-Auth.</div>
-                                            <input name="uid" placeholder="UID (הדבק כאן)" className="input-light p-3.5 rounded-xl w-full" required />
-                                            <input name="name" placeholder="שם הלקוח" className="input-light p-3.5 rounded-xl w-full" required />
-                                            <input name="email" placeholder="אימייל" className="input-light p-3.5 rounded-xl w-full" required />
-                                            <input name="phone" placeholder="טלפון" className="input-light p-3.5 rounded-xl w-full" />
-                                        </>
-                                    )}
-                                    
-                                    {modalType === 'edit' && (
-                                        <>
-                                            <input name="name" defaultValue={editingItem?.name} placeholder="שם" className="input-light p-3.5 rounded-xl w-full" required />
-                                            <input name="email" defaultValue={editingItem?.email} placeholder="אימייל" className="input-light p-3.5 rounded-xl w-full" required />
-                                            {tab === 'customers' && <input name="phone" defaultValue={editingItem?.phone} placeholder="טלפון" className="input-light p-3.5 rounded-xl w-full" />}
-                                            {tab === 'workers' && (
-                                                <select name="role" defaultValue={editingItem?.role} className="input-light p-3.5 rounded-xl w-full bg-white">
-                                                    <option value="worker">עובד</option><option value="driver">נהג</option><option value="admin">מנהל</option>
-                                                </select>
-                                            )}
-                                        </>
-                                    )}
-
-                                    {modalType === 'project' && (
-                                        <>
-                                            <div className="text-sm font-medium text-slate-500 mb-2">עבור: <span className="text-blue-600 font-bold">{selectedCustomer?.name}</span></div>
-                                            <input name="projectId" placeholder="מזהה פרויקט (באנגלית)" className="input-light p-3.5 rounded-xl w-full font-mono text-sm" required />
-                                            <input name="projectName" placeholder="שם הפרויקט" className="input-light p-3.5 rounded-xl w-full" required />
-                                            <input name="address" placeholder="כתובת" className="input-light p-3.5 rounded-xl w-full" required />
-                                        </>
-                                    )}
-                                    <button className="w-full py-3.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-lg mt-2 transition-all">שמור וצור</button>
-                                </form>
-                            </div>
-                        </div>
-                    )}
                 </div>
             );
         }
-        
-        // --- 3. Logs ---
+
+        // --- 5. Logs ---
         function LogsPanel() {
             const [logs, setLogs] = useState([]);
             useEffect(() => {
@@ -383,72 +419,16 @@
                 const unsub = onSnapshot(q, snap => setLogs(snap.docs.map(d => ({id: d.id, ...d.data()}))));
                 return () => unsub();
             }, []);
-
             return (
-                <div className="max-w-5xl mx-auto fade-in">
-                    <h2 className="text-2xl font-bold mb-6 text-slate-800 flex items-center gap-3"><div className="p-2 bg-red-100 text-red-600 rounded-lg"><Icon name="Activity"/></div> יומן פעילות</h2>
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <div className="fade-in">
+                    <h2 className="text-2xl font-bold mb-4">לוגים</h2>
+                    <div className="bg-white rounded-xl border shadow-sm overflow-hidden">
                         {logs.map(log => (
-                            <div key={log.id} className="p-5 border-b border-slate-50 flex justify-between items-center hover:bg-slate-50/50 transition-colors">
-                                <div className="flex gap-4 items-center">
-                                    <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                                    <div>
-                                        <div className="font-bold text-slate-800 text-sm">{log.message}</div>
-                                        <div className="text-slate-400 text-xs mt-1 flex gap-2"><span className="font-medium text-slate-500">{log.category}</span> • {log.user?.email || 'System'}</div>
-                                    </div>
-                                </div>
-                                <div className="text-slate-400 text-xs font-medium bg-slate-50 px-3 py-1 rounded-full border border-slate-100">{log.timestamp?.toDate().toLocaleString('he-IL')}</div>
+                            <div key={log.id} className="p-4 border-b hover:bg-slate-50 flex justify-between text-sm">
+                                <div><span className="font-bold">{log.message}</span> <span className="text-slate-400 mx-2">|</span> <span className="text-slate-500">{log.category}</span></div>
+                                <div className="text-slate-400 text-xs">{log.timestamp?.toDate().toLocaleString()}</div>
                             </div>
                         ))}
-                    </div>
-                </div>
-            );
-        }
-        
-        // --- 4. History & Cleanup (NEW) ---
-        function HistoryPanel() {
-            const [orders, setOrders] = useState([]);
-            
-            useEffect(() => {
-                const q = query(collection(db, "orders"), orderBy("createdAt", "desc"), limit(100));
-                const unsub = onSnapshot(q, snap => setOrders(snap.docs.map(d => ({id: d.id, ...d.data()}))));
-                return () => unsub();
-            }, []);
-
-            const handleCleanup = async () => {
-                const pass = prompt("הכנס סיסמת מנהל לניקוי מאגר:");
-                if(pass === "DELETE123") {
-                    if(confirm("זהירות: כל ההזמנות יימחקו לצמיתות. להמשיך?")) {
-                        const batch = writeBatch(db);
-                        orders.forEach(o => batch.delete(doc(db, "orders", o.id)));
-                        await batch.commit();
-                        alert("הזמנות נמחקו.");
-                    }
-                } else { alert("סיסמה שגויה"); }
-            };
-
-            return (
-                <div className="max-w-6xl mx-auto fade-in">
-                    <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-2xl font-bold text-slate-800">היסטוריית הזמנות</h2>
-                        <button onClick={handleCleanup} className="bg-red-50 text-red-600 border border-red-200 px-4 py-2 rounded-lg flex items-center gap-2 font-bold hover:bg-red-100"><Icon name="Trash2"/> ניקוי מאגר</button>
-                    </div>
-                    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-                        <table className="w-full text-left text-sm">
-                            <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider">
-                                <tr><th className="p-4">תאריך</th><th className="p-4">לקוח</th><th className="p-4">סטטוס</th><th className="p-4">פרטים</th></tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-50">
-                                {orders.map(o => (
-                                    <tr key={o.id} className="hover:bg-slate-50">
-                                        <td className="p-4 text-slate-500 font-mono">{o.createdAt?.toDate().toLocaleDateString()}</td>
-                                        <td className="p-4 font-bold text-slate-800">{o.customer?.name}</td>
-                                        <td className="p-4"><span className={`px-2 py-1 rounded text-xs ${o.status==='חדש'?'bg-green-100 text-green-700':'bg-slate-100'}`}>{o.status}</span></td>
-                                        <td className="p-4 text-slate-400">{o.items?.length || 0} פריטים</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
                     </div>
                 </div>
             );
@@ -461,7 +441,7 @@
 
         function App() {
             const [user, setUser] = useState(null);
-            const [view, setView] = useState('catalog');
+            const [view, setView] = useState('dashboard');
             useEffect(() => onAuthStateChanged(auth, u => setUser(u)), []);
             const handleLogin = async (e, p) => { try { await signInWithEmailAndPassword(auth, e, p); } catch(err) { alert(err.message); } };
 
@@ -469,26 +449,48 @@
 
             return (
                 <div className="flex h-screen bg-slate-50">
-                    <aside className="w-72 bg-white border-l border-slate-200 flex flex-col shadow-xl z-10">
-                        <div className="p-8 border-b border-slate-100">
-                            <h1 className="text-2xl font-bold text-blue-600 tracking-tight">Saban 360</h1>
-                            <p className="text-xs text-slate-400 font-medium uppercase tracking-wider mt-1">Master Admin</p>
+                    <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col shadow-xl z-20">
+                        <div className="p-6 border-b border-slate-800 flex items-center gap-3">
+                            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold">S</div>
+                            <span className="font-bold text-lg text-white">Saban CRM</span>
                         </div>
-                        <nav className="flex-1 p-6 space-y-2">
-                            <button onClick={()=>setView('catalog')} className={`w-full text-right p-4 rounded-xl flex items-center gap-4 transition-all font-bold ${view==='catalog'?'bg-blue-50 text-blue-600':'text-slate-500 hover:bg-slate-50'}`}><Icon name="Package" /> קטלוג</button>
-                            <button onClick={()=>setView('crm')} className={`w-full text-right p-4 rounded-xl flex items-center gap-4 transition-all font-bold ${view==='crm'?'bg-blue-50 text-blue-600':'text-slate-500 hover:bg-slate-50'}`}><Icon name="Users" /> משתמשים ולקוחות</button>
-                            <button onClick={()=>setView('history')} className={`w-full text-right p-4 rounded-xl flex items-center gap-4 transition-all font-bold ${view==='history'?'bg-blue-50 text-blue-600':'text-slate-500 hover:bg-slate-50'}`}><Icon name="History" /> היסטוריה</button>
-                            <button onClick={()=>setView('logs')} className={`w-full text-right p-4 rounded-xl flex items-center gap-4 transition-all font-bold ${view==='logs'?'bg-blue-50 text-blue-600':'text-slate-500 hover:bg-slate-50'}`}><Icon name="Activity" /> יומן פעילות</button>
+                        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+                            <div className="text-xs font-bold text-slate-500 uppercase px-3 mb-2 mt-4">ראשי</div>
+                            <button onClick={()=>setView('dashboard')} className={`w-full text-right p-3 rounded-lg flex gap-3 ${view==='dashboard'?'bg-blue-600 text-white':'hover:bg-slate-800'}`}><Icon name="layout-dashboard"/> דשבורד</button>
+                            <button onClick={()=>setView('history')} className={`w-full text-right p-3 rounded-lg flex gap-3 ${view==='history'?'bg-blue-600 text-white':'hover:bg-slate-800'}`}><Icon name="history"/> היסטוריה</button>
+                            
+                            <div className="text-xs font-bold text-slate-500 uppercase px-3 mb-2 mt-6">ניהול</div>
+                            <button onClick={()=>setView('crm')} className={`w-full text-right p-3 rounded-lg flex gap-3 ${view==='crm'?'bg-blue-600 text-white':'hover:bg-slate-800'}`}><Icon name="users"/> לקוחות ועובדים</button>
+                            <button onClick={()=>setView('catalog')} className={`w-full text-right p-3 rounded-lg flex gap-3 ${view==='catalog'?'bg-blue-600 text-white':'hover:bg-slate-800'}`}><Icon name="package"/> קטלוג</button>
+                            
+                            <div className="text-xs font-bold text-slate-500 uppercase px-3 mb-2 mt-6">מערכת</div>
+                            <button onClick={()=>setView('logs')} className={`w-full text-right p-3 rounded-lg flex gap-3 ${view==='logs'?'bg-blue-600 text-white':'hover:bg-slate-800'}`}><Icon name="activity"/> מלשינון</button>
                         </nav>
-                        <div className="p-6 border-t border-slate-100">
-                            <button onClick={()=>signOut(auth)} className="w-full p-3 rounded-xl text-red-500 bg-red-50 hover:bg-red-100 flex items-center gap-2 justify-center font-bold transition-colors"><Icon name="LogOut" size={18} /> יציאה</button>
-                        </div>
+                        <div className="p-4 border-t border-slate-800"><button onClick={()=>signOut(auth)} className="w-full p-2 rounded text-red-400 hover:bg-slate-800 flex justify-center gap-2"><Icon name="log-out"/> יציאה</button></div>
                     </aside>
-                    <main className="flex-1 overflow-y-auto p-10">
-                        {view === 'catalog' && <CatalogPanel />}
-                        {view === 'crm' && <CRMPanel />}
-                        {view === 'history' && <HistoryPanel />}
-                        {view === 'logs' && <LogsPanel />}
+                    
+                    <main className="flex-1 overflow-y-auto relative">
+                        <header className="bg-white h-16 border-b border-slate-200 flex items-center justify-between px-8 sticky top-0 z-10">
+                            <h2 className="text-xl font-bold text-slate-800">
+                                {view === 'dashboard' && 'מרכז שליטה'}
+                                {view === 'crm' && 'ניהול לקוחות ועובדים'}
+                                {view === 'catalog' && 'קטלוג מוצרים'}
+                                {view === 'history' && 'היסטוריית הזמנות'}
+                                {view === 'logs' && 'יומן פעילות'}
+                            </h2>
+                            <div className="flex gap-2 items-center text-sm text-slate-500">
+                                <span>{user.email}</span>
+                                <div className="w-8 h-8 bg-slate-200 rounded-full flex items-center justify-center text-slate-600 font-bold">{user.email[0].toUpperCase()}</div>
+                            </div>
+                        </header>
+
+                        <div className="p-8">
+                            {view === 'dashboard' && <DashboardPanel customers={customers} products={products} orders={orders} />}
+                            {view === 'catalog' && <CatalogPanel />}
+                            {view === 'crm' && <CRMPanel />}
+                            {view === 'history' && <HistoryPanel />}
+                            {view === 'logs' && <LogsPanel />}
+                        </div>
                     </main>
                 </div>
             );
