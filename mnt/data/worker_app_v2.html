@@ -7,7 +7,7 @@
     <link rel="manifest" href="manifest.json">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>👷</text></svg>">
     
-    <!-- OneSignal (Error Handled) -->
+    <!-- OneSignal -->
     <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
     <script>
       window.OneSignalDeferred = window.OneSignalDeferred || [];
@@ -20,12 +20,11 @@
               allowLocalhostAsSecureOrigin: true 
             });
             OneSignal.User.addTag("role", "worker");
-        } catch (e) { console.warn("OneSignal Init Warn (likely localhost):", e); }
+        } catch (e) { console.warn("OneSignal Init Warn:", e); }
       });
     </script>
 
-    <!-- Libraries -->
-    <!-- Tailwind CSS (Dev Mode) -->
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/feather-icons"></script>
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;700&display=swap" rel="stylesheet">
@@ -33,27 +32,28 @@
     <style>
         body { font-family: 'Rubik', sans-serif; background-color: #f0f2f5; overflow: hidden; margin: 0; }
         
-        /* Interaction & Scroll */
+        /* Interaction */
         .hit-area { cursor: pointer; touch-action: manipulation; min-height: 44px; min-width: 44px; display: flex; align-items: center; justify-content: center; transition: all 0.1s; }
-        .hit-area:active { transform: scale(0.95); background-color: rgba(0,0,0,0.05); }
+        .hit-area:active { transform: scale(0.96); background-color: rgba(0,0,0,0.05); }
         .scroll-smooth { -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
         
         /* Animations */
         @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
         .unread-pulse { animation: pulse-red 2s infinite; border-right: 4px solid #ef4444; background-color: #fff1f2; }
         
-        /* Layout */
-        .chat-list-item { transition: background-color 0.2s; border-bottom: 1px solid #f3f4f6; }
+        /* List Item */
+        .chat-list-item { transition: background-color 0.2s; border-bottom: 1px solid #f3f4f6; cursor: pointer; }
         .chat-list-item:hover { background-color: #f9fafb; }
         .chat-list-item.active { background-color: #eff6ff; border-right: 4px solid #3b82f6; }
         
-        .online-dot { width: 8px; height: 8px; background-color: #22c55e; border-radius: 50%; box-shadow: 0 0 0 2px white; }
-        
         /* SLA Badges */
-        .sla-badge { font-size: 10px; font-weight: bold; padding: 2px 8px; border-radius: 99px; }
+        .sla-badge { font-size: 10px; font-weight: bold; padding: 2px 8px; border-radius: 99px; display: inline-block; min-width: 50px; text-align: center; }
         .sla-ok { background: #dcfce7; color: #166534; }
         .sla-warn { background: #fef9c3; color: #854d0e; }
         .sla-danger { background: #fee2e2; color: #991b1b; animation: pulse-red 1s infinite; }
+
+        .online-dot { width: 8px; height: 8px; background-color: #22c55e; border-radius: 50%; box-shadow: 0 0 0 2px white; }
+        .avatar { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 2px solid #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1); background: #e5e7eb; }
 
         @media (min-width: 1024px) { 
             #shell-wrapper { max-width: 1600px; margin: 0 auto; height: 100vh; border-left: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; box-shadow: 0 0 20px rgba(0,0,0,0.05); } 
@@ -134,7 +134,7 @@
                     </div>
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                         <div class="text-gray-500 mb-1 text-xs font-bold uppercase tracking-wide">זמן מענה (ART)</div>
-                        <div class="text-3xl font-bold text-purple-600" id="stat-art">--:--</div>
+                        <div class="text-3xl font-bold text-purple-600" id="stat-avg-resp">--:--</div>
                     </div>
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                         <div class="text-gray-500 mb-1 text-xs font-bold uppercase tracking-wide">לקוחות מחוברים</div>
@@ -159,9 +159,17 @@
                     <!-- Activity Log -->
                     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col">
                         <h3 class="font-bold text-lg mb-4 flex items-center gap-2 text-gray-800 border-b pb-3">
-                            <i data-feather="activity" class="text-blue-500"></i> לוג פעילות
+                            <i data-feather="activity" class="text-blue-500"></i> נציג במשמרת
                         </h3>
-                        <div id="activity-log" class="space-y-0 flex-1 overflow-y-auto pr-2"></div>
+                        <div id="shift-agent" class="mb-4 flex items-center gap-3 bg-blue-50 p-3 rounded-xl">
+                            <img id="agent-avatar" src="" class="w-10 h-10 rounded-full border-2 border-white">
+                            <div>
+                                <div class="font-bold text-blue-900" id="agent-name">...</div>
+                                <div class="text-xs text-blue-600">נציג פעיל</div>
+                            </div>
+                        </div>
+                        <h4 class="font-bold text-sm text-gray-500 mb-2">היסטוריה אחרונה</h4>
+                        <div id="activity-log" class="space-y-0 flex-1 overflow-y-auto pr-2 text-sm"></div>
                     </div>
                 </div>
             </div>
@@ -243,11 +251,10 @@
         // --- State ---
         const state = {
             user: null,
-            rooms: {}, // { roomId: { name, avatar, unread, lastMsg, time, ... } }
+            rooms: {}, 
             activeRoom: null,
             customers: {},
             unsubChat: null,
-            unsubMain: null,
             artDeltas: [],
             blinkInterval: null,
             audioLocked: false
@@ -355,24 +362,22 @@
                 if(!listEl) return;
 
                 const sortedRooms = Object.entries(state.rooms).sort(([,a], [,b]) => {
-                    // Unread > Time
-                    if (a.unread !== b.unread) return b.unread - a.unread;
-                    return b.time - a.time;
+                    if (a.unread !== b.unread) return b.unread - a.unread; // Unread first
+                    return b.time - a.time; // Newer first
                 });
 
                 el('list-count').innerText = sortedRooms.length;
 
                 listEl.innerHTML = sortedRooms.map(([id, r]) => {
-                    if(!r.lastMsg && r.unread === 0) return ''; // Skip empty rooms
+                    if(!r.lastMsg && r.unread === 0) return ''; 
                     const active = id === state.activeRoom ? 'active' : '';
                     const unreadClass = r.unread > 0 ? 'unread-active' : '';
                     const time = r.time ? new Date(r.time).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : '';
                     
-                    // Safe Strings for HTML injection
                     const safeId = id.replace(/'/g, "\\'");
                     
                     return `
-                    <div onclick="app.openChat('${safeId}')" class="chat-list-item p-4 cursor-pointer ${active} ${unreadClass} hit-area relative">
+                    <div onclick="window.app.openChat('${safeId}')" class="chat-list-item p-4 cursor-pointer ${active} ${unreadClass} hit-area relative">
                         <div class="flex items-center gap-3">
                             <div class="relative">
                                 <img src="${r.avatar || ui.getAvatar(r.name)}" class="w-12 h-12 rounded-full object-cover border border-gray-200">
@@ -441,11 +446,26 @@
             // 1. Load Customers (Profile Mapping)
             onSnapshot(collection(db, 'customers'), snap => {
                 snap.docs.forEach(d => { state.customers[d.id] = { id: d.id, ...d.data() }; });
-                // After customers load, refresh list to show names
                 ui.renderList();
             });
 
-            // 2. Main Messages Listener
+            // 2. Listen to Online Presence
+            onSnapshot(collection(db, 'presence'), snap => {
+                let onlineCount = 0;
+                snap.docs.forEach(d => {
+                    const p = d.data();
+                    const isOnline = p.isOnline && (Date.now() - (p.lastSeen?.toMillis() || 0) < 120000);
+                    if(isOnline) onlineCount++;
+                    
+                    const roomId = p.currentRoom || d.id;
+                    if(!state.rooms[roomId]) state.rooms[roomId] = { name: '...', unread: 0, time: 0, lastMsg: '', senderId: d.id };
+                    state.rooms[roomId].isOnline = isOnline;
+                });
+                el('stat-online').innerText = onlineCount;
+                ui.renderList();
+            });
+
+            // 3. Main Messages Listener
             const q = query(collection(db, 'messages'), orderBy('createdAt', 'desc'), limit(500));
             onSnapshot(q, snap => {
                 // Reset counters
@@ -458,16 +478,8 @@
                     const m = d.data();
                     if(!m.roomId) return;
 
-                    // Create Room State if missing
                     if(!state.rooms[m.roomId]) {
-                        state.rooms[m.roomId] = { 
-                            name: 'טוען...', 
-                            avatar: '', 
-                            unread: 0, 
-                            time: 0, 
-                            lastMsg: '',
-                            senderId: m.senderId
-                        };
+                        state.rooms[m.roomId] = { name: m.senderName || 'לקוח', unread: 0, time: 0, senderId: m.senderId };
                     }
                     const room = state.rooms[m.roomId];
 
@@ -478,10 +490,8 @@
                         room.custNum = state.customers[m.senderId].customerNumber;
                     } else if (m.senderAvatar && !room.avatar) {
                         room.avatar = m.senderAvatar;
-                        if(m.senderName) room.name = m.senderName;
                     }
 
-                    // Update Latest Msg
                     const mTime = m.createdAt ? m.createdAt.toMillis() : Date.now();
                     if(mTime > room.time) {
                         room.time = mTime;
@@ -493,17 +503,13 @@
                         room.lastMsg = prev;
                     }
 
-                    // Unread Count
                     if(!m.readByWorker && m.senderId !== state.user.uid) {
                         room.unread++;
                         totalUnread++;
-                        
-                        // Check if this is a NEW event for blinking
                         const change = snap.docChanges().find(c => c.doc.id === d.id);
                         if(change && change.type === 'added') newUnreadEvent = true;
                     }
 
-                    // ART Calc
                     if(m.readByWorker && m.readAt && m.createdAt) {
                         const diff = m.readAt.toMillis() - m.createdAt.toMillis();
                         if(diff > 0 && diff < 86400000) state.artDeltas.push(diff);
@@ -520,7 +526,7 @@
                     }
                 });
 
-                // Update Dashboard
+                // Dashboard Update
                 el('stat-orders').innerText = ordersCount;
                 el('stat-unread').innerText = totalUnread;
                 el('global-badge').classList.toggle('hidden', totalUnread === 0);
@@ -532,7 +538,7 @@
                     el('stat-avg-resp').innerText = `${mm}:${ss.toString().padStart(2,'0')}`;
                 }
 
-                // Alert Logic
+                // Alerts
                 if(totalUnread > 0 && newUnreadEvent) {
                     playSound('alert-sound');
                     startBlinking();
@@ -540,7 +546,7 @@
                     stopBlinking();
                 }
 
-                // Render Activity
+                // Activity Log
                 el('activity-log').innerHTML = activity.map(a => `
                     <div class="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg cursor-pointer border-b border-gray-50" onclick="window.app.openChat('${a.roomId}')">
                         <div class="p-2 bg-blue-100 text-blue-600 rounded-full"><i data-feather="message-circle" class="w-4 h-4"></i></div>
@@ -569,8 +575,11 @@
                     if(mins >= 1) badgeClass = 'sla-warn';
                     if(mins >= 3) { badgeClass = 'sla-danger'; breach = true; }
 
+                    // Safe Escaping
+                    const sId = id.replace(/'/g, "\\'");
+
                     html += `
-                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded border mb-2 cursor-pointer hover:bg-gray-100" onclick="window.app.openChat('${id}')">
+                    <div class="flex justify-between items-center p-3 bg-gray-50 rounded border mb-2 cursor-pointer hover:bg-gray-100" onclick="window.app.openChat('${sId}')">
                         <div class="flex items-center gap-2">
                             <img src="${r.avatar || ui.getAvatar(r.name)}" class="w-8 h-8 rounded-full">
                             <span class="font-bold text-sm">${r.name}</span>
@@ -629,6 +638,13 @@
                 el('login-view').classList.add('hidden');
                 el('shell-wrapper').classList.remove('hidden');
                 el('admin-name').innerText = u.displayName || 'צוות';
+                
+                // Show Current Agent
+                const agentNameEl = el('agent-name');
+                const agentAvatarEl = el('agent-avatar');
+                if(agentNameEl) agentNameEl.innerText = u.displayName || 'נציג';
+                if(agentAvatarEl) agentAvatarEl.src = u.photoURL || ui.getAvatar(u.displayName || 'נציג');
+                
                 initLogic();
             } else {
                 el('shell-wrapper').classList.add('hidden');
