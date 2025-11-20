@@ -27,32 +27,20 @@
     
     <style>
         body { font-family: 'Rubik', sans-serif; background-color: #f0f2f5; overflow: hidden; }
-        
-        /* Interaction Tweaks */
         .hit-area { cursor: pointer; touch-action: manipulation; min-height: 44px; min-width: 44px; display: flex; align-items: center; justify-content: center; }
         .scroll-smooth { -webkit-overflow-scrolling: touch; }
-        
-        /* Unread Animation */
         @keyframes pulse-border { 0% { border-color: transparent; } 50% { border-color: #ef4444; } 100% { border-color: transparent; } }
-        .unread-active { 
-            background-color: #fff1f2 !important; 
-            border-right: 4px solid #ef4444;
-            animation: pulse-border 2s infinite;
-        }
-        
-        /* Chat List Item */
+        .unread-active { background-color: #fff1f2 !important; border-right: 4px solid #ef4444; animation: pulse-border 2s infinite; }
         .chat-list-item { transition: all 0.2s ease; border-bottom: 1px solid #f0f0f0; }
         .chat-list-item:hover { background-color: #f9fafb; }
         .chat-list-item.active { background-color: #eff6ff; border-right: 4px solid #3b82f6; }
-
-        /* Online Ring */
         @keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); } 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); } }
         .online-dot { width: 10px; height: 10px; background: #22c55e; border-radius: 50%; animation: pulse-ring 2s infinite; }
         
-        /* Shell Wrapper for Desktop centered look */
-        @media (min-width: 1024px) {
-            #shell-wrapper { max-width: 1400px; margin: 0 auto; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); height: 100vh; border-left: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; }
-        }
+        /* Avatar Styles */
+        .avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        
+        @media (min-width: 1024px) { #shell-wrapper { max-width: 1400px; margin: 0 auto; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); height: 100vh; border-left: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; } }
     </style>
 </head>
 <body>
@@ -186,6 +174,7 @@
         let selectedRoomId = null;
         let unsubscribeChat = null;
         let deferredPrompt;
+        let lastUnreadCount = 0; // State for blink logic
         
         let roomsState = {}; 
         let blinkingInterval = null;
@@ -223,26 +212,28 @@
 
         // Core Logic
         function initApp() {
-            // Presence
+            // Presence Listener
             onSnapshot(collection(db, 'presence'), snap => {
                 let onlineCount = 0;
                 snap.docs.forEach(d => {
                     const p = d.data();
+                    // Active if seen in last 2 mins
                     const isOnline = p.isOnline && (Date.now() - (p.lastSeen?.toMillis() || 0) < 120000);
                     if(isOnline) onlineCount++;
                     
                     const roomId = p.currentRoom || d.id;
-                    if(!roomsState[roomId]) roomsState[roomId] = { name: p.name, unread: 0, lastMsg: '', time: 0 };
+                    if(!roomsState[roomId]) roomsState[roomId] = { name: p.name, unread: 0, lastMsg: '', time: 0, avatar: p.avatarUrl };
                     roomsState[roomId].isOnline = isOnline;
                     roomsState[roomId].name = p.name;
+                    if(p.avatarUrl) roomsState[roomId].avatar = p.avatarUrl;
                 });
                 document.getElementById('stat-online').innerText = onlineCount;
                 renderChatList();
             });
 
-            // Messages Aggregation (Dashboard + ART + Alerts)
+            // Messages Aggregation
             const q = query(collection(db, 'messages'), orderBy('createdAt', 'desc'), limit(300));
-            onSnapshot(q, snap => {
+            onSnapshot(q, (snap) => {
                 Object.keys(roomsState).forEach(k => roomsState[k].unread = 0);
                 
                 let globalUnread = 0;
@@ -257,13 +248,20 @@
                     
                     if(!roomsState[m.roomId]) roomsState[m.roomId] = { name: m.senderName, unread: 0, time: 0 };
                     
-                    const time = m.createdAt?.toMillis() || 0;
+                    // Capture avatar from message if available
+                    if(m.senderAvatar && !roomsState[m.roomId].avatar) {
+                        roomsState[m.roomId].avatar = m.senderAvatar;
+                    }
+                    
+                    // FIX: Latency compensation (use Date.now() if null)
+                    const time = m.createdAt ? m.createdAt.toMillis() : Date.now();
+                    
                     if(time > roomsState[m.roomId].time) {
                         roomsState[m.roomId].time = time;
                         roomsState[m.roomId].lastMsg = m.type === 'ORDER' ? '🛒 הזמנה' : (m.type === 'IMAGE' ? '📷 תמונה' : m.text);
                     }
 
-                    // Unread
+                    // Unread Count
                     if(!m.readByWorker && m.senderId !== currentUser.uid) {
                         roomsState[m.roomId].unread++;
                         globalUnread++;
@@ -272,7 +270,7 @@
                     // ART Calculation
                     if(m.readByWorker && m.readAt && m.createdAt) {
                         const diff = m.readAt.toMillis() - m.createdAt.toMillis();
-                        if(diff > 0 && diff < 86400000) { // Filter outliers
+                        if(diff > 0 && diff < 86400000) { 
                             totalRespTime += diff;
                             respCount++;
                         }
@@ -283,21 +281,22 @@
                     if(activity.length < 8) {
                         activity.push({
                             text: m.type === 'ORDER' ? `הזמנה מ-${m.senderName}` : `הודעה מ-${m.senderName}`,
-                            sub: m.text.substring(0, 30),
+                            sub: m.text ? m.text.substring(0, 30) : 'מדיה',
                             time: m.createdAt?.toDate(),
-                            isOrder: m.type === 'ORDER'
+                            isOrder: m.type === 'ORDER',
+                            avatar: m.senderAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.senderName)}&background=random`
                         });
                     }
                 });
 
-                // Alerts Logic
-                const prevUnread = parseInt(document.getElementById('stat-unread').innerText || 0);
-                if(globalUnread > prevUnread) {
+                // Alerts Logic (Compare with local state)
+                if(globalUnread > lastUnreadCount) {
                     document.getElementById('notif-sound').play().catch(()=>{});
                     startBlinking(true);
                 } else if (globalUnread === 0) {
                     startBlinking(false);
                 }
+                lastUnreadCount = globalUnread;
 
                 // Update UI
                 document.getElementById('stat-orders').innerText = ordersToday;
@@ -317,26 +316,27 @@
                 // Activity Stream
                 document.getElementById('activity-stream').innerHTML = activity.map(a => `
                     <div class="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg cursor-pointer" onclick="switchTab('chat')">
-                        <div class="p-2 rounded-full ${a.isOrder ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'}">
-                            <i data-feather="${a.isOrder ? 'shopping-cart' : 'message-circle'}" class="w-4 h-4"></i>
-                        </div>
+                        <img src="${a.avatar}" class="avatar">
                         <div>
                             <div class="font-bold text-sm text-gray-800">${a.text}</div>
                             <div class="text-xs text-gray-500">${a.sub}</div>
                         </div>
+                        <div class="mr-auto text-xs text-gray-400">${a.time?.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div>
                     </div>
                 `).join('');
                 
                 renderChatList();
                 feather.replace();
+            }, error => {
+                console.error("Error fetching messages:", error);
             });
         }
 
         function renderChatList() {
             const list = document.getElementById('chat-rooms-list');
+            
             const sortedIds = Object.keys(roomsState).sort((a,b) => {
                 const rA = roomsState[a], rB = roomsState[b];
-                // Priority: Unread -> Time
                 if(rA.unread !== rB.unread) return rB.unread - rA.unread;
                 return rB.time - rA.time;
             });
@@ -346,18 +346,26 @@
                 if(!r.lastMsg) return '';
                 const active = id === selectedRoomId ? 'active' : '';
                 const unreadStyle = r.unread > 0 ? 'unread-active' : '';
+                const timeStr = r.time ? new Date(r.time).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : '';
+                const avatar = r.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(r.name)}&background=random`;
+                
                 return `
                     <div onclick="openChat('${id}', '${r.name}')" class="chat-list-item p-4 cursor-pointer ${active} ${unreadStyle}">
-                        <div class="flex justify-between items-start mb-1">
-                            <h3 class="font-bold text-gray-800 flex items-center gap-2">
-                                ${r.name}
-                                ${r.isOnline ? '<span class="online-dot"></span>' : ''}
-                            </h3>
-                            ${r.unread > 0 ? `<span class="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">${r.unread}</span>` : ''}
-                        </div>
-                        <div class="flex justify-between items-center">
-                            <p class="text-xs text-gray-500 truncate max-w-[150px]">${r.lastMsg}</p>
-                            <span class="text-[10px] text-gray-400">${r.time ? new Date(r.time).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : ''}</span>
+                        <div class="flex items-center gap-3">
+                            <div class="relative">
+                                <img src="${avatar}" class="avatar">
+                                ${r.isOnline ? '<span class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>' : ''}
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex justify-between items-start mb-1">
+                                    <h3 class="font-bold text-gray-800 truncate">${r.name}</h3>
+                                    ${r.unread > 0 ? `<span class="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">${r.unread}</span>` : ''}
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <p class="text-xs text-gray-500 truncate max-w-[120px]">${r.lastMsg}</p>
+                                    <span class="text-[10px] text-gray-400">${timeStr}</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 `;
@@ -366,32 +374,26 @@
 
         window.openChat = (roomId, name) => {
             selectedRoomId = roomId;
-            renderChatList();
+            renderChatList(); // Re-render to update active state
+            
             document.getElementById('empty-chat-state').classList.add('hidden');
             document.getElementById('chat-header').classList.remove('hidden');
             document.getElementById('chat-header').classList.add('flex');
             document.getElementById('chat-form').classList.remove('hidden');
             document.getElementById('chat-form').classList.add('flex');
             document.getElementById('chat-client-name').innerText = name;
-            document.getElementById('chat-client-status').innerText = roomsState[roomId]?.isOnline ? 'מחובר' : 'נראה לאחרונה...';
 
             if (unsubscribeChat) unsubscribeChat();
 
-            // Listen to specific room
             const q = query(collection(db, 'messages'), where('roomId', '==', roomId), orderBy('createdAt', 'asc'));
             unsubscribeChat = onSnapshot(q, (snap) => {
                 const area = document.getElementById('chat-messages-area');
                 
-                // Mark as Read Logic
                 snap.docChanges().forEach(change => {
                     if(change.type === 'added') {
                         const m = change.doc.data();
                         if(m.senderId !== currentUser.uid && !m.readByWorker) {
-                            updateDoc(change.doc.ref, { 
-                                readByWorker: true, 
-                                status: 'read',
-                                readAt: serverTimestamp() // Crucial for ART
-                            });
+                            updateDoc(change.doc.ref, { readByWorker: true, status: 'read' });
                         }
                     }
                 });
@@ -400,18 +402,23 @@
                     const m = doc.data();
                     const isMe = m.senderId === currentUser.uid;
                     
-                    // Render Logic (Order vs Text vs Image)
+                    // Avatar in chat bubble (only for other side)
+                    const bubbleAvatar = !isMe ? `<img src="${m.senderAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.senderName)}`}" class="w-6 h-6 rounded-full mr-2 border border-gray-200">` : '';
+                    
                     if(m.type === 'ORDER') {
                         return `
                             <div class="flex flex-col ${isMe ? 'items-end' : 'items-start'} mb-3 w-full">
-                                <div class="bg-white border p-3 rounded-lg shadow-sm w-3/4 border-blue-200 relative">
-                                    <div class="absolute top-0 right-0 bg-blue-600 text-white text-[10px] px-2 rounded-bl">הזמנה</div>
-                                    <ul class="text-sm space-y-1 mb-3 bg-gray-50 p-2 rounded mt-2">
-                                        ${m.orderPayload?.items?.map(i => `<li>${i.name} x${i.qty}</li>`).join('') || 'פריטים'}
-                                    </ul>
-                                    <div class="flex gap-2">
-                                        <button onclick="setOrderStatus('${doc.id}', 'processing')" class="flex-1 bg-orange-100 text-orange-700 text-xs py-2 rounded hover:bg-orange-200 hit-area">בטיפול</button>
-                                        <button onclick="setOrderStatus('${doc.id}', 'done')" class="flex-1 bg-green-100 text-green-700 text-xs py-2 rounded hover:bg-green-200 hit-area">טופל</button>
+                                <div class="flex items-end ${isMe ? 'justify-end' : ''} w-full">
+                                    ${bubbleAvatar}
+                                    <div class="bg-white border p-3 rounded-lg shadow-sm w-3/4 border-blue-200 relative">
+                                        <div class="absolute top-0 right-0 bg-blue-600 text-white text-[10px] px-2 rounded-bl">הזמנה</div>
+                                        <ul class="text-sm space-y-1 mb-3 bg-gray-50 p-2 rounded mt-2">
+                                            ${m.orderPayload?.items?.map(i => `<li>${i.name} x${i.qty}</li>`).join('') || 'פריטים'}
+                                        </ul>
+                                        <div class="flex gap-2">
+                                            <button onclick="setOrderStatus('${doc.id}', 'processing')" class="flex-1 bg-orange-100 text-orange-700 text-xs py-2 rounded hover:bg-orange-200 hit-area">בטיפול</button>
+                                            <button onclick="setOrderStatus('${doc.id}', 'done')" class="flex-1 bg-green-100 text-green-700 text-xs py-2 rounded hover:bg-green-200 hit-area">טופל</button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>`;
@@ -419,20 +426,25 @@
                     if(m.type === 'IMAGE') {
                         return `
                             <div class="flex flex-col ${isMe ? 'items-end' : 'items-start'} mb-2">
-                                <div class="max-w-[75%] p-1 rounded-lg shadow-sm ${isMe ? 'bg-[#d9fdd3]' : 'bg-white'}">
-                                    <img src="${m.mediaUrl}" class="rounded-lg max-h-48 cursor-pointer" onclick="window.open(this.src)"/>
-                                    <div class="text-[9px] text-gray-500 text-right px-1">${m.createdAt?.toDate().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div>
+                                <div class="flex items-end ${isMe ? 'justify-end' : ''}">
+                                    ${bubbleAvatar}
+                                    <div class="max-w-[75%] p-1 rounded-lg shadow-sm ${isMe ? 'bg-[#d9fdd3]' : 'bg-white'}">
+                                        <img src="${m.mediaUrl}" class="rounded-lg max-h-48 cursor-pointer" onclick="window.open(this.src)"/>
+                                        <div class="text-[9px] text-gray-500 text-right px-1">${m.createdAt?.toDate().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div>
+                                    </div>
                                 </div>
                             </div>`;
                     }
-                    // Text
                     return `
                         <div class="flex flex-col ${isMe ? 'items-end' : 'items-start'} mb-2">
-                            <div class="max-w-[75%] p-2 px-3 rounded-lg text-sm shadow-sm ${isMe ? 'bg-[#d9fdd3]' : 'bg-white'}">
-                                ${m.text}
-                                <div class="text-[9px] text-gray-400 text-left mt-1 flex justify-end items-center gap-1">
-                                    ${m.createdAt?.toDate().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}
-                                    ${isMe ? `<i data-feather="${m.status === 'read' ? 'check-circle' : 'check'}" class="w-3 h-3 ${m.status==='read'?'text-blue-500':''}"></i>` : ''}
+                            <div class="flex items-end ${isMe ? 'justify-end' : ''}">
+                                ${bubbleAvatar}
+                                <div class="max-w-[75%] p-2 px-3 rounded-lg text-sm shadow-sm ${isMe ? 'bg-[#d9fdd3]' : 'bg-white'}">
+                                    ${m.text}
+                                    <div class="text-[9px] text-gray-400 text-left mt-1 flex justify-end items-center gap-1">
+                                        ${m.createdAt?.toDate().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}
+                                        ${isMe ? `<i data-feather="${m.status === 'read' ? 'check-circle' : 'check'}" class="w-3 h-3 ${m.status==='read'?'text-blue-500':''}"></i>` : ''}
+                                    </div>
                                 </div>
                             </div>
                         </div>`;
@@ -441,6 +453,8 @@
                 area.innerHTML = html;
                 area.scrollTop = area.scrollHeight;
                 feather.replace();
+            }, error => {
+                console.error("Chat details error:", error);
             });
         };
 
@@ -465,15 +479,16 @@
             });
         });
 
+        // Auth
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 currentUser = user;
-                document.getElementById('shell-wrapper').classList.remove('hidden');
                 document.getElementById('login-view').classList.add('hidden');
+                document.getElementById('app-view').classList.remove('hidden');
                 document.getElementById('admin-name').innerText = user.displayName || 'צוות';
                 initApp();
             } else {
-                document.getElementById('shell-wrapper').classList.add('hidden');
+                document.getElementById('app-view').classList.add('hidden');
                 document.getElementById('login-view').classList.remove('hidden');
             }
         });
