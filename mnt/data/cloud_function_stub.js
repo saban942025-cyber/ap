@@ -16,7 +16,8 @@ const client = new OneSignal.Client(
   process.env.ONESIGNAL_APP_ID || "de3834d3-1e11-40af-96d2-b25eda821c8f", 
   
   // API KEY: זה הסוד! אל תחשוף אותו בלקוח.
-  process.env.ONESIGNAL_API_KEY || "YOUR_REST_API_KEY_HERE" 
+  process.env.ONESIGNAL_API_KEY || "56qt2qgr7up25uvi5yjnmgqr3
+" 
 );
 
 exports.sendPushOnMessage = functions.firestore
