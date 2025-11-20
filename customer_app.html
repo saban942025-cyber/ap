@@ -2,278 +2,478 @@
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sidor Dev | מדריך ארכיטקטורה</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>ח. סבן | פורטל לקוחות</title>
+    
+    <!-- טעינת ספריות -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Heebo:wght@300;400;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Manifest -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#2563eb">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     
     <style>
-        body { font-family: 'Heebo', sans-serif; background-color: #0f172a; color: #e2e8f0; }
-        .font-mono { font-family: 'Fira Code', monospace; }
+        body { font-family: system-ui, -apple-system, sans-serif; background-color: #f0f2f5; overscroll-behavior: none; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
         
-        /* עיצוב קוד */
-        .code-box { 
-            background: #1e293b; 
-            border: 1px solid #334155; 
-            border-radius: 0.5rem; 
-            padding: 1.5rem; 
-            overflow-x: auto; 
-            direction: ltr; 
-            text-align: left;
-            font-size: 0.9rem;
-            color: #cbd5e1;
-        }
-        .key { color: #93c5fd; }
-        .string { color: #86efac; }
-        .number { color: #fca5a5; }
-        .bool { color: #f9a8d4; }
-        .comment { color: #64748b; font-style: italic; }
-
-        /* אנימציית זרימה */
-        @keyframes flow {
-            0% { stroke-dashoffset: 100; opacity: 0.2; }
-            50% { opacity: 1; }
-            100% { stroke-dashoffset: 0; opacity: 0.2; }
-        }
-        .flow-line { stroke-dasharray: 10; animation: flow 2s linear infinite; }
+        /* אנימציות */
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        .animate-slide-up { animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
     </style>
 </head>
-<body class="min-h-screen flex flex-col">
+<body>
+    <div id="root"></div>
 
-    <!-- Header -->
-    <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-50 backdrop-blur-md bg-opacity-90">
-        <div class="container mx-auto px-6 py-4 flex justify-between items-center">
-            <div class="flex items-center gap-3">
-                <div class="bg-blue-600 p-2 rounded-lg text-white shadow-lg shadow-blue-500/20">
-                    <i data-lucide="database-zap"></i>
-                </div>
-                <div>
-                    <h1 class="text-xl font-bold text-white tracking-tight">Sidor <span class="text-blue-400">DevCenter</span></h1>
-                    <p class="text-xs text-slate-400">מדריך הקמה וארכיטקטורת נתונים</p>
-                </div>
-            </div>
-            <nav class="hidden md:flex gap-1 text-sm font-medium bg-slate-800 p-1 rounded-lg">
-                <a href="#simulation" class="px-4 py-1.5 rounded-md hover:bg-slate-700 transition text-slate-300 hover:text-white">סימולציה</a>
-                <a href="#customers" class="px-4 py-1.5 rounded-md hover:bg-slate-700 transition text-slate-300 hover:text-white">לקוחות</a>
-                <a href="#workers" class="px-4 py-1.5 rounded-md hover:bg-slate-700 transition text-slate-300 hover:text-white">עובדים</a>
-                <a href="#products" class="px-4 py-1.5 rounded-md hover:bg-slate-700 transition text-slate-300 hover:text-white">מוצרים</a>
-            </nav>
-        </div>
-    </header>
-
-    <main class="flex-1 container mx-auto p-6 max-w-6xl space-y-24 mt-10">
-
-        <!-- 1. סימולציית זרימת מידע (Live Flow) -->
-        <section id="simulation" class="relative">
-            <div class="flex items-center gap-4 mb-8">
-                <div class="p-3 bg-blue-500/10 rounded-full text-blue-400"><i data-lucide="workflow" class="w-8 h-8"></i></div>
-                <div>
-                    <h2 class="text-3xl font-bold text-white">זרימת עבודה (Workflow)</h2>
-                    <p class="text-slate-400">איך המידע עובר בין האפליקציות בזמן אמת</p>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-8 relative z-10">
-                
-                <!-- שלב 1: הלקוח -->
-                <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl relative group hover:border-blue-500 transition-colors">
-                    <div class="absolute -top-4 right-6 bg-blue-600 text-white text-xs px-3 py-1 rounded-full font-bold shadow-lg">1. ייזום</div>
-                    <div class="flex items-center gap-4 mb-4">
-                        <img src="https://i.pravatar.cc/150?img=11" class="w-12 h-12 rounded-full border-2 border-blue-500">
-                        <div>
-                            <h3 class="font-bold text-white">בר אוריל</h3>
-                            <p class="text-xs text-slate-400">אפליקציית לקוח</p>
-                        </div>
-                    </div>
-                    <div class="bg-slate-900/50 p-3 rounded-lg text-sm text-slate-300 font-mono border-l-2 border-blue-500">
-                        create(message) <br>
-                        type: "ORDER" <br>
-                        items: [בלוק 20]
-                    </div>
-                </div>
-
-                <!-- חץ מקשר 1 -->
-                <div class="hidden md:flex items-center justify-center text-slate-600"><i data-lucide="arrow-right" class="w-8 h-8 animate-pulse"></i></div>
-
-                <!-- שלב 2: השרת/בוט -->
-                <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl relative group hover:border-purple-500 transition-colors">
-                    <div class="absolute -top-4 right-6 bg-purple-600 text-white text-xs px-3 py-1 rounded-full font-bold shadow-lg">2. עיבוד</div>
-                    <div class="flex items-center gap-4 mb-4">
-                        <div class="w-12 h-12 bg-purple-900/50 rounded-full flex items-center justify-center text-purple-400 border-2 border-purple-500/30"><i data-lucide="bot"></i></div>
-                        <div>
-                            <h3 class="font-bold text-white">Cloud Functions</h3>
-                            <p class="text-xs text-slate-400">שרת (Backend)</p>
-                        </div>
-                    </div>
-                    <div class="bg-slate-900/50 p-3 rounded-lg text-sm text-slate-300 font-mono border-l-2 border-purple-500">
-                        trigger: onCreate() <br>
-                        action: sendOneSignal()
-                    </div>
-                </div>
-
-                <!-- חץ מקשר 2 -->
-                <div class="hidden md:flex items-center justify-center text-slate-600"><i data-lucide="arrow-right" class="w-8 h-8 animate-pulse"></i></div>
-
-                <!-- שלב 3: המשרד והנהג -->
-                <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl relative group hover:border-amber-500 transition-colors">
-                    <div class="absolute -top-4 right-6 bg-amber-600 text-white text-xs px-3 py-1 rounded-full font-bold shadow-lg">3. ביצוע</div>
-                    <div class="flex items-center gap-4 mb-4">
-                        <div class="w-12 h-12 bg-amber-900/50 rounded-full flex items-center justify-center text-amber-400 border-2 border-amber-500/30"><i data-lucide="truck"></i></div>
-                        <div>
-                            <h3 class="font-bold text-white">מנהל / נהג</h3>
-                            <p class="text-xs text-slate-400">אפליקציית עובד</p>
-                        </div>
-                    </div>
-                    <div class="bg-slate-900/50 p-3 rounded-lg text-sm text-slate-300 font-mono border-l-2 border-amber-500">
-                        event: Notification <br>
-                        action: updateStatus()
-                    </div>
-                </div>
-
-            </div>
-        </section>
-
-        <hr class="border-slate-800">
-
-        <!-- 2. סכמת לקוח (Customer Schema) -->
-        <section id="customers" class="grid lg:grid-cols-2 gap-12">
-            <div>
-                <h2 class="text-2xl font-bold text-white mb-4 flex items-center gap-2"><i data-lucide="user-plus" class="text-emerald-500"></i> הקמת לקוח (Customers)</h2>
-                <p class="text-slate-400 mb-6">
-                    כדי שהלקוח ייכנס לאפליקציה ויזהה את הפרויקטים שלו, הדוקומנט ב-Firestore חייב להיראות כך.
-                    <br><span class="text-amber-400 text-sm">* חשוב: שם הדוקומנט חייב להיות ה-UID מ-Authentication.</span>
-                </p>
-                
-                <div class="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
-                    <h4 class="text-white font-bold mb-2 text-sm uppercase tracking-wider">שדות מפתח:</h4>
-                    <ul class="space-y-2 text-sm text-slate-300">
-                        <li class="flex items-start gap-2"><i data-lucide="check" class="w-4 h-4 text-green-500 mt-0.5"></i> <span><strong>projects:</strong> מערך של אובייקטים. קריטי להצגת הצ'אט.</span></li>
-                        <li class="flex items-start gap-2"><i data-lucide="check" class="w-4 h-4 text-green-500 mt-0.5"></i> <span><strong>tier:</strong> מאפשר להציג מחירים שונים (Gold/Silver).</span></li>
-                        <li class="flex items-start gap-2"><i data-lucide="check" class="w-4 h-4 text-green-500 mt-0.5"></i> <span><strong>preferences:</strong> הגדרות התראה אישיות.</span></li>
-                    </ul>
-                </div>
-            </div>
-
-            <div class="relative group">
-                <div class="absolute -top-3 left-4 bg-slate-700 text-xs px-2 py-1 rounded text-slate-300">Firestore JSON</div>
-                <div class="code-box font-mono text-sm">
-<span class="key">"name"</span>: <span class="string">"בר אוריל קבלנות"</span>,
-<span class="key">"email"</span>: <span class="string">"bar@saban.co.il"</span>,
-<span class="key">"phone"</span>: <span class="string">"050-1234567"</span>,
-<span class="key">"customerNumber"</span>: <span class="string">"601235"</span>,
-<span class="key">"tier"</span>: <span class="string">"GOLD"</span>, <span class="comment">// דירוג לקוח</span>
-<span class="key">"avatarUrl"</span>: <span class="string">"https://..."</span>,
-<span class="key">"projects"</span>: [
-  {
-    <span class="key">"projectId"</span>: <span class="string">"proj-asher-levy"</span>,
-    <span class="key">"name"</span>: <span class="string">"פרויקט אשר לוי"</span>,
-    <span class="key">"address"</span>: <span class="string">"ההסתדרות 29, רעננה"</span>,
-    <span class="key">"coords"</span>: { <span class="key">"lat"</span>: <span class="number">32.18</span>, <span class="key">"lon"</span>: <span class="number">34.86</span> }
-  }
-],
-<span class="key">"preferences"</span>: {
-  <span class="key">"notifyOn"</span>: [<span class="string">"whatsapp"</span>, <span class="string">"push"</span>],
-  <span class="key">"deliveryWindow"</span>: <span class="string">"07:00-16:00"</span>
-}
-                </div>
-                <button onclick="copyToClipboard('cust-json')" class="absolute top-4 right-4 p-2 bg-slate-700 rounded hover:bg-slate-600 transition opacity-0 group-hover:opacity-100"><i data-lucide="copy" class="w-4 h-4 text-white"></i></button>
-                <textarea id="cust-json" class="hidden">{"name":"בר אוריל","projects":[]}</textarea> <!-- Hidden text for copy -->
-            </div>
-        </section>
-
-        <hr class="border-slate-800">
-
-        <!-- 3. סכמת עובד (Worker Schema) -->
-        <section id="workers" class="grid lg:grid-cols-2 gap-12">
-            <div>
-                <h2 class="text-2xl font-bold text-white mb-4 flex items-center gap-2"><i data-lucide="hard-hat" class="text-amber-500"></i> הקמת עובד (Users)</h2>
-                <p class="text-slate-400 mb-6">
-                    עובדים נשמרים בקולקציית <code>users</code>. השדה הקריטי כאן הוא <code>role</code> שקובע לאיזה אפליקציה תהיה לו גישה.
-                </p>
-                
-                <div class="grid grid-cols-1 gap-4">
-                    <div class="bg-amber-900/20 border border-amber-500/30 p-4 rounded-lg">
-                        <h4 class="font-bold text-amber-400 text-sm">Role: "worker"</h4>
-                        <p class="text-xs text-amber-200/70">גישה לאפליקציית הנהג/מחסנאי. קבלת משימות והתראות.</p>
-                    </div>
-                    <div class="bg-blue-900/20 border border-blue-500/30 p-4 rounded-lg">
-                        <h4 class="font-bold text-blue-400 text-sm">Role: "admin"</h4>
-                        <p class="text-xs text-blue-200/70">גישה מלאה למערכת הניהול (Saban 360) ולדוחות.</p>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="relative group">
-                <div class="absolute -top-3 left-4 bg-slate-700 text-xs px-2 py-1 rounded text-slate-300">Firestore JSON</div>
-                <div class="code-box font-mono text-sm">
-<span class="key">"name"</span>: <span class="string">"יוסי הנהג"</span>,
-<span class="key">"email"</span>: <span class="string">"yossi@saban.co.il"</span>,
-<span class="key">"phone"</span>: <span class="string">"052-9999999"</span>,
-<span class="key">"role"</span>: <span class="string">"worker"</span>, <span class="comment">// admin / worker / driver</span>
-<span class="key">"vehicleNumber"</span>: <span class="string">"77-856-12"</span>,
-<span class="key">"vehicleType"</span>: <span class="string">"משאית מנוף 15 טון"</span>,
-<span class="key">"active"</span>: <span class="bool">true</span>,
-<span class="key">"lastActive"</span>: <span class="string">"2023-10-27T08:30:00Z"</span>
-                </div>
-            </div>
-        </section>
-
-        <hr class="border-slate-800">
-
-        <!-- 4. קטלוג מוצרים חכם (Product Schema) -->
-        <section id="products" class="grid lg:grid-cols-2 gap-12">
-            <div>
-                <h2 class="text-2xl font-bold text-white mb-4 flex items-center gap-2"><i data-lucide="package" class="text-purple-500"></i> קטלוג חכם (Products)</h2>
-                <p class="text-slate-400 mb-6">
-                    המוצרים מוצגים באפליקציית הלקוח. השדות המיוחדים כאן מאפשרים לבוט ולמחשבונים באפליקציה לעבוד.
-                </p>
-                
-                <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
-                    <h3 class="font-bold text-white mb-2 flex items-center gap-2"><i data-lucide="calculator" class="w-4 h-4"></i> לוגיקת מחשבון:</h3>
-                    <p class="text-sm text-slate-300 leading-relaxed">
-                        השדה <code>calculator</code> מאפשר לאפליקציה לחשב כמויות ללקוח בזמן אמת. <br>
-                        לדוגמה: עבור גבס, הנוסחה היא <code>area / 3.12</code>.
-                    </p>
-                </div>
-            </div>
-            
-            <div class="relative group">
-                <div class="absolute -top-3 left-4 bg-slate-700 text-xs px-2 py-1 rounded text-slate-300">Firestore JSON</div>
-                <div class="code-box font-mono text-sm">
-{
-  <span class="key">"name"</span>: <span class="string">"לוח גבס עמיד מים (ירוק)"</span>,
-  <span class="key">"sku"</span>: <span class="string">"10-500"</span>,
-  <span class="key">"category"</span>: <span class="string">"גבס"</span>,
-  <span class="key">"price"</span>: <span class="string">"₪42.00"</span>,
-  <span class="key">"image"</span>: <span class="string">"https://..."</span>,
-  <span class="key">"spec"</span>: <span class="string">"120x260 ס\"מ, עובי 12.5 מ\"מ"</span>,
-  <span class="key">"stock"</span>: <span class="number">150</span>,
-  <span class="key">"description"</span>: <span class="string">"מתאים לחדרים רטובים."</span>,
-  <span class="comment">// שדות מתקדמים לבוט ולאפליקציה:</span>
-  <span class="key">"technicalData"</span>: {
-    <span class="key">"application"</span>: <span class="string">"קירות פנים רטובים"</span>,
-    <span class="key">"dryingTime"</span>: <span class="string">"24 שעות לשפכטל"</span>
-  },
-  <span class="key">"calculator"</span>: {
-    <span class="key">"unit"</span>: <span class="string">"m2"</span>,
-    <span class="key">"formula"</span>: <span class="string">"(area / 3.12) * 1.1"</span> <span class="comment">// כולל 10% פחת</span>
-  },
-  <span class="key">"relatedProducts"</span>: [<span class="string">"sku-10-501"</span>, <span class="string">"sku-20-100"</span>]
-}
-                </div>
-            </div>
-        </section>
-
-    </main>
-
-    <script>
-        lucide.createIcons();
+    <script type="text/babel" data-type="module">
+        const { useState, useEffect, useRef, useMemo } = React;
+        const { createRoot } = ReactDOM;
         
-        function copyToClipboard(elementId) {
-            // פונקציית העתקה (פשטנית לדוגמה)
-            alert('הקוד הועתק ללוח! (סימולציה)');
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+        import { getFirestore, collection, doc, onSnapshot, query, orderBy, where, getDoc, addDoc, serverTimestamp, limit, updateDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-storage.js";
+
+        // *** הגדרות ***
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby7qKICvRYStFkcDPLtGhGPaNqyYt-G8dZqBJfGm7vpmOG6Kf_n3f29V8oyUW9PjBUj7A/exec";
+
+        const firebaseConfig = {
+          apiKey: "AIzaSyDq0oVwS6zbEfsgrYBRkeBq80dDUKMedzo", 
+          authDomain: "saban94-78949.firebaseapp.com", 
+          projectId: "saban94-78949", 
+          storageBucket: "saban94-78949.firebasestorage.app", 
+          messagingSenderId: "41553157903", 
+          appId: "1:41553157903:web:cc33d252cff023be97a87a",
+          measurementId: "G-XV6RZDESSB"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const storage = getStorage(app);
+
+        // --- Icons ---
+        const Icon = ({ name, className, size=24 }) => {
+            const icons = {
+                MessageSquare: <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>,
+                BookOpen: <><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></>,
+                User: <><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>,
+                LogOut: <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></>,
+                ArrowRight: <><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></>,
+                ArrowLeft: <><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></>,
+                Send: <><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></>,
+                Search: <><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></>,
+                Bell: <><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></>,
+                Check: <polyline points="20 6 9 17 4 12"/>,
+                Loader: <><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></>,
+                Plus: <><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></>,
+                Minus: <line x1="5" y1="12" x2="19" y2="12"/>,
+                Mic: <><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></>,
+                MapPin: <><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></>,
+                Camera: <><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></>,
+                FileText: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></>,
+                X: <><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>,
+                ShoppingCart: <><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></>,
+                Trash: <><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></>
+            };
+            return <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>{icons[name]}</svg>;
+        };
+
+        // --- קטלוג מוצרים (Hardcoded + Live) ---
+        const DEFAULT_PRODUCTS = [
+            { id: "p-101", sku: "10-101", name: "לוח גבס לבן (סטנדרטי)", image: "https://placehold.co/400x300/e0e7ff/3730a3?text=Gypsum", spec: "120x260 ס\"מ | 12.5 מ\"מ", description: "לוח גבס איכותי לקירות פנים.", price: "₪38.00" },
+            { id: "p-102", sku: "10-102", name: "ניצב 70 מ\"מ", image: "https://placehold.co/400x300/e0e7ff/3730a3?text=Stud", spec: "300 ס\"מ | פח מגולוון", description: "פרופיל אנכי לקונסטרוקציה.", price: "₪18.50" },
+            { id: "p-103", sku: "10-103", name: "מסלול 70 מ\"מ", image: "https://placehold.co/400x300/e0e7ff/3730a3?text=Track", spec: "300 ס\"מ | פח מגולוון", description: "מסילה לרצפה/תקרה.", price: "₪16.90" },
+            { id: "p-201", sku: "20-201", name: "שפכטל אמריקאי", image: "https://placehold.co/400x300/e0e7ff/3730a3?text=Putty", spec: "28 ק\"ג | דלי", description: "חומר להחלקת קירות.", price: "₪65.00" }
+        ];
+
+        const KnowledgeBase = {
+            search: function(term, liveProducts) {
+                const allProducts = [...DEFAULT_PRODUCTS, ...liveProducts];
+                if (!term) return allProducts;
+                return allProducts.filter(p => p.name.includes(term) || p.sku?.includes(term));
+            }
+        };
+
+        // --- Toast ---
+        function Toast({ message, visible, onHide }) {
+            useEffect(() => { if (visible) { const t = setTimeout(onHide, 3000); return () => clearTimeout(t); } }, [visible, onHide]);
+            if (!visible) return null;
+            return <div className="fixed top-24 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full shadow-2xl z-50 flex items-center space-x-3 space-x-reverse animate-fade-in"><Icon name="Loader" className="animate-spin w-5 h-5 text-blue-400" /><span className="font-medium text-sm">{message}</span></div>;
         }
+
+        // --- Auth Screen ---
+        function AuthScreen() {
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState('');
+
+            const handleLogin = async (e) => {
+                e.preventDefault(); setLoading(true); setError('');
+                try { await setPersistence(auth, browserLocalPersistence); await signInWithEmailAndPassword(auth, email, password); } 
+                catch (err) { setError("פרטי התחברות שגויים."); }
+                setLoading(false);
+            };
+            return (
+                <div className="flex items-center justify-center min-h-screen bg-gray-100 p-4">
+                    <div className="w-full max-w-md bg-white p-8 rounded-3xl shadow-xl border border-gray-100 text-center">
+                        <div className="w-20 h-20 bg-white rounded-2xl mx-auto flex items-center justify-center shadow-lg mb-4 overflow-hidden border border-gray-100"><img src="https://i.postimg.cc/ryPT3r29/hwrdh.png" className="w-full h-full object-contain p-2" /></div>
+                        <h2 className="text-2xl font-bold text-gray-800">ח. סבן חומרי בניין</h2>
+                        <p className="text-gray-500 text-sm mt-1 mb-6">פורטל הזמנות מתקדם</p>
+                        <form onSubmit={handleLogin} className="space-y-4">
+                            <input type="email" placeholder="אימייל" value={email} onChange={e=>setEmail(e.target.value)} className="w-full p-3 border rounded-xl" required />
+                            <input type="password" placeholder="סיסמה" value={password} onChange={e=>setPassword(e.target.value)} className="w-full p-3 border rounded-xl" required />
+                            {error && <p className="text-red-500 text-sm">{error}</p>}
+                            <button disabled={loading} className="w-full p-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700">{loading ? "מתחבר..." : "כניסה למערכת"}</button>
+                        </form>
+                    </div>
+                </div>
+            );
+        }
+
+        // --- Chat Room ---
+        function ChatRoom({ project, user, onBack, showToast, initialMessage }) {
+            const [messages, setMessages] = useState([]);
+            const [text, setText] = useState(initialMessage || '');
+            const [showMenu, setShowMenu] = useState(false);
+            const endRef = useRef(null);
+            const fileInputRef = useRef(null);
+
+            useEffect(() => {
+                const q = query(collection(db, 'messages'), where('roomId', '==', project.projectId), orderBy('createdAt', 'asc'));
+                const unsub = onSnapshot(q, snap => setMessages(snap.docs.map(d => ({id: d.id, ...d.data()}))));
+                return () => unsub();
+            }, [project.projectId]);
+
+            useEffect(() => endRef.current?.scrollIntoView({ behavior: 'smooth' }), [messages]);
+
+            const sendMessage = async (type = 'TEXT', payload = null) => {
+                let msg = {
+                    roomId: project.projectId, senderId: user.uid, senderName: user.displayName || 'לקוח',
+                    type: type, createdAt: serverTimestamp(), replyTo: null
+                };
+                if (type === 'TEXT') { if (!text.trim()) return; msg.text = text.trim(); setText(''); }
+                else if (type === 'ORDER') { msg.orderPayload = payload; msg.text = `הזמנה חדשה: ${payload.items.length} פריטים`; }
+                else if (['IMAGE','FILE','AUDIO'].includes(type)) { msg.mediaUrl = payload.url; msg.text = payload.name; }
+                else if (type === 'LOCATION') { msg.location = payload; msg.text = '📍 מיקום שיתופי'; }
+
+                await addDoc(collection(db, 'messages'), msg);
+                setShowMenu(false);
+            };
+
+            // העלאה
+            const handleFileUpload = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                showToast("מעלה...");
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = async () => {
+                    // Fallback to Firebase (Stable) as discussed
+                    try {
+                        const fileRef = ref(storage, `chat_files/${project.projectId}/${Date.now()}_${file.name}`);
+                        await uploadBytes(fileRef, file);
+                        const url = await getDownloadURL(fileRef);
+                        const type = file.type.startsWith('image/') ? 'IMAGE' : 'FILE';
+                        await sendMessage(type, { url, name: file.name });
+                        showToast("נשלח!");
+                    } catch(err) { showToast("שגיאה בהעלאה"); }
+                };
+            };
+            
+            const handleLocation = () => {
+                if (navigator.geolocation) {
+                    showToast("מאתר...");
+                    navigator.geolocation.getCurrentPosition(pos => sendMessage('LOCATION', { lat: pos.coords.latitude, lon: pos.coords.longitude }));
+                }
+            };
+
+            return (
+                <div className="flex flex-col h-full bg-[#e5ded8]">
+                    <header className="bg-white p-3 flex items-center shadow-sm sticky top-0 z-20">
+                        <button onClick={onBack} className="p-2 text-gray-600"><Icon name="ArrowRight" /></button>
+                        <div className="flex-1 mr-2"><div className="font-bold text-gray-800 text-sm">{project.name}</div></div>
+                    </header>
+                    
+                    <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                        {messages.map(m => (
+                            <div key={m.id} className={`flex ${m.senderId === user.uid ? 'justify-end' : 'justify-start'}`}>
+                                <div className={`max-w-[85%] p-2 rounded-xl text-sm shadow-sm ${m.senderId === user.uid ? 'bg-[#d9fdd3]' : 'bg-white'}`}>
+                                    {m.type === 'ORDER' && (
+                                        <div className="bg-white/50 p-2 rounded border border-green-200 mb-1">
+                                            <p className="font-bold text-green-800 border-b border-green-200 pb-1 mb-1">🛒 הזמנה חדשה</p>
+                                            {m.orderPayload.items.map((item, i) => (
+                                                <div key={i} className="flex justify-between text-xs text-gray-700 py-0.5">
+                                                    <span>{item.name}</span>
+                                                    <span className="font-bold">x{item.qty}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {m.type === 'IMAGE' && <img src={m.mediaUrl} className="rounded-lg mb-1 max-w-full" />}
+                                    {m.type === 'FILE' && <a href={m.mediaUrl} target="_blank" className="flex gap-2 text-blue-600 underline"><Icon name="FileText" size={16}/> {m.text}</a>}
+                                    {m.type === 'LOCATION' && <a href={`https://waze.com/ul?ll=${m.location.lat},${m.location.lon}&navigate=yes`} target="_blank" className="flex gap-2 text-blue-600"><Icon name="MapPin" size={16}/> ניווט</a>}
+                                    {m.type === 'TEXT' && <div>{m.text}</div>}
+                                    <div className="text-[10px] text-gray-400 text-left mt-1">{m.createdAt?.toDate().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</div>
+                                </div>
+                            </div>
+                        ))}
+                        <div ref={endRef} />
+                    </div>
+
+                    <div className="p-2 bg-[#f0f2f5] flex items-center gap-2 pb-4 relative">
+                        {showMenu && (
+                            <div className="absolute bottom-16 right-4 bg-white rounded-xl shadow-xl p-3 flex flex-col gap-3 animate-fade-in z-30">
+                                <button onClick={() => fileInputRef.current.click()} className="flex items-center gap-3 text-gray-700"><Icon name="FileText" className="text-purple-500"/> מסמך/תמונה</button>
+                                <button onClick={handleLocation} className="flex items-center gap-3 text-gray-700"><Icon name="MapPin" className="text-red-500"/> מיקום</button>
+                            </div>
+                        )}
+                        <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" />
+                        <button onClick={() => setShowMenu(!showMenu)} className="p-2 text-gray-500"><Icon name="Plus" /></button>
+                        <div className="flex-1 bg-white rounded-full flex items-center px-4 shadow-sm">
+                            <input className="flex-1 py-3 bg-transparent border-none focus:ring-0 outline-none text-sm" placeholder="הודעה" value={text} onChange={e=>setText(e.target.value)} />
+                        </div>
+                        <button onClick={() => sendMessage('TEXT')} className="p-3 bg-[#00a884] text-white rounded-full shadow-md"><Icon name="Send" size={20} /></button>
+                    </div>
+                </div>
+            );
+        }
+
+        // --- Cart Page (New) ---
+        function CartPage({ cart, onUpdateQty, onRemove, onSendOrder, onBack }) {
+            const totalItems = cart.reduce((acc, item) => acc + item.qty, 0);
+            const totalPrice = cart.reduce((acc, item) => acc + (parseFloat(item.price.replace('₪', '')) * item.qty), 0);
+
+            return (
+                <div className="flex flex-col h-full bg-gray-50 animate-slide-up fixed inset-0 z-50">
+                    <header className="bg-white p-4 shadow-sm flex items-center">
+                        <button onClick={onBack}><Icon name="ArrowRight" className="text-gray-600" /></button>
+                        <h2 className="text-xl font-bold mr-4 flex-1">סל הזמנה ({totalItems})</h2>
+                        <button onClick={() => { if(confirm('לרוקן סל?')) cart.forEach(i => onRemove(i.id)); }} className="text-red-500"><Icon name="Trash" /></button>
+                    </header>
+                    
+                    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                        {cart.length === 0 ? (
+                            <div className="text-center mt-20 text-gray-500">העגלה ריקה 🛒</div>
+                        ) : (
+                            cart.map(item => (
+                                <div key={item.id} className="bg-white p-3 rounded-xl shadow-sm flex gap-3 items-center">
+                                    <img src={item.image} className="w-16 h-16 object-cover rounded-lg" />
+                                    <div className="flex-1">
+                                        <h4 className="font-bold text-gray-800 line-clamp-1">{item.name}</h4>
+                                        <p className="text-sm text-blue-600 font-bold">{item.price}</p>
+                                    </div>
+                                    <div className="flex items-center gap-3 bg-gray-100 rounded-lg p-1">
+                                        <button onClick={() => onUpdateQty(item.id, -1)} className="p-1 hover:bg-white rounded"><Icon name="Minus" size={16}/></button>
+                                        <span className="font-bold w-4 text-center">{item.qty}</span>
+                                        <button onClick={() => onUpdateQty(item.id, 1)} className="p-1 hover:bg-white rounded"><Icon name="Plus" size={16}/></button>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+
+                    {cart.length > 0 && (
+                        <div className="p-4 bg-white border-t shadow-lg pb-8">
+                            <div className="flex justify-between mb-4 font-bold text-lg">
+                                <span>סה"כ משוער:</span>
+                                <span>₪{totalPrice.toFixed(2)}</span>
+                            </div>
+                            <button onClick={onSendOrder} className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold text-lg shadow-lg hover:bg-blue-700 active:scale-95 transition-transform flex items-center justify-center gap-2">
+                                <Icon name="Send" /> שלח הזמנה
+                            </button>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        // --- Product Page (Details) ---
+        function ProductPage({ product, onBack, onAddToCart, onAsk }) {
+            const [qty, setQty] = useState(1);
+            
+            return (
+                <div className="flex flex-col h-full bg-white animate-slide-up fixed inset-0 z-40 overflow-y-auto">
+                    <div className="relative h-64 bg-gray-100">
+                        <img src={product.image} className="w-full h-full object-cover" />
+                        <button onClick={onBack} className="absolute top-4 right-4 bg-white/80 p-2 rounded-full shadow-md backdrop-blur"><Icon name="ArrowRight" /></button>
+                    </div>
+                    
+                    <div className="p-6 flex-1">
+                        <div className="flex justify-between items-start mb-2">
+                            <h1 className="text-2xl font-bold text-gray-900">{product.name}</h1>
+                            <span className="text-xl font-bold text-blue-600">{product.price}</span>
+                        </div>
+                        <p className="text-gray-500 mb-6">{product.sku} | {product.spec}</p>
+                        
+                        <div className="bg-blue-50 p-4 rounded-xl mb-6 border border-blue-100">
+                            <h3 className="font-bold text-blue-800 mb-2">תיאור</h3>
+                            <p className="text-blue-900/80 text-sm leading-relaxed">{product.description}</p>
+                        </div>
+
+                        <div className="flex gap-4 mb-20">
+                             <button onClick={onAsk} className="flex-1 py-3 border-2 border-gray-200 text-gray-600 rounded-xl font-bold hover:bg-gray-50 flex justify-center items-center gap-2">
+                                <Icon name="MessageSquare" size={20} /> שאל נציג
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t flex gap-4 items-center pb-8">
+                        <div className="flex items-center bg-gray-100 rounded-xl p-1">
+                            <button onClick={() => setQty(Math.max(1, qty-1))} className="p-3 hover:bg-white rounded-lg"><Icon name="Minus" /></button>
+                            <span className="w-8 text-center font-bold text-lg">{qty}</span>
+                            <button onClick={() => setQty(qty+1)} className="p-3 hover:bg-white rounded-lg"><Icon name="Plus" /></button>
+                        </div>
+                        <button onClick={() => onAddToCart(product, qty)} className="flex-1 py-4 bg-blue-600 text-white rounded-xl font-bold shadow-lg flex justify-center gap-2 active:scale-95 transition-transform">
+                            הוסף לעגלה <Icon name="ShoppingCart" />
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+        // --- Main Catalog (Live) ---
+        function CatalogPage({ showToast, onOpenProduct, cartCount, onOpenCart }) {
+            const [term, setTerm] = useState('');
+            const [products, setProducts] = useState([]);
+
+            useEffect(() => {
+                return onSnapshot(collection(db, "products"), snap => setProducts(snap.docs.map(d => ({id: d.id, ...d.data()}))));
+            }, []);
+
+            const filtered = [...DEFAULT_PRODUCTS, ...products].filter(p => p.name.includes(term) || p.sku?.includes(term));
+
+            return (
+                <div className="flex flex-col h-full">
+                    <div className="bg-white p-4 shadow-sm sticky top-0 z-10">
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-2xl font-bold text-gray-800">קטלוג</h2>
+                            <button onClick={onOpenCart} className="relative p-2 bg-blue-50 text-blue-600 rounded-full">
+                                <Icon name="ShoppingCart" />
+                                {cartCount > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full border-2 border-white">{cartCount}</span>}
+                            </button>
+                        </div>
+                        <div className="relative"><input className="w-full p-3 pr-10 bg-gray-100 border-none rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" placeholder="חפש..." value={term} onChange={e=>setTerm(e.target.value)} /><div className="absolute top-3 right-3 text-gray-400"><Icon name="Search" /></div></div>
+                    </div>
+                    <div className="p-4 grid grid-cols-2 gap-4 pb-24 overflow-y-auto">
+                        {filtered.map(p => (
+                            <div key={p.id} onClick={() => onOpenProduct(p)} className="bg-white rounded-2xl shadow-sm overflow-hidden flex flex-col cursor-pointer active:scale-95 transition-transform border border-transparent hover:border-blue-200">
+                                <div className="h-32 bg-gray-200 relative"><img src={p.image} className="w-full h-full object-cover" /><span className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded-md font-bold">{p.price}</span></div>
+                                <div className="p-3 flex-1"><h3 className="font-bold text-gray-800 text-sm mb-1 line-clamp-2">{p.name}</h3><p className="text-xs text-gray-500">{p.sku}</p></div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+
+        // --- App Orchestrator ---
+        function App() {
+            const [user, setUser] = useState(null);
+            const [profile, setProfile] = useState(null);
+            const [page, setPage] = useState('chats');
+            const [activeProject, setActiveProject] = useState(null);
+            const [selectedProduct, setSelectedProduct] = useState(null);
+            const [cart, setCart] = useState([]);
+            const [showCart, setShowCart] = useState(false);
+            const [toast, setToast] = useState({ visible: false, message: '' });
+            const [chatDraft, setChatDraft] = useState('');
+
+            const showToastMsg = (msg) => setToast({ visible: true, message: msg });
+
+            useEffect(() => onAuthStateChanged(auth, async (u) => {
+                if (u) {
+                    const snap = await getDoc(doc(db, 'customers', u.uid));
+                    if (snap.exists()) { setUser(u); setProfile({uid: u.uid, ...snap.data()}); } else signOut(auth);
+                } else { setUser(null); setProfile(null); }
+            }), []);
+
+            // Cart Logic
+            const addToCart = (product, qty) => {
+                setCart(prev => {
+                    const existing = prev.find(i => i.id === product.id);
+                    if (existing) return prev.map(i => i.id === product.id ? { ...i, qty: i.qty + qty } : i);
+                    return [...prev, { ...product, qty }];
+                });
+                showToastMsg("נוסף לעגלה!");
+                setSelectedProduct(null); // Close product page
+            };
+
+            const updateCartQty = (id, delta) => {
+                setCart(prev => prev.map(i => i.id === id ? { ...i, qty: Math.max(0, i.qty + delta) } : i).filter(i => i.qty > 0));
+            };
+
+            const sendOrder = async () => {
+                if (cart.length === 0) return;
+                if (!profile.projects || profile.projects.length === 0) { alert("אין פרויקט לשיוך ההזמנה"); return; }
+                
+                // אם אין פרויקט פעיל, נבחר את הראשון כברירת מחדל או נבקש (כאן נבחר ראשון לפשטות)
+                const targetProject = activeProject || profile.projects[0];
+                
+                const orderMsg = {
+                    roomId: targetProject.projectId, senderId: user.uid, senderName: user.displayName || 'לקוח',
+                    type: 'ORDER', orderPayload: { items: cart, total: cart.length },
+                    createdAt: serverTimestamp(), replyTo: null
+                };
+
+                await addDoc(collection(db, 'messages'), orderMsg);
+                setCart([]);
+                setShowCart(false);
+                setActiveProject(targetProject); // Move to chat to see order
+                showToastMsg("הזמנה נשלחה בהצלחה!");
+            };
+            
+            const askAboutProduct = (product) => {
+                setSelectedProduct(null);
+                if (!profile.projects || profile.projects.length === 0) return;
+                setActiveProject(profile.projects[0]); // Go to first project chat
+                setChatDraft(`היי, אשמח לפרטים נוספים על ${product.name} (${product.sku})`);
+            };
+
+            if (!user) return <AuthScreen />;
+
+            return (
+                <div className="flex flex-col h-screen bg-gray-100 max-w-md mx-auto shadow-2xl overflow-hidden border-x border-gray-200 relative">
+                    <Toast message={toast.message} visible={toast.visible} onHide={() => setToast({ ...toast, visible: false })} />
+                    
+                    {/* Main Views */}
+                    {activeProject ? (
+                        <ChatRoom project={activeProject} user={user} onBack={() => setActiveProject(null)} showToast={showToastMsg} initialMessage={chatDraft} />
+                    ) : (
+                        <div className="flex-1 overflow-y-auto pb-20 scrollbar-hide">
+                            {page === 'chats' && <div className="px-4 pt-6"><h2 className="text-2xl font-bold mb-4">פרויקטים</h2><ChatList profile={profile} onSelect={setActiveProject} /></div>}
+                            
+                            {page === 'catalog' && <CatalogPage showToast={showToastMsg} onOpenProduct={setSelectedProduct} cartCount={cart.reduce((a,b)=>a+b.qty,0)} onOpenCart={()=>setShowCart(true)} />}
+                            
+                            {page === 'profile' && <div className="p-6 text-center"><h2 className="font-bold text-xl">{profile.name}</h2><button onClick={()=>signOut(auth)} className="text-red-500 mt-4">התנתק</button></div>}
+                        </div>
+                    )}
+
+                    {/* Nav Bar */}
+                    {!activeProject && (
+                        <nav className="fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around p-2 pb-5 text-gray-400 z-20 max-w-md mx-auto">
+                            <button onClick={()=>setPage('chats')} className={page==='chats'?'text-blue-600':''}><Icon name="MessageSquare" className="mb-1 mx-auto"/><span className="text-[10px]">שיחות</span></button>
+                            <button onClick={()=>setPage('catalog')} className={page==='catalog'?'text-blue-600':''}><Icon name="BookOpen" className="mb-1 mx-auto"/><span className="text-[10px]">חנות</span></button>
+                            <button onClick={()=>setPage('profile')} className={page==='profile'?'text-blue-600':''}><Icon name="User" className="mb-1 mx-auto"/><span className="text-[10px]">פרופיל</span></button>
+                        </nav>
+                    )}
+
+                    {/* Overlays */}
+                    {selectedProduct && <ProductPage product={selectedProduct} onBack={()=>setSelectedProduct(null)} onAddToCart={addToCart} onAsk={()=>askAboutProduct(selectedProduct)} />}
+                    {showCart && <CartPage cart={cart} onUpdateQty={updateCartQty} onRemove={(id)=>updateCartQty(id, -100)} onSendOrder={sendOrder} onBack={()=>setShowCart(false)} />}
+                </div>
+            );
+        }
+
+        const root = createRoot(document.getElementById('root'));
+        root.render(<App />);
     </script>
 </body>
 </html>
