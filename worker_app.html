@@ -2,12 +2,11 @@
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Sidor Pro | עובדים</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sidor Pro | ניהול</title>
     <link rel="manifest" href="manifest.json">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>👷</text></svg>">
     
-    <!-- OneSignal Fixed -->
+    <!-- OneSignal -->
     <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
     <script>
       window.OneSignalDeferred = window.OneSignalDeferred || [];
@@ -20,141 +19,140 @@
               allowLocalhostAsSecureOrigin: true 
             });
             OneSignal.User.addTag("role", "worker");
-        } catch (e) { console.warn("OneSignal Init Error:", e); }
+        } catch (e) { console.warn("OS Warn:", e); }
       });
     </script>
 
+    <!-- Tailwind & Icons -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/feather-icons"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;700&display=swap" rel="stylesheet">
-    
+
     <style>
-        body { font-family: 'Rubik', sans-serif; background-color: #f0f2f5; overflow: hidden; }
-        .hit-area { cursor: pointer; touch-action: manipulation; min-height: 44px; min-width: 44px; display: flex; align-items: center; justify-content: center; }
-        .scroll-smooth { -webkit-overflow-scrolling: touch; }
-        @keyframes pulse-border { 0% { border-color: transparent; } 50% { border-color: #ef4444; } 100% { border-color: transparent; } }
-        .unread-active { background-color: #fff1f2 !important; border-right: 4px solid #ef4444; animation: pulse-border 2s infinite; }
-        .chat-list-item { transition: all 0.2s ease; border-bottom: 1px solid #f0f0f0; }
-        .chat-list-item:hover { background-color: #f9fafb; }
-        .chat-list-item.active { background-color: #eff6ff; border-right: 4px solid #3b82f6; }
-        @keyframes pulse-ring { 0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); } 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); } }
-        .online-dot { width: 10px; height: 10px; background: #22c55e; border-radius: 50%; animation: pulse-ring 2s infinite; }
-        .avatar { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 2px solid #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        @media (min-width: 1024px) { #shell-wrapper { max-width: 1400px; margin: 0 auto; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); height: 100vh; border-left: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; } }
+        body { font-family: 'Rubik', sans-serif; background-color: #f3f4f6; overflow: hidden; }
+        
+        /* SLA Animations */
+        @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+        .sla-critical { animation: pulse-red 1.5s infinite; border-right: 4px solid #ef4444; background: #fef2f2; }
+        
+        .chat-item { transition: all 0.2s; border-bottom: 1px solid #f3f4f6; cursor: pointer; }
+        .chat-item:hover { background-color: #f9fafb; }
+        .chat-item.active { background-color: #eff6ff; border-right: 4px solid #3b82f6; }
+        
+        .scroll-touch { -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
+        .avatar { object-fit: cover; border-radius: 50%; }
     </style>
 </head>
 <body>
+    <audio id="alert-sound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
+    <audio id="sla-sound" src="https://assets.mixkit.co/active_storage/sfx/2868/2868-preview.mp3" preload="auto"></audio>
 
-    <!-- Audio for Alerts -->
-    <audio id="notif-sound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
-
-    <!-- Login -->
-    <div id="login-view" class="fixed inset-0 bg-gray-900 flex items-center justify-center z-50">
-        <div class="bg-white p-8 rounded-2xl w-96 text-center shadow-2xl">
-            <h2 class="text-2xl font-bold mb-6">כניסת צוות</h2>
-            <form id="login-form" class="space-y-3">
-                <input type="email" id="email" placeholder="Email" class="w-full p-3 bg-gray-100 rounded-lg text-right" required>
-                <input type="password" id="password" placeholder="Password" class="w-full p-3 bg-gray-100 rounded-lg text-right" required>
-                <button class="w-full bg-blue-600 text-white font-bold p-3 rounded-lg hover:bg-blue-700 hit-area">התחבר</button>
-            </form>
-        </div>
-    </div>
-
-    <!-- App Shell -->
-    <div id="shell-wrapper" class="hidden bg-white h-screen flex">
-        <!-- Sidebar -->
-        <aside class="w-16 bg-white border-l flex flex-col items-center py-6 gap-6 shadow-lg z-20">
-            <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold">S</div>
-            <nav class="flex-1 flex flex-col gap-4 w-full items-center">
-                <button onclick="switchTab('dashboard')" id="btn-dashboard" class="p-3 rounded-xl text-blue-600 bg-blue-50 hit-area"><i data-feather="grid"></i></button>
-                <button onclick="switchTab('chat')" id="btn-chat" class="p-3 rounded-xl text-gray-400 relative hit-area">
-                    <i data-feather="message-circle"></i>
-                    <span id="global-badge" class="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full hidden"></span>
-                </button>
-            </nav>
-            <button onclick="logout()" class="text-red-400 p-3 hit-area"><i data-feather="log-out"></i></button>
-        </aside>
-
-        <!-- Main Content -->
-        <main class="flex-1 flex overflow-hidden relative">
+    <div id="app" class="h-screen flex flex-col md:flex-row">
+        
+        <!-- 1. Sidebar / Navigation -->
+        <nav class="bg-white w-full md:w-20 border-l flex md:flex-col items-center justify-between md:justify-start p-4 z-20 shadow-lg">
+            <div class="bg-blue-600 w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold shadow-blue-300 mb-0 md:mb-8">S</div>
             
-            <!-- Dashboard Tab -->
-            <div id="tab-dashboard" class="flex-1 p-8 overflow-y-auto bg-[#f8f9fa] w-full">
+            <div class="flex md:flex-col gap-6">
+                <button onclick="ui.switchTab('dashboard')" id="btn-dash" class="p-3 rounded-xl text-blue-600 bg-blue-50 transition"><i data-lucide="layout-grid"></i></button>
+                <button onclick="ui.switchTab('chats')" id="btn-chats" class="p-3 rounded-xl text-gray-400 hover:bg-gray-50 relative">
+                    <i data-lucide="message-circle"></i>
+                    <span id="global-badge" class="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white hidden"></span>
+                </button>
+            </div>
+            <button onclick="logic.logout()" class="text-red-400 p-3 mt-auto"><i data-lucide="log-out"></i></button>
+        </nav>
+
+        <!-- 2. Content Area -->
+        <main class="flex-1 flex overflow-hidden relative bg-[#f0f2f5]">
+            
+            <!-- DASHBOARD VIEW -->
+            <div id="view-dashboard" class="w-full p-6 overflow-y-auto">
                 <header class="flex justify-between items-center mb-8">
-                    <h1 class="text-2xl font-bold text-gray-800">דשבורד ניהול</h1>
-                    <div class="flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-sm border">
-                        <div class="online-dot"></div>
-                        <span class="text-sm font-bold text-gray-600" id="admin-name">...</span>
-                    </div>
+                    <h1 class="text-2xl font-bold text-gray-800">דשבורד בזמן אמת</h1>
+                    <div class="flex items-center gap-2 bg-white px-3 py-1 rounded-full shadow-sm border text-sm font-bold text-green-600"><span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> מערכת חיה</div>
                 </header>
 
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                        <div class="text-gray-500 mb-1 text-sm">הזמנות היום</div>
-                        <div class="text-3xl font-bold text-blue-600" id="stat-orders">0</div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                        <div class="text-xs font-bold text-gray-400 uppercase">הזמנות היום</div>
+                        <div class="text-2xl font-bold text-blue-600" id="stat-orders">0</div>
                     </div>
-                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                        <div class="text-gray-500 mb-1 text-sm">הודעות שלא נקראו</div>
-                        <div class="text-3xl font-bold text-orange-500" id="stat-unread">0</div>
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                        <div class="text-xs font-bold text-gray-400 uppercase">הודעות שלא נקראו</div>
+                        <div class="text-2xl font-bold text-orange-500" id="stat-unread">0</div>
                     </div>
-                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                        <div class="text-gray-500 mb-1 text-sm">זמן מענה ממוצע (ART)</div>
-                        <div class="text-3xl font-bold text-purple-600" id="stat-avg-resp">--:--</div>
-                        <div class="text-xs text-purple-400 mt-1">דקות:שניות</div>
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                        <div class="text-xs font-bold text-gray-400 uppercase">זמן מענה (ART)</div>
+                        <div class="text-2xl font-bold text-purple-600" id="stat-art">--:--</div>
                     </div>
-                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                        <div class="text-gray-500 mb-1 text-sm">לקוחות מחוברים</div>
-                        <div class="text-3xl font-bold text-green-600" id="stat-online">0</div>
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+                        <div class="text-xs font-bold text-gray-400 uppercase">לקוחות מחוברים</div>
+                        <div class="text-2xl font-bold text-green-600" id="stat-online">0</div>
                     </div>
                 </div>
 
-                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                    <h3 class="font-bold text-lg mb-4">פעילות אחרונה</h3>
-                    <div id="activity-stream" class="space-y-3"></div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-white rounded-2xl shadow-sm p-6 h-[400px] overflow-hidden flex flex-col">
+                        <h3 class="font-bold text-lg mb-4 flex items-center gap-2"><i data-lucide="clock" class="text-blue-500 w-5"></i> SLA Monitor (פניות חיות)</h3>
+                        <div id="sla-list" class="flex-1 overflow-y-auto space-y-2"></div>
+                    </div>
+                    <div class="bg-white rounded-2xl shadow-sm p-6 h-[400px] overflow-hidden flex flex-col">
+                        <h3 class="font-bold text-lg mb-4">לוג פעילות</h3>
+                        <div id="activity-log" class="flex-1 overflow-y-auto space-y-3"></div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Chat Tab (Split View) -->
-            <div id="tab-chat" class="flex-1 flex hidden w-full h-full bg-white">
+            <!-- CHATS VIEW -->
+            <div id="view-chats" class="hidden w-full h-full flex bg-white">
                 <!-- List -->
-                <div class="w-80 border-l bg-white flex flex-col z-10 shadow-sm">
-                    <div class="p-4 border-b bg-gray-50">
-                        <h2 class="font-bold text-lg">לקוחות</h2>
+                <div class="w-full md:w-96 border-l bg-white flex flex-col z-10" id="chat-list-panel">
+                    <div class="p-4 border-b flex justify-between items-center">
+                        <h2 class="font-bold text-xl">לקוחות</h2>
+                        <span class="bg-blue-100 text-blue-600 text-xs font-bold px-2 py-1 rounded-full" id="list-count">0</span>
                     </div>
-                    <div id="chat-rooms-list" class="flex-1 overflow-y-auto scroll-smooth"></div>
+                    <div id="chat-list" class="flex-1 overflow-y-auto scroll-touch"></div>
                 </div>
 
-                <!-- Chat Room -->
-                <div class="flex-1 flex flex-col bg-[#efeae2] relative bg-[url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')]">
-                    <div id="chat-header" class="p-3 bg-[#f0f2f5] border-b flex justify-between items-center hidden shadow-sm z-10">
+                <!-- Chat Window -->
+                <div class="hidden md:flex flex-1 flex-col bg-[#efeae2] relative" id="chat-window">
+                    <div class="absolute inset-0 opacity-10 z-0" style="background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png');"></div>
+                    
+                    <!-- Header -->
+                    <div class="bg-[#f0f2f5] p-3 flex justify-between items-center border-b z-10 relative shadow-sm">
                         <div class="flex items-center gap-3">
-                            <img id="chat-client-avatar" src="" class="w-10 h-10 rounded-full border border-gray-300 bg-white">
+                            <button class="md:hidden p-2" onclick="ui.closeChat()"><i data-lucide="arrow-right"></i></button>
+                            <img id="header-avatar" class="w-10 h-10 rounded-full bg-gray-300">
                             <div>
-                                <h3 class="font-bold text-gray-800" id="chat-client-name">...</h3>
-                                <p class="text-xs text-gray-500"><span id="chat-client-num"></span> • <span id="chat-client-project"></span></p>
+                                <h3 class="font-bold text-gray-800 leading-tight" id="header-name"></h3>
+                                <p class="text-xs text-gray-500" id="header-info"></p>
                             </div>
                         </div>
+                        <button onclick="logic.stopSound()" class="p-2 bg-red-50 text-red-500 rounded-full"><i data-lucide="volume-x" width="18"></i></button>
                     </div>
 
-                    <div id="chat-messages-area" class="flex-1 overflow-y-auto p-4 space-y-2 flex flex-col scroll-smooth pb-20">
-                        <div class="m-auto text-center text-gray-500 bg-[#f0f2f5] p-4 rounded-xl shadow-sm" id="empty-chat-state">
-                            <p>בחר שיחה כדי להתחיל</p>
-                        </div>
-                    </div>
+                    <!-- Messages -->
+                    <div id="messages" class="flex-1 overflow-y-auto p-4 space-y-2 relative z-10 scroll-touch"></div>
 
-                    <form id="chat-form" class="p-3 bg-[#f0f2f5] hidden items-center gap-2 absolute bottom-0 w-full z-20">
-                        <input id="message-input" type="text" placeholder="הקלד הודעה..." class="flex-1 p-3 rounded-lg border-none focus:ring-0 outline-none bg-white shadow-sm" autocomplete="off">
-                        <button type="submit" class="p-3 bg-[#00a884] text-white rounded-full shadow hover:scale-105 transition hit-area"><i data-feather="send"></i></button>
+                    <!-- Input -->
+                    <form id="chat-form" class="p-3 bg-[#f0f2f5] flex items-center gap-2 z-10 border-t relative">
+                        <input id="msg-input" type="text" placeholder="הקלד הודעה..." class="flex-1 p-3 rounded-xl border-none bg-white shadow-sm text-sm focus:outline-none" autocomplete="off">
+                        <button type="submit" class="p-3 bg-[#00a884] text-white rounded-full shadow hover:scale-105 transition"><i data-lucide="send" width="18"></i></button>
                     </form>
                 </div>
             </div>
         </main>
     </div>
 
+    <!-- Logic -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-        import { getFirestore, collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, doc, getDoc, updateDoc, limit } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+        import { getFirestore, collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, doc, updateDoc, limit } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+        // Initialize Icons
+        lucide.createIcons();
 
         const firebaseConfig = {
             apiKey: "AIzaSyDq0oVwS6zbEfsgrYBRkeBq80dDUKMedzo",
@@ -169,384 +167,276 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        let currentUser = null;
-        let selectedRoomId = null;
-        let unsubscribeChat = null;
-        let deferredPrompt;
-        let lastUnreadCount = 0; 
-        
-        let roomsState = {}; 
-        let customersMap = {}; 
-
-        // PWA Install Logic
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault(); deferredPrompt = e;
-            const btn = document.getElementById('pwa-install-btn');
-            if(btn) btn.classList.remove('hidden');
-        });
-        const pwaBtn = document.getElementById('pwa-install-btn');
-        if(pwaBtn) {
-            pwaBtn.addEventListener('click', async () => {
-                if(deferredPrompt) { deferredPrompt.prompt(); deferredPrompt = null; }
-            });
-        }
-
-        // Helper: Switch Tabs
-        window.switchTab = (tab) => {
-            const tabDashboard = document.getElementById('tab-dashboard');
-            const tabChat = document.getElementById('tab-chat');
-            const btnDashboard = document.getElementById('btn-dashboard');
-            const btnChat = document.getElementById('btn-chat');
-            const targetTab = document.getElementById(`tab-${tab}`);
-            const targetBtn = document.getElementById(`btn-${tab}`);
-
-            if (tabDashboard) tabDashboard.classList.add('hidden');
-            if (tabChat) tabChat.classList.add('hidden');
-            if (btnDashboard) btnDashboard.classList.remove('text-blue-600', 'bg-blue-50');
-            if (btnChat) btnChat.classList.remove('text-blue-600', 'bg-blue-50');
-            
-            if (targetTab) targetTab.classList.remove('hidden');
-            if (targetBtn) targetBtn.classList.add('text-blue-600', 'bg-blue-50');
+        // --- State ---
+        const state = {
+            user: null,
+            rooms: {},
+            activeRoom: null,
+            unsubChat: null,
+            art: []
         };
 
-        function startBlinking(enable) {
-            if(blinkingInterval) clearInterval(blinkingInterval);
-            if(!enable) { document.title = "Sidor Pro | עובדים"; return; }
-            
-            let toggle = false;
-            blinkingInterval = setInterval(() => {
-                document.title = toggle ? "🔔 הודעה חדשה!" : "Sidor Pro | עובדים";
-                toggle = !toggle;
-            }, 1000);
-        }
-
-        // --- Core App Logic ---
-        function initApp() {
-            // 1. Fetch Customer Profiles (Once + Listen)
-            onSnapshot(collection(db, 'customers'), snap => {
-                snap.docs.forEach(d => {
-                    customersMap[d.id] = { id: d.id, ...d.data() };
-                });
-                // Re-render chat list to update names/avatars if they changed
-                renderChatList(); 
-            });
-
-            // 2. Listen to Online Presence
-            onSnapshot(collection(db, 'presence'), snap => {
-                let onlineCount = 0;
-                snap.docs.forEach(d => {
-                    const p = d.data();
-                    const isOnline = p.isOnline && (Date.now() - (p.lastSeen?.toMillis() || 0) < 120000);
-                    if(isOnline) onlineCount++;
-                    
-                    const roomId = p.currentRoom || d.id;
-                    if(!roomsState[roomId]) {
-                         // Create placeholder state if room doesn't exist yet
-                         roomsState[roomId] = { name: 'טוען...', unread: 0, lastMsg: '', time: 0, senderId: d.id };
-                    }
-                    roomsState[roomId].isOnline = isOnline;
-                    
-                    // Enrich from customersMap
-                    if(customersMap[d.id]) {
-                        roomsState[roomId].name = customersMap[d.id].name;
-                        roomsState[roomId].avatar = customersMap[d.id].avatarUrl;
-                    }
-                });
-                const statOnline = document.getElementById('stat-online');
-                if(statOnline) statOnline.innerText = onlineCount;
-                renderChatList();
-            });
-
-            // 3. Main Message Listener (The "Engine")
-            const q = query(collection(db, 'messages'), orderBy('createdAt', 'desc'), limit(300));
-            onSnapshot(q, (snap) => {
-                // Reset unread counts before recounting
-                Object.keys(roomsState).forEach(k => roomsState[k].unread = 0);
+        // --- UI Functions ---
+        window.ui = {
+            switchTab: (tab) => {
+                document.getElementById('view-dashboard').classList.add('hidden');
+                document.getElementById('view-chats').classList.add('hidden');
+                document.getElementById(`view-${tab}`).classList.remove('hidden');
                 
-                let globalUnread = 0;
-                let ordersToday = 0;
-                let totalRespTime = 0;
-                let respCount = 0;
-                const activity = [];
+                // Flex fix for chats view
+                if(tab === 'chats') document.getElementById(`view-chats`).classList.add('flex');
+                
+                document.getElementById('btn-dash').className = tab === 'dashboard' ? 'p-3 rounded-xl text-blue-600 bg-blue-50' : 'p-3 rounded-xl text-gray-400';
+                document.getElementById('btn-chats').className = tab === 'chats' ? 'p-3 rounded-xl text-blue-600 bg-blue-50' : 'p-3 rounded-xl text-gray-400';
+            },
 
-                snap.docs.forEach(d => {
-                    const m = d.data();
-                    if(!m.roomId) return;
-                    
-                    // If room doesn't exist in state, create it
-                    if(!roomsState[m.roomId]) {
-                         roomsState[m.roomId] = { name: m.senderName || 'לקוח', unread: 0, time: 0, senderId: m.senderId };
-                    }
-                    
-                    // Update Profile Data from Customer Map or Message
-                    if(customersMap[m.senderId]) {
-                         roomsState[m.roomId].name = customersMap[m.senderId].name;
-                         roomsState[m.roomId].avatar = customersMap[m.senderId].avatarUrl;
-                         roomsState[m.roomId].custNum = customersMap[m.senderId].customerNumber;
-                    } else if (m.senderAvatar && !roomsState[m.roomId].avatar) {
-                         // Fallback to message avatar if customer profile not loaded yet
-                         roomsState[m.roomId].avatar = m.senderAvatar;
-                    }
+            openChat: (id, name, avatar) => {
+                // 1. UI
+                if(window.innerWidth < 768) { // Mobile
+                    document.getElementById('chat-list-panel').classList.add('hidden');
+                    document.getElementById('chat-window').classList.remove('hidden');
+                    document.getElementById('chat-window').classList.add('flex');
+                }
+                document.getElementById('header-name').innerText = name;
+                document.getElementById('header-avatar').src = avatar;
+                document.getElementById('messages').innerHTML = '';
+                
+                state.activeRoom = id;
+                window.logic.stopSound(); // Stop ringing
 
-                    // Last Message Logic
-                    const time = m.createdAt ? m.createdAt.toMillis() : Date.now();
-                    if(time > roomsState[m.roomId].time) {
-                        roomsState[m.roomId].time = time;
-                        roomsState[m.roomId].lastMsg = m.type === 'ORDER' ? '🛒 הזמנה חדשה' : (m.type === 'IMAGE' ? '📷 תמונה' : m.text);
-                        roomsState[m.roomId].projectName = m.roomId; 
-                    }
-
-                    // Unread Logic
-                    if(!m.readByWorker && m.senderId !== currentUser.uid) {
-                        roomsState[m.roomId].unread++;
-                        globalUnread++;
-                    }
-
-                    // Stats Logic
-                    if(m.readByWorker && m.readAt && m.createdAt) {
-                        const diff = m.readAt.toMillis() - m.createdAt.toMillis();
-                        if(diff > 0 && diff < 86400000) { 
-                            totalRespTime += diff;
-                            respCount++;
+                // 2. Listener
+                if(state.unsubChat) state.unsubChat();
+                const q = query(collection(db, 'messages'), where('roomId', '==', id), orderBy('createdAt', 'asc'));
+                
+                state.unsubChat = onSnapshot(q, snap => {
+                    const area = document.getElementById('messages');
+                    snap.docChanges().forEach(change => {
+                        if(change.type === 'added') {
+                            const m = change.doc.data();
+                            // Mark Read
+                            if(m.senderId !== state.user.uid && !m.readByWorker) {
+                                updateDoc(change.doc.ref, { readByWorker: true, readAt: serverTimestamp(), status: 'read' });
+                            }
+                            area.innerHTML += window.ui.createMessageBubble(m);
                         }
-                    }
-                    if(m.type === 'ORDER' && time > Date.now() - 86400000) ordersToday++;
-                    
-                    // Activity Stream
-                    if(activity.length < 8) {
-                        activity.push({
-                            text: m.type === 'ORDER' ? `הזמנה מ-${m.senderName}` : `הודעה מ-${m.senderName}`,
-                            sub: m.text ? m.text.substring(0, 30) : 'מדיה',
-                            time: m.createdAt?.toDate(),
-                            isOrder: m.type === 'ORDER',
-                            avatar: m.senderAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.senderName || 'C')}&background=random`
-                        });
-                    }
+                    });
+                    area.scrollTop = area.scrollHeight;
+                    lucide.createIcons();
                 });
-
-                // Alerts
-                if(globalUnread > lastUnreadCount) {
-                    const audio = document.getElementById('notif-sound');
-                    if(audio) audio.play().catch(()=>{});
-                    startBlinking(true);
-                } else if (globalUnread === 0) {
-                    startBlinking(false);
-                }
-                lastUnreadCount = globalUnread;
-
-                // Update Dashboard UI
-                const statOrders = document.getElementById('stat-orders');
-                if(statOrders) statOrders.innerText = ordersToday;
-                
-                const statUnread = document.getElementById('stat-unread');
-                if(statUnread) statUnread.innerText = globalUnread;
-                
-                const badge = document.getElementById('global-badge');
-                if(badge) badge.classList.toggle('hidden', globalUnread === 0);
-                
-                const statArt = document.getElementById('stat-avg-resp');
-                if(statArt) {
-                    if(respCount > 0) {
-                        const avgMs = totalRespTime / respCount;
-                        const mins = Math.floor(avgMs / 60000);
-                        const secs = Math.floor((avgMs % 60000) / 1000);
-                        statArt.innerText = `${mins}:${secs.toString().padStart(2,'0')}`;
-                    } else {
-                        statArt.innerText = "--:--";
-                    }
-                }
-
-                const activityEl = document.getElementById('activity-stream');
-                if(activityEl) {
-                    activityEl.innerHTML = activity.map(a => `
-                        <div class="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg cursor-pointer" onclick="switchTab('chat')">
-                            <img src="${a.avatar}" class="avatar">
-                            <div>
-                                <div class="font-bold text-sm text-gray-800">${a.text}</div>
-                                <div class="text-xs text-gray-500">${a.sub}</div>
-                            </div>
-                            <div class="mr-auto text-xs text-gray-400">${a.time?.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div>
-                        </div>
-                    `).join('');
-                }
-                
-                renderChatList(); // Critical: This updates the sidebar
-                feather.replace();
-            }, error => {
-                console.error("Error fetching messages:", error);
-            });
-        }
-
-        function renderChatList() {
-            const list = document.getElementById('chat-rooms-list');
-            if(!list) return;
+            },
             
-            const sortedIds = Object.keys(roomsState).sort((a,b) => {
-                const rA = roomsState[a], rB = roomsState[b];
-                // Prioritize Unread first, then Time
-                if(rA.unread !== rB.unread) return rB.unread - rA.unread;
-                return rB.time - rA.time;
-            });
+            closeChat: () => {
+                document.getElementById('chat-list-panel').classList.remove('hidden');
+                document.getElementById('chat-window').classList.add('hidden');
+                state.activeRoom = null;
+                if(state.unsubChat) state.unsubChat();
+            },
 
-            list.innerHTML = sortedIds.map(id => {
-                const r = roomsState[id];
-                if(!r.lastMsg) return ''; // Hide empty/broken rooms
+            createMessageBubble: (m) => {
+                const isMe = m.senderId === state.user.uid;
+                const align = isMe ? 'items-end' : 'items-start';
+                const bg = isMe ? 'bg-[#d9fdd3]' : 'bg-white';
+                const time = m.createdAt ? new Date(m.createdAt.seconds * 1000).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : '';
                 
-                const active = id === selectedRoomId ? 'active' : '';
-                const unreadStyle = r.unread > 0 ? 'unread-active' : '';
-                const timeStr = r.time ? new Date(r.time).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : '';
-                
-                const avatar = r.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(r.name)}&background=random`;
-                const custNum = r.custNum ? `#${r.custNum}` : '';
-
-                // Safe escaping for onclick
-                const safeName = r.name.replace(/'/g, "\\'");
-                const safeAvatar = avatar.replace(/'/g, "\\'");
+                let content = `<div class="text-sm">${m.text}</div>`;
+                if(m.type === 'ORDER') content = `<div class="font-bold text-green-700 text-xs">🛒 הזמנה חדשה</div><div class="text-xs bg-gray-50 p-2 rounded mt-1">${m.orderPayload?.items?.map(i=>`${i.name} x${i.qty}`).join(', ')}</div>`;
+                if(m.type === 'LOCATION') content = `<a href="https://waze.com/ul?ll=${m.location.lat},${m.location.lon}&navigate=yes" target="_blank" class="flex items-center gap-1 text-blue-600 text-xs font-bold"><i data-lucide="map-pin" width="14"></i> נווט ב-Waze</a>`;
 
                 return `
-                    <div onclick="openChat('${id}', '${safeName}', '${custNum}', '${safeAvatar}')" class="chat-list-item p-4 cursor-pointer ${active} ${unreadStyle}">
-                        <div class="flex items-center gap-3">
-                            <div class="relative">
-                                <img src="${avatar}" class="avatar">
-                                ${r.isOnline ? '<span class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>' : ''}
-                            </div>
-                            <div class="flex-1 min-w-0">
-                                <div class="flex justify-between items-start mb-1">
-                                    <div>
-                                        <h3 class="font-bold text-gray-800 truncate">${r.name}</h3>
-                                        <p class="text-[10px] text-gray-400 font-mono">${custNum}</p>
-                                    </div>
-                                    ${r.unread > 0 ? `<span class="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">${r.unread}</span>` : ''}
-                                </div>
-                                <div class="flex justify-between items-center mt-1">
-                                    <p class="text-xs text-gray-500 truncate max-w-[140px]">${r.lastMsg}</p>
-                                    <span class="text-[10px] text-gray-400">${timeStr}</span>
-                                </div>
-                            </div>
+                <div class="flex flex-col ${align} mb-2 w-full slide-in">
+                    <div class="max-w-[80%] p-2 px-3 rounded-lg shadow-sm ${bg} relative">
+                        ${content}
+                        <div class="text-[9px] text-gray-400 text-left mt-1 flex justify-end items-center gap-1">
+                            ${time} ${isMe ? '<i data-lucide="check" width="12"></i>' : ''}
                         </div>
                     </div>
-                `;
-            }).join('');
-        }
+                </div>`;
+            },
 
-        // Attach to window for HTML onclick access
-        window.openChat = (roomId, name, custNum, avatar) => {
-            selectedRoomId = roomId;
-            renderChatList(); 
-            
-            const emptyState = document.getElementById('empty-chat-state');
-            const chatHeader = document.getElementById('chat-header');
-            const chatForm = document.getElementById('chat-form');
-            
-            if(emptyState) emptyState.classList.add('hidden');
-            if(chatHeader) { chatHeader.classList.remove('hidden'); chatHeader.classList.add('flex'); }
-            if(chatForm) { chatForm.classList.remove('hidden'); chatForm.classList.add('flex'); }
-            
-            document.getElementById('chat-client-name').innerText = name;
-            document.getElementById('chat-client-num').innerText = custNum || '';
-            document.getElementById('chat-client-project').innerText = roomId;
-            document.getElementById('chat-client-avatar').src = avatar;
-
-            if (unsubscribeChat) unsubscribeChat();
-
-            const q = query(collection(db, 'messages'), where('roomId', '==', roomId), orderBy('createdAt', 'asc'));
-            unsubscribeChat = onSnapshot(q, (snap) => {
-                const area = document.getElementById('chat-messages-area');
-                if(!area) return;
+            renderList: () => {
+                const list = document.getElementById('chat-list');
+                const sorted = Object.values(state.rooms).sort((a,b) => (b.unread - a.unread) || (b.time - a.time));
                 
-                snap.docChanges().forEach(change => {
-                    if(change.type === 'added') {
-                        const m = change.doc.data();
-                        // Auto-mark read if I'm viewing
-                        if(m.senderId !== currentUser.uid && !m.readByWorker) {
-                            updateDoc(change.doc.ref, { readByWorker: true, status: 'read', readAt: serverTimestamp() });
-                        }
+                document.getElementById('list-count').innerText = sorted.length;
+                
+                list.innerHTML = sorted.map(r => `
+                    <div onclick="window.ui.openChat('${r.id}', '${r.name}', '${r.avatar}')" class="chat-item p-4 flex items-center gap-3 ${r.unread>0 ? 'unread-active' : ''}">
+                        <div class="relative">
+                            <img src="${r.avatar}" class="w-12 h-12 rounded-full object-cover bg-gray-200">
+                            ${r.isOnline ? '<div class="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>' : ''}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex justify-between mb-1">
+                                <h3 class="font-bold text-sm truncate">${r.name}</h3>
+                                ${r.unread > 0 ? `<span class="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">${r.unread}</span>` : ''}
+                            </div>
+                            <p class="text-xs text-gray-500 truncate">${r.lastMsg}</p>
+                        </div>
+                    </div>
+                `).join('');
+            },
+            
+            renderSLA: () => {
+                const el = document.getElementById('sla-list');
+                let html = '';
+                let breach = false;
+                
+                Object.values(state.rooms).forEach(r => {
+                    if(r.unread > 0 && r.time > 0) {
+                        const mins = Math.floor((Date.now() - r.time) / 60000);
+                        let color = 'bg-green-100 text-green-800';
+                        if(mins >= 1) color = 'bg-yellow-100 text-yellow-800';
+                        if(mins >= 3) { color = 'bg-red-100 text-red-800 sla-critical'; breach = true; }
+                        
+                        html += `
+                            <div class="flex justify-between items-center p-3 bg-white border rounded-lg">
+                                <div class="flex items-center gap-2">
+                                    <img src="${r.avatar}" class="w-6 h-6 rounded-full">
+                                    <span class="font-bold text-sm">${r.name}</span>
+                                </div>
+                                <span class="px-2 py-1 rounded text-xs font-bold ${color}">${mins} דק'</span>
+                            </div>`;
                     }
                 });
-
-                const html = snap.docs.map(doc => {
-                    const m = doc.data();
-                    const isMe = m.senderId === currentUser.uid;
-                    const bubbleAvatar = !isMe ? `<img src="${m.senderAvatar || avatar}" class="w-6 h-6 rounded-full mr-2 border border-gray-200">` : '';
-                    
-                    let content = `<div class="text-sm">${m.text}</div>`;
-                    if(m.type === 'ORDER') content = `<div class="font-bold text-green-700 mb-1">🛒 הזמנה חדשה</div><ul class="text-xs bg-gray-50 p-2 rounded">${m.orderPayload?.items?.map(i=>`<li>${i.name} x${i.qty}</li>`).join('')}</ul>`;
-                    if(m.type === 'IMAGE') content = `<img src="${m.mediaUrl}" class="rounded-lg max-h-48 cursor-pointer" onclick="window.open(this.src)"/>`;
-
-                    return `
-                        <div class="flex flex-col ${isMe ? 'items-end' : 'items-start'} mb-2">
-                            <div class="flex items-end ${isMe ? 'justify-end' : ''} w-full">
-                                ${bubbleAvatar}
-                                <div class="max-w-[75%] p-2 px-3 rounded-lg shadow-sm ${isMe ? 'bg-[#d9fdd3]' : 'bg-white'}">
-                                    ${content}
-                                    <div class="text-[9px] text-gray-400 text-left mt-1 flex justify-end items-center gap-1">
-                                        ${m.createdAt?.toDate().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}
-                                        ${isMe ? '<i data-feather="check" class="w-3 h-3"></i>' : ''}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>`;
-                }).join('');
                 
-                area.innerHTML = html;
-                area.scrollTop = area.scrollHeight;
-                feather.replace();
-            });
+                el.innerHTML = html || '<div class="text-center text-gray-400 py-8">אין פניות ממתינות</div>';
+                if(breach) document.getElementById('sla-sound').play().catch(()=>{});
+            }
         };
 
-        window.setOrderStatus = (id, status) => updateDoc(doc(db, 'messages', id), { orderStatus: status });
+        // --- Business Logic ---
+        window.logic = {
+            init: () => {
+                // 1. Messages Listener
+                const q = query(collection(db, 'messages'), orderBy('createdAt', 'desc'), limit(200));
+                onSnapshot(q, snap => {
+                    let unread = 0, orders = 0;
+                    const activity = [];
+                    let newMsg = false;
 
-        // Event Listeners
-        const chatForm = document.getElementById('chat-form');
-        if(chatForm) {
-            chatForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const input = document.getElementById('message-input');
-                const text = input.value.trim();
-                if(!text || !selectedRoomId) return;
-                
-                input.value = '';
-                await addDoc(collection(db, 'messages'), { 
-                    roomId: selectedRoomId, 
-                    senderId: currentUser.uid, 
-                    senderName: 'נציג', 
-                    type: 'TEXT', 
-                    createdAt: serverTimestamp(), 
-                    text: text, 
-                    readByWorker: true, 
-                    status: 'sent' 
+                    // Process Snap
+                    snap.docs.forEach(d => {
+                        const m = d.data();
+                        if(!m.roomId) return;
+                        
+                        // Init Room
+                        if(!state.rooms[m.roomId]) state.rooms[m.roomId] = { id: m.roomId, name: m.senderName||'לקוח', avatar: m.senderAvatar, unread: 0, time: 0, lastMsg: '' };
+                        const r = state.rooms[m.roomId];
+
+                        // Update Room
+                        const time = m.createdAt ? m.createdAt.toMillis() : Date.now();
+                        if(time > r.time) {
+                            r.time = time;
+                            r.lastMsg = m.text || (m.type==='ORDER'?'הזמנה':m.type);
+                            if(m.senderAvatar) r.avatar = m.senderAvatar; // Prefer message avatar
+                        }
+
+                        if(!m.readByWorker && m.senderId !== state.user.uid) {
+                            r.unread++;
+                            unread++;
+                            // Check if new
+                            if(snap.docChanges().some(c => c.doc.id === d.id && c.type === 'added')) newMsg = true;
+                        }
+
+                        if(m.type === 'ORDER') orders++;
+                        if(activity.length < 6) activity.push({ text: r.lastMsg, name: r.name, time });
+                    });
+
+                    // Alerts
+                    if(newMsg) {
+                        document.getElementById('alert-sound').play().catch(()=>{});
+                        document.title = "🔔 הודעה חדשה!";
+                    } else if (unread === 0) {
+                        document.title = "Sidor Pro";
+                    }
+
+                    // Update Stats
+                    document.getElementById('stat-unread').innerText = unread;
+                    document.getElementById('stat-orders').innerText = orders;
+                    document.getElementById('global-badge').classList.toggle('hidden', unread === 0);
+
+                    // Activity Log
+                    document.getElementById('activity-log').innerHTML = activity.map(a => 
+                        `<div class="text-sm p-2 border-b border-gray-50 flex justify-between"><span><b>${a.name}</b>: ${a.text.substring(0,20)}</span><span class="text-gray-400 text-xs">${new Date(a.time).toLocaleTimeString()}</span></div>`
+                    ).join('');
+
+                    ui.renderList();
+                    ui.renderSLA();
                 });
-            });
-        }
+            },
 
-        onAuthStateChanged(auth, async (user) => {
-            const shell = document.getElementById('shell-wrapper');
-            const loginView = document.getElementById('login-view');
-            const adminName = document.getElementById('admin-name');
+            logout: () => auth.signOut(),
+            stopSound: () => {
+                ['alert-sound', 'sla-sound'].forEach(id => { const a = document.getElementById(id); if(a) { a.pause(); a.currentTime=0; } });
+            }
+        };
 
-            if (user) {
-                currentUser = user;
-                if(loginView) loginView.classList.add('hidden');
-                if(shell) shell.classList.remove('hidden');
-                if(adminName) adminName.innerText = user.displayName || 'צוות';
-                initApp();
+        // Auth
+        onAuthStateChanged(auth, u => {
+            if (u) {
+                state.user = u;
+                document.getElementById('login-view').classList.add('hidden');
+                document.getElementById('shell-wrapper').classList.remove('hidden');
+                document.getElementById('admin-name').innerText = u.displayName || 'צוות';
+                window.logic.init();
+                
+                // Polling for SLA
+                setInterval(ui.renderSLA, 10000);
             } else {
-                if(shell) shell.classList.add('hidden');
-                if(loginView) loginView.classList.remove('hidden');
+                signInAnonymously(auth).catch(e => alert("Login Error: " + e.message));
             }
         });
 
-        const loginForm = document.getElementById('login-form');
-        if(loginForm) {
-            loginForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                try { await signInWithEmailAndPassword(auth, document.getElementById('email').value, document.getElementById('password').value); }
-                catch(e) { alert("שגיאה בהתחברות"); }
+        // Form
+        document.getElementById('chat-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const input = document.getElementById('msg-input');
+            if(!input.value.trim() || !state.activeRoom) return;
+            
+            await addDoc(collection(db, 'messages'), {
+                roomId: state.activeRoom,
+                senderId: state.user.uid,
+                senderName: 'נציג',
+                type: 'TEXT',
+                createdAt: serverTimestamp(),
+                text: input.value,
+                readByWorker: true
             });
-        }
+            input.value = '';
+        });
 
-        window.logout = () => signOut(auth);
-        feather.replace();
     </script>
 </body>
 </html>
+```
+
+### 3. `manifest.json`
+```json
+{
+  "name": "Sidor Logistics",
+  "short_name": "Sidor",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "https://ui-avatars.com/api/?name=Sidor&background=2563eb&color=fff&size=192",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ]
+}
+```
+
+### 4. `service-worker.js`
+```javascript
+self.addEventListener('install', (e) => self.skipWaiting());
+self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));
+self.addEventListener('push', (e) => {
+    const data = e.data.json();
+    self.registration.showNotification(data.title, {
+        body: data.body,
+        icon: 'https://ui-avatars.com/api/?name=S'
+    });
+});
