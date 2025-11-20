@@ -5,48 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>ח. סבן | הזמנות וצ'אט</title>
     <link rel="manifest" href="manifest.json">
-    
-    <!-- OneSignal -->
-    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
-    <script>
-      window.OneSignalDeferred = window.OneSignalDeferred || [];
-      OneSignalDeferred.push(async function(OneSignal) {
-        try {
-            await OneSignal.init({
-              appId: "de3834d3-1e11-40af-96d2-b25eda821c8f",
-              safari_web_id: "web.onesignal.auto.00000000-0000-0000-0000-000000000000",
-              notifyButton: { enable: false },
-              allowLocalhostAsSecureOrigin: true 
-            });
-        } catch (e) { console.warn("Push Init:", e); }
-      });
-    </script>
-
-    <!-- Libraries -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
-
+    
     <style>
-        body { font-family: 'Heebo', sans-serif; background-color: #e5ded8; overflow: hidden; touch-action: manipulation; }
-        
-        /* WhatsApp Styles */
-        .wa-header { background-color: #008069; color: white; }
+        body { font-family: 'Heebo', sans-serif; background-color: #f0f2f5; overflow: hidden; touch-action: manipulation; }
+        .scroll-hide::-webkit-scrollbar { display: none; }
         .wa-bg { background-image: url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png"); background-repeat: repeat; background-attachment: fixed; }
-        .wa-bubble-out { background-color: #d9fdd3; border-radius: 7.5px; border-top-left-radius: 0; box-shadow: 0 1px 0.5px rgba(0,0,0,0.13); }
-        .wa-bubble-in { background-color: #ffffff; border-radius: 7.5px; border-top-right-radius: 0; box-shadow: 0 1px 0.5px rgba(0,0,0,0.13); }
-        
-        /* Animations */
-        .slide-up { animation: slideUp 0.3s ease-out forwards; }
+        .slide-up { animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
-        
-        /* Utils */
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .hit-area { min-height: 44px; min-width: 44px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
-        input:focus { outline: none; }
+        .fade-in { animation: fadeIn 0.2s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     </style>
 </head>
 <body>
@@ -56,11 +29,9 @@
     <script type="text/babel" data-type="module">
         const { useState, useEffect, useRef } = React;
         const { createRoot } = ReactDOM;
-        
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
         import { getFirestore, collection, doc, onSnapshot, query, orderBy, where, addDoc, serverTimestamp, updateDoc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
-        import { getStorage, ref, uploadString, getDownloadURL } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-storage.js";
 
         const firebaseConfig = {
           apiKey: "AIzaSyDq0oVwS6zbEfsgrYBRkeBq80dDUKMedzo", 
@@ -74,15 +45,207 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const storage = getStorage(app);
 
-        // --- Components ---
+        // --- דשבורד ראשי ---
+        const Dashboard = ({ user, profile, onNavigate }) => {
+            const [lastOrder, setLastOrder] = useState(null);
+            
+            useEffect(() => {
+                // כאן נביא את ההזמנה האחרונה (דמו)
+                setLastOrder({ id: '1234', status: 'בטיפול', date: 'היום, 10:30', items: 'בלוק 20, מלט' });
+            }, []);
 
-        const Icon = ({ name, size=20, color="currentColor", className }) => {
-            useEffect(() => lucide.createIcons(), [name]);
-            return <i data-lucide={name} width={size} height={size} stroke={color} className={className}></i>;
+            return (
+                <div className="flex flex-col h-full bg-gray-50 fade-in">
+                    {/* Header */}
+                    <div className="bg-[#008069] p-6 pt-12 text-white rounded-b-3xl shadow-lg relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10 blur-2xl"></div>
+                        <div className="flex justify-between items-start relative z-10">
+                            <div>
+                                <h1 className="text-2xl font-bold">שלום, {profile?.name || 'לקוח יקר'}</h1>
+                                <p className="text-green-100 text-sm">ברוך הבא לפורטל סבן</p>
+                            </div>
+                            <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center text-xl font-bold border-2 border-white/30">
+                                {profile?.name?.[0] || 'S'}
+                            </div>
+                        </div>
+                        
+                        {/* סטטוס הזמנה אחרונה */}
+                        <div className="mt-6 bg-white/10 backdrop-blur-md border border-white/20 p-4 rounded-xl flex justify-between items-center">
+                            <div>
+                                <p className="text-xs text-green-100 mb-1">הזמנה אחרונה #{lastOrder?.id}</p>
+                                <div className="font-bold text-lg">{lastOrder?.status}</div>
+                            </div>
+                            <div className="h-10 w-10 bg-white text-[#008069] rounded-full flex items-center justify-center shadow-lg">
+                                <i data-lucide="truck" width="20"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* פעולות מהירות */}
+                    <div className="p-6 grid grid-cols-2 gap-4 -mt-4 relative z-20">
+                        <button onClick={()=>onNavigate('catalog')} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center gap-2 active:scale-95 transition">
+                            <div className="bg-blue-50 p-3 rounded-full text-blue-600"><i data-lucide="shopping-bag"></i></div>
+                            <span className="font-bold text-gray-700">הזמנה חדשה</span>
+                        </button>
+                        <button onClick={()=>onNavigate('chat')} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center gap-2 active:scale-95 transition">
+                            <div className="bg-green-50 p-3 rounded-full text-green-600"><i data-lucide="message-circle"></i></div>
+                            <span className="font-bold text-gray-700">צ'אט עם נציג</span>
+                        </button>
+                        <button onClick={()=>onNavigate('projects')} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center gap-2 active:scale-95 transition">
+                            <div className="bg-purple-50 p-3 rounded-full text-purple-600"><i data-lucide="briefcase"></i></div>
+                            <span className="font-bold text-gray-700">הפרויקטים שלי</span>
+                        </button>
+                        <button className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center gap-2 active:scale-95 transition">
+                            <div className="bg-orange-50 p-3 rounded-full text-orange-600"><i data-lucide="file-text"></i></div>
+                            <span className="font-bold text-gray-700">חשבוניות</span>
+                        </button>
+                    </div>
+
+                    {/* עדכונים אחרונים */}
+                    <div className="px-6 flex-1 overflow-y-auto">
+                        <h3 className="font-bold text-gray-800 mb-3">עדכונים אחרונים</h3>
+                        <div className="space-y-3 pb-20">
+                            <div className="bg-white p-3 rounded-xl flex items-center gap-3 border border-gray-100">
+                                <div className="bg-gray-100 p-2 rounded-lg text-gray-500"><i data-lucide="info"></i></div>
+                                <div>
+                                    <div className="text-sm font-bold">מבצע על צבעים</div>
+                                    <div className="text-xs text-gray-500">כל קטלוג נירלט ב-15% הנחה</div>
+                                </div>
+                            </div>
+                            <div className="bg-white p-3 rounded-xl flex items-center gap-3 border border-gray-100">
+                                <div className="bg-blue-100 p-2 rounded-lg text-blue-600"><i data-lucide="check"></i></div>
+                                <div>
+                                    <div className="text-sm font-bold">הזמנה #1230 סופקה</div>
+                                    <div className="text-xs text-gray-500">אתמול, 14:00</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
         };
 
+        // --- קטלוג והזמנה ---
+        const Catalog = ({ onBack, onSendOrder }) => {
+            const [cart, setCart] = useState([]);
+            const products = [
+                { id: 1, name: "בלוק 20 (משטח)", price: 320, img: "https://placehold.co/100?text=Block" },
+                { id: 2, name: "מלט שחור (שק)", price: 28, img: "https://placehold.co/100?text=Cement" },
+                { id: 3, name: "טיט מוכן (בלה)", price: 150, img: "https://placehold.co/100?text=Tit" },
+                { id: 4, name: "חול ים (בלה)", price: 140, img: "https://placehold.co/100?text=Sand" },
+            ];
+
+            const addToCart = (p) => setCart(prev => [...prev, p]);
+
+            return (
+                <div className="flex flex-col h-full bg-white slide-up fixed inset-0 z-50">
+                    <div className="bg-[#008069] p-4 text-white flex items-center gap-3 shadow-md">
+                        <button onClick={onBack}><i data-lucide="arrow-right"></i></button>
+                        <h2 className="font-bold text-lg">קטלוג מוצרים</h2>
+                    </div>
+                    
+                    <div className="flex-1 overflow-y-auto p-4 pb-24">
+                        <div className="grid grid-cols-2 gap-4">
+                            {products.map(p => (
+                                <div key={p.id} onClick={()=>addToCart(p)} className="border rounded-xl p-3 flex flex-col items-center text-center active:border-green-500 transition">
+                                    <img src={p.img} className="rounded-lg mb-2 h-24 object-cover w-full"/>
+                                    <div className="font-bold text-sm">{p.name}</div>
+                                    <div className="text-green-600 font-bold">₪{p.price}</div>
+                                    <button className="mt-2 bg-green-50 text-green-700 text-xs px-3 py-1 rounded-full">+ הוסף</button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {cart.length > 0 && (
+                        <div className="absolute bottom-0 w-full bg-white border-t p-4 shadow-lg">
+                            <div className="flex justify-between items-center mb-3">
+                                <span className="font-bold text-gray-700">{cart.length} פריטים בעגלה</span>
+                                <span className="font-bold text-green-600">₪{cart.reduce((a,b)=>a+b.price,0)}</span>
+                            </div>
+                            <button onClick={()=>onSendOrder(cart)} className="w-full bg-[#008069] text-white py-3 rounded-xl font-bold shadow flex justify-center gap-2">
+                                שלח הזמנה <i data-lucide="send"></i>
+                            </button>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // --- מסך צ'אט מלא ---
+        const Chat = ({ user, room, onBack }) => {
+            const [messages, setMessages] = useState([]);
+            const [input, setInput] = useState('');
+            const [menuOpen, setMenuOpen] = useState(false);
+            const [showCatalog, setShowCatalog] = useState(false);
+
+            // Listener
+            useEffect(() => {
+                const q = query(collection(db, 'messages'), where('roomId', '==', room.projectId), orderBy('createdAt', 'asc'));
+                return onSnapshot(q, snap => {
+                    setMessages(snap.docs.map(d => d.data()));
+                });
+            }, [room]);
+
+            const send = async (text, type='TEXT', payload=null) => {
+                await addDoc(collection(db, 'messages'), {
+                    roomId: room.projectId, senderId: user.uid, text, type,
+                    orderPayload: payload, createdAt: serverTimestamp(), readByWorker: false
+                });
+                setInput(''); setShowCatalog(false);
+            };
+
+            return (
+                <div className="flex flex-col h-full wa-bg fixed inset-0 z-40">
+                    <div className="wa-header p-3 flex items-center gap-3 shadow">
+                        <button onClick={onBack}><i data-lucide="arrow-right"></i></button>
+                        <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center text-white font-bold">{room.name[0]}</div>
+                        <div className="flex-1">
+                            <div className="font-bold text-sm">{room.name}</div>
+                            <div className="text-xs opacity-80">מחובר</div>
+                        </div>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                        {messages.map((m, i) => {
+                            const isMe = m.senderId === user.uid;
+                            return (
+                                <div key={i} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                                    <div className={`max-w-[80%] p-2 px-3 shadow-sm text-sm ${isMe ? 'bg-[#d9fdd3] rounded-l-lg rounded-br-lg' : 'bg-white rounded-r-lg rounded-bl-lg'}`}>
+                                        {m.type === 'ORDER' && <div className="font-bold text-green-700 mb-1">🛒 הזמנה חדשה</div>}
+                                        {m.text}
+                                        <div className="text-[10px] text-gray-400 text-end mt-1 flex justify-end gap-1">
+                                            10:00 {isMe && <i data-lucide="check-check" width="12"></i>}
+                                        </div>
+                                    </div>
+                                </div>
+                            )
+                        })}
+                    </div>
+
+                    <div className="bg-[#f0f2f5] p-2 flex items-center gap-2">
+                        <button onClick={()=>setMenuOpen(!menuOpen)} className="p-2 text-gray-500"><i data-lucide="plus"></i></button>
+                        <div className="flex-1 bg-white rounded-full px-4 py-2 flex items-center shadow-sm">
+                            <input value={input} onChange={e=>setInput(e.target.value)} className="w-full bg-transparent text-sm" placeholder="הודעה" />
+                        </div>
+                        <button onClick={()=>send(input)} className="p-3 bg-[#008069] text-white rounded-full shadow"><i data-lucide="send" width="18"></i></button>
+                    </div>
+
+                    {menuOpen && (
+                        <div className="absolute bottom-16 left-4 bg-white p-4 rounded-xl shadow-xl grid grid-cols-3 gap-4 pop-up">
+                            <div onClick={()=>setShowCatalog(true)} className="flex flex-col items-center gap-1"><div className="p-3 bg-purple-100 text-purple-600 rounded-full"><i data-lucide="shopping-bag"></i></div><span className="text-xs">קטלוג</span></div>
+                            <div className="flex flex-col items-center gap-1"><div className="p-3 bg-blue-100 text-blue-600 rounded-full"><i data-lucide="image"></i></div><span className="text-xs">גלריה</span></div>
+                            <div className="flex flex-col items-center gap-1"><div className="p-3 bg-orange-100 text-orange-600"><i data-lucide="map-pin"></i></div><span className="text-xs">מיקום</span></div>
+                        </div>
+                    )}
+
+                    {showCatalog && <Catalog onBack={()=>setShowCatalog(false)} onSendOrder={(cart)=>send('הזמנה חדשה', 'ORDER', {items: cart})} />}
+                </div>
+            );
+        };
+
+        // --- מסך התחברות ---
         const LoginScreen = ({ onLogin }) => {
             const [email, setEmail] = useState('');
             const [pass, setPass] = useState('');
@@ -101,327 +264,23 @@
             );
         };
 
-        // קטלוג מוצרים משודרג
-        const CatalogModal = ({ onClose, onSendOrder }) => {
-            const [cart, setCart] = useState([]);
-            const products = [
-                { id: 1, name: "לוח גבס לבן (סטנדרט)", price: 38, unit: "יח'", img: "https://placehold.co/100x100?text=Gevs" },
-                { id: 2, name: "לוח גבס ירוק (עמיד מים)", price: 45, unit: "יח'", img: "https://placehold.co/100x100?text=GreenGevs" },
-                { id: 3, name: "ניצב 70 (3 מטר)", price: 18, unit: "יח'", img: "https://placehold.co/100x100?text=Nizav" },
-                { id: 4, name: "מסלול 70 (3 מטר)", price: 16, unit: "יח'", img: "https://placehold.co/100x100?text=Maslul" },
-                { id: 5, name: "שפכטל אמריקאי (פח)", price: 65, unit: "פח", img: "https://placehold.co/100x100?text=Putty" },
-                { id: 6, name: "צבע אקרילי לבן (18ל')", price: 120, unit: "דלי", img: "https://placehold.co/100x100?text=Paint" },
-                { id: 7, name: "חול ים (בלה)", price: 150, unit: "בלה", img: "https://placehold.co/100x100?text=Sand" },
-                { id: 8, name: "מלט שחור", price: 28, unit: "שק", img: "https://placehold.co/100x100?text=Cement" },
-            ];
-
-            const addToCart = (p) => {
-                setCart(prev => {
-                    const existing = prev.find(i => i.id === p.id);
-                    if(existing) return prev.map(i => i.id === p.id ? {...i, qty: i.qty + 1} : i);
-                    return [...prev, {...p, qty: 1}];
-                });
-            };
-
-            const removeFromCart = (id) => {
-                setCart(prev => prev.filter(i => i.id !== id));
-            };
-
-            const updateQty = (id, delta) => {
-                setCart(prev => prev.map(i => i.id === id ? {...i, qty: Math.max(1, i.qty + delta)} : i));
-            };
-
-            return (
-                <div className="fixed inset-0 bg-white z-50 flex flex-col slide-up">
-                    <div className="bg-[#008069] p-4 text-white flex justify-between items-center shadow-md">
-                        <h2 className="text-lg font-bold">קטלוג והזמנה</h2>
-                        <button onClick={onClose}><Icon name="x" /></button>
-                    </div>
-                    
-                    <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
-                        <h3 className="font-bold text-gray-700 mb-3">מוצרים פופולריים</h3>
-                        <div className="grid grid-cols-2 gap-3 mb-6">
-                            {products.map(p => (
-                                <div key={p.id} className="bg-white p-3 rounded-xl shadow-sm flex flex-col items-center text-center border border-gray-100" onClick={()=>addToCart(p)}>
-                                    <img src={p.img} className="rounded-lg mb-2 w-full h-20 object-cover"/>
-                                    <h4 className="font-bold text-sm line-clamp-1">{p.name}</h4>
-                                    <p className="text-xs text-blue-600 font-bold">₪{p.price} / {p.unit}</p>
-                                    <button className="mt-2 bg-blue-50 text-blue-600 text-xs px-4 py-1 rounded-full font-bold">+ הוסף</button>
-                                </div>
-                            ))}
-                        </div>
-
-                        {cart.length > 0 && (
-                            <div className="bg-white p-4 rounded-xl shadow-lg border border-blue-100 mb-20">
-                                <h3 className="font-bold text-lg mb-3 border-b pb-2">סיכום הזמנה</h3>
-                                <div className="space-y-3">
-                                    {cart.map(item => (
-                                        <div key={item.id} className="flex justify-between items-center">
-                                            <div className="flex-1">
-                                                <div className="font-bold text-sm">{item.name}</div>
-                                                <div className="text-xs text-gray-500">₪{item.price} ליח'</div>
-                                            </div>
-                                            <div className="flex items-center gap-3 bg-gray-100 rounded-lg p-1">
-                                                <button onClick={()=>updateQty(item.id, -1)} className="w-6 h-6 bg-white rounded shadow text-sm font-bold">-</button>
-                                                <span className="text-sm font-bold w-4 text-center">{item.qty}</span>
-                                                <button onClick={()=>updateQty(item.id, 1)} className="w-6 h-6 bg-white rounded shadow text-sm font-bold">+</button>
-                                            </div>
-                                            <button onClick={()=>removeFromCart(item.id)} className="mr-3 text-red-400"><Icon name="trash-2" size={16}/></button>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    {cart.length > 0 && (
-                        <div className="p-4 bg-white border-t shadow-lg absolute bottom-0 w-full">
-                            <button onClick={() => onSendOrder(cart)} className="w-full bg-[#00a884] text-white py-3 rounded-xl font-bold shadow-lg text-lg flex justify-center gap-2">
-                                שלח הזמנה <Icon name="send"/>
-                            </button>
-                        </div>
-                    )}
-                </div>
-            );
-        };
-
-        // מסך הזמנה חופשית (טקסט)
-        const QuickOrderModal = ({ onClose, onSend }) => {
-            const [text, setText] = useState('');
-            return (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-                    <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl">
-                        <h3 className="text-xl font-bold mb-4 text-gray-800">הזמנה מהירה (טקסט)</h3>
-                        <textarea 
-                            className="w-full p-3 border rounded-xl bg-gray-50 h-32 text-sm focus:ring-2 focus:ring-green-500 outline-none"
-                            placeholder="רשום כאן את רשימת הציוד שאתה צריך..."
-                            value={text}
-                            onChange={e=>setText(e.target.value)}
-                        ></textarea>
-                        <div className="flex gap-3 mt-4">
-                            <button onClick={onClose} className="flex-1 py-2 text-gray-500 font-bold">ביטול</button>
-                            <button onClick={()=>onSend(text)} className="flex-1 py-2 bg-[#00a884] text-white rounded-xl font-bold shadow-lg">שלח</button>
-                        </div>
-                    </div>
-                </div>
-            );
-        };
-
-        const ChatScreen = ({ user, profile, room }) => {
-            const [messages, setMessages] = useState([]);
-            const [input, setInput] = useState('');
-            const [menuOpen, setMenuOpen] = useState(false);
-            const [showCatalog, setShowCatalog] = useState(false);
-            const [showQuickOrder, setShowQuickOrder] = useState(false);
-            const bottomRef = useRef(null);
-            const fileInput = useRef(null);
-
-            useEffect(() => {
-                const q = query(collection(db, 'messages'), where('roomId', '==', room.projectId), orderBy('createdAt', 'asc'));
-                const unsub = onSnapshot(q, (snap) => {
-                    const msgs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-                    setMessages(msgs);
-                    if (msgs.length > 0) {
-                        const last = msgs[msgs.length - 1];
-                        if (last.senderId !== user.uid) {
-                             const audio = document.getElementById('msg-sound');
-                             if(audio) audio.play().catch(()=>{});
-                        }
-                    }
-                });
-                return () => unsub();
-            }, [room]);
-
-            useEffect(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), [messages]);
-
-            const sendMessage = async (type = 'TEXT', payload = null) => {
-                const msg = {
-                    roomId: room.projectId,
-                    senderId: user.uid,
-                    senderName: profile.name || 'לקוח',
-                    senderAvatar: profile.avatarUrl || '',
-                    type,
-                    createdAt: serverTimestamp(),
-                    readByWorker: false,
-                    status: 'sent'
-                };
-
-                if (type === 'TEXT') { if(!input.trim()) return; msg.text = input; setInput(''); }
-                else if (type === 'ORDER') { 
-                    msg.text = 'הזמנה חדשה מהקטלוג'; 
-                    msg.orderPayload = { items: payload, total: payload.length }; 
-                    msg.orderStatus = 'new'; 
-                }
-                else if (type === 'QUICK_ORDER') {
-                    msg.type = 'ORDER'; // Treat as order
-                    msg.text = 'הזמנה מהירה (טקסט)';
-                    msg.orderPayload = { note: payload, items: [] }; // Special payload
-                    msg.orderStatus = 'new';
-                }
-                else if (type === 'IMAGE') { msg.text = 'תמונה'; msg.mediaUrl = payload; }
-                else if (type === 'LOCATION') { msg.text = 'מיקום'; msg.location = payload; }
-
-                setShowCatalog(false);
-                setShowQuickOrder(false);
-                setMenuOpen(false);
-                
-                try { await addDoc(collection(db, 'messages'), msg); } catch(e) { alert("שגיאה בשליחה"); }
-            };
-
-            const handleFile = (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = (ev) => sendMessage('IMAGE', ev.target.result); 
-                reader.readAsDataURL(file);
-            };
-
-            const handleLocation = () => {
-                navigator.geolocation.getCurrentPosition(pos => {
-                    sendMessage('LOCATION', { lat: pos.coords.latitude, lon: pos.coords.longitude });
-                });
-            };
-
-            const renderMessage = (m) => {
-                const isMe = m.senderId === user.uid;
-                const time = m.createdAt ? new Date(m.createdAt.seconds * 1000).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : '';
-                
-                let content = <span className="text-sm whitespace-pre-wrap">{m.text}</span>;
-                
-                if (m.type === 'ORDER') {
-                    // Check if catalog order or text order
-                    const isCatalog = m.orderPayload?.items?.length > 0;
-                    
-                    content = (
-                        <div className="bg-green-50 p-2 rounded border border-green-100 -mx-1 -mt-1 mb-1 min-w-[200px]">
-                            <div className="font-bold text-xs text-green-800 flex items-center gap-1 mb-2 border-b border-green-200 pb-1">
-                                <i data-lucide="shopping-cart" width="12"></i> הזמנה #{m.id.slice(-4)}
-                            </div>
-                            
-                            {isCatalog ? (
-                                <ul className="space-y-1">
-                                    {m.orderPayload.items.map((item, i) => (
-                                        <li key={i} className="flex justify-between text-xs">
-                                            <span>{item.name}</span>
-                                            <span className="font-bold">x{item.qty}</span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            ) : (
-                                <div className="text-sm text-gray-700 italic p-2 bg-white rounded border border-gray-100">
-                                    "{m.orderPayload.note}"
-                                </div>
-                            )}
-                            
-                            <div className="mt-2 pt-1 border-t border-green-200 flex justify-between items-center">
-                                <span className="text-[10px] text-gray-500">סטטוס:</span>
-                                <span className="text-[10px] font-bold bg-white px-2 rounded text-green-600">{m.orderStatus || 'חדש'}</span>
-                            </div>
-                        </div>
-                    );
-                } else if (m.type === 'IMAGE') {
-                    content = <img src={m.mediaUrl} className="rounded-lg max-w-[200px]" />;
-                } else if (m.type === 'LOCATION') {
-                    content = (
-                        <div>
-                            <div className="font-bold text-blue-600 text-xs flex items-center gap-1"><i data-lucide="map-pin" width="12"></i> מיקום</div>
-                            <a href={`https://waze.com/ul?ll=${m.location.lat},${m.location.lon}&navigate=yes`} target="_blank" className="text-xs underline mt-1 block">פתח ב-Waze</a>
-                        </div>
-                    );
-                }
-
-                return (
-                    <div key={m.id} className={`flex mb-2 ${isMe ? 'justify-start' : 'justify-end'}`}>
-                        <div className={`max-w-[85%] p-2 px-3 rounded-lg shadow-sm relative ${isMe ? 'wa-bubble-out rounded-tr-none' : 'wa-bubble-in rounded-tl-none'}`}>
-                            {content}
-                            <div className="flex justify-end items-center gap-1 mt-1">
-                                <span className="text-[10px] text-gray-500">{time}</span>
-                                {isMe && (
-                                    <span className={m.status === 'read' ? 'text-blue-500' : 'text-gray-400'}>
-                                        <i data-lucide="check-check" width="14" height="14"></i>
-                                    </span>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                );
-            };
-
-            return (
-                <div className="flex flex-col h-full wa-bg">
-                    <div className="wa-header p-3 flex items-center shadow-sm z-10">
-                        <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center mr-3 text-white font-bold text-lg">
-                            {room.name ? room.name[0] : 'S'}
-                        </div>
-                        <div className="flex-1">
-                            <div className="font-bold text-sm">{room.name}</div>
-                            <div className="text-xs opacity-80">מחובר כעת</div>
-                        </div>
-                        <button onClick={()=>window.location.reload()}><i data-lucide="refresh-ccw" className="text-white"></i></button>
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto p-4 relative">
-                        {messages.map(renderMessage)}
-                        <div ref={bottomRef}></div>
-                    </div>
-
-                    {/* Attachment Menu */}
-                    {menuOpen && (
-                        <div className="absolute bottom-16 left-4 right-4 bg-white rounded-xl shadow-xl p-4 grid grid-cols-4 gap-4 z-20 pop-up">
-                            <div onClick={()=>setShowCatalog(true)} className="flex flex-col items-center gap-1 hit-area"><div className="p-3 bg-purple-100 rounded-full text-purple-600"><i data-lucide="shopping-bag"></i></div><span className="text-xs font-bold">קטלוג</span></div>
-                            <div onClick={()=>setShowQuickOrder(true)} className="flex flex-col items-center gap-1 hit-area"><div className="p-3 bg-orange-100 rounded-full text-orange-600"><i data-lucide="clipboard-list"></i></div><span className="text-xs font-bold">רשימה</span></div>
-                            <div onClick={()=>fileInput.current.click()} className="flex flex-col items-center gap-1 hit-area"><div className="p-3 bg-pink-100 rounded-full text-pink-600"><i data-lucide="image"></i></div><span className="text-xs font-bold">גלריה</span></div>
-                            <div onClick={handleLocation} className="flex flex-col items-center gap-1 hit-area"><div className="p-3 bg-green-100 rounded-full text-green-600"><i data-lucide="map-pin"></i></div><span className="text-xs font-bold">מיקום</span></div>
-                        </div>
-                    )}
-
-                    {/* Input Bar */}
-                    <div className="bg-[#f0f2f5] p-2 flex items-center gap-2 z-20">
-                        <button onClick={()=>setMenuOpen(!menuOpen)} className={`p-2 rounded-full transition ${menuOpen?'rotate-45 bg-gray-300':''}`}><i data-lucide="plus" className="text-gray-500"></i></button>
-                        <input type="file" ref={fileInput} className="hidden" accept="image/*" onChange={handleFile}/>
-                        
-                        <div className="flex-1 bg-white rounded-2xl px-4 py-2 shadow-sm flex items-center">
-                            <input 
-                                className="w-full bg-transparent text-sm" 
-                                placeholder="הודעה" 
-                                value={input} 
-                                onChange={e=>setInput(e.target.value)}
-                                onKeyDown={e=>e.key==='Enter'&&sendMessage('TEXT')}
-                            />
-                        </div>
-                        
-                        <button onClick={()=>sendMessage('TEXT')} className="p-3 bg-[#008069] text-white rounded-full shadow-md hit-area"><i data-lucide="send" width="18"></i></button>
-                    </div>
-                    
-                    {showCatalog && <CatalogModal onClose={()=>setShowCatalog(false)} onSendOrder={(cart)=>sendMessage('ORDER', cart)} />}
-                    {showQuickOrder && <QuickOrderModal onClose={()=>setShowQuickOrder(false)} onSend={(text)=>sendMessage('QUICK_ORDER', text)} />}
-                </div>
-            );
-        };
-
+        // --- App Main ---
         const App = () => {
             const [user, setUser] = useState(null);
+            const [view, setView] = useState('dashboard'); // dashboard, chat, catalog
             const [profile, setProfile] = useState(null);
-            const [project, setProject] = useState(null);
+            const [room, setRoom] = useState(null);
 
             useEffect(() => {
-                onAuthStateChanged(auth, async (u) => {
-                    if (u) {
-                        if(window.OneSignalDeferred) window.OneSignalDeferred.push(OS => OS.login(u.uid));
+                onAuthStateChanged(auth, async u => {
+                    if(u) {
                         const snap = await getDoc(doc(db, 'customers', u.uid));
-                        if (snap.exists()) {
+                        if(snap.exists()) {
                             const data = snap.data();
                             setProfile(data);
-                            setProject(data.projects?.[0] || { projectId: 'room_'+u.uid, name: 'פרויקט ראשי' });
-                        } else {
-                            const def = { name: u.displayName || 'אורח', projects: [{ projectId: 'room_'+u.uid, name: 'פרויקט ראשי' }] };
-                            await setDoc(doc(db, 'customers', u.uid), def);
-                            setProfile(def);
-                            setProject(def.projects[0]);
+                            setRoom(data.projects?.[0] || { projectId: 'room_'+u.uid, name: 'פרויקט ראשי' });
                         }
                         setUser(u);
-                    } else {
-                        setUser(null);
                     }
                 });
             }, []);
@@ -433,14 +292,20 @@
                 } catch (e) { alert("שגיאה: " + e.message); }
             };
 
-            if (!user) return <LoginScreen onLogin={handleLogin} />;
-            if (!project) return <div className="text-center mt-20">טוען נתונים...</div>;
-
-            return <ChatScreen user={user} profile={profile} room={project} />;
+            if(!user) return <LoginScreen onLogin={handleLogin} />;
+            
+            if(view === 'dashboard') return <Dashboard user={user} profile={profile} onNavigate={setView} />;
+            if(view === 'chat') return <Chat user={user} room={room} onBack={()=>setView('dashboard')} />;
+            if(view === 'catalog') return <Catalog onBack={()=>setView('dashboard')} onSendOrder={(c)=>alert('הזמנה נשלחה!')} />; // Demo connection
+            
+            return <div>טוען...</div>;
         };
 
         const root = createRoot(document.getElementById('root'));
         root.render(<App />);
+        
+        // Icon Init
+        setInterval(() => { if(window.lucide) window.lucide.createIcons(); }, 1000);
     </script>
 </body>
 </html>
