@@ -18,14 +18,14 @@
         
         /* עיצוב יוקרתי בהיר */
         .glass { 
-            background: rgba(255, 255, 255, 0.9); 
+            background: rgba(255, 255, 255, 0.8); 
             backdrop-filter: blur(12px); 
-            border: 1px solid rgba(226, 232, 240, 0.8); 
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.6); 
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
         }
         .glass:hover {
-            background: #ffffff;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
             transform: translateY(-2px);
             transition: all 0.3s ease;
         }
@@ -62,7 +62,6 @@
         const { useState, useEffect, useRef, useMemo } = React;
         const { createRoot } = ReactDOM;
         
-        // --- Firebase ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
         import { getFirestore, collection, doc, onSnapshot, query, orderBy, limit, addDoc, updateDoc, deleteDoc, serverTimestamp, setDoc, writeBatch } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
@@ -80,7 +79,7 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // --- Icons ---
+        // --- Icons (Safe) ---
         const Icon = ({ name, className, size=20 }) => {
             const icons = {
                 LayoutDashboard: <><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></>,
@@ -108,7 +107,9 @@
             return (
                 <div className="flex h-screen items-center justify-center bg-slate-100 fade-in">
                     <div className="glass p-10 rounded-3xl w-full max-w-sm text-center shadow-2xl border border-slate-200">
+                        <div className="w-16 h-16 bg-blue-600 rounded-2xl mx-auto mb-6 flex items-center justify-center shadow-xl text-white font-bold text-2xl">S</div>
                         <h1 className="text-3xl font-bold text-slate-800 mb-2">Saban 360</h1>
+                        <p className="text-slate-500 mb-8">כניסת מנהלים בלבד</p>
                         <form onSubmit={(e) => { e.preventDefault(); onLogin(email, password); }} className="space-y-4 mt-6">
                             <input type="email" placeholder="אימייל" value={email} onChange={e=>setEmail(e.target.value)} className="w-full p-4 rounded-xl input-light" required />
                             <input type="password" placeholder="סיסמה" value={password} onChange={e=>setPassword(e.target.value)} className="w-full p-4 rounded-xl input-light" required />
@@ -119,12 +120,13 @@
             );
         }
 
-        // --- 1. Catalog ---
+        // --- 1. Catalog Panel ---
         function CatalogPanel() {
             const [products, setProducts] = useState([]);
+            const [isModalOpen, setIsModalOpen] = useState(false);
             const [editingProduct, setEditingProduct] = useState(null);
-            const [selected, setSelected] = useState([]);
             const [searchTerm, setSearchTerm] = useState('');
+            const fileInputRef = useRef(null);
 
             useEffect(() => {
                 const unsub = onSnapshot(query(collection(db, "products")), snap => setProducts(snap.docs.map(d => ({id: d.id, ...d.data()}))));
@@ -133,10 +135,14 @@
 
             const handleSave = async (e) => {
                 e.preventDefault();
-                const data = Object.fromEntries(new FormData(e.target));
+                const formData = new FormData(e.target);
+                const data = Object.fromEntries(formData.entries());
                 try {
-                    if (editingProduct.id) await updateDoc(doc(db, "products", editingProduct.id), data);
-                    else await addDoc(collection(db, "products"), { ...data, createdAt: serverTimestamp() });
+                    if (editingProduct.id) {
+                        await updateDoc(doc(db, "products", editingProduct.id), data);
+                    } else {
+                        await addDoc(collection(db, "products"), { ...data, createdAt: serverTimestamp() });
+                    }
                     setEditingProduct(null);
                 } catch (err) { alert(err.message); }
             };
@@ -231,8 +237,7 @@
                         if (!data.uid) return alert("חובה להזין UID");
                         await setDoc(doc(db, col, data.uid), { ...data, projects: [], createdAt: serverTimestamp() });
                     } else if (modalType === 'project') {
-                        // Fix: Ensure projects is an array before spreading
-                        const projects = Array.isArray(editingItem.projects) ? editingItem.projects : [];
+                        const projects = editingItem.projects || [];
                         await updateDoc(doc(db, "customers", editingItem.id), { projects: [...projects, { projectId: data.projectId, name: data.projectName, address: data.address }] });
                     }
                     setEditingItem(null);
@@ -286,8 +291,8 @@
                                                 {tab==='workers' ? 
                                                     <span className="px-2 py-1 bg-slate-100 rounded border">{item.role}</span> : 
                                                     <div className="flex gap-1 flex-wrap">
-                                                        {(Array.isArray(item.projects) ? item.projects : []).map((p,i)=><span key={i} className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">{p.name}</span>)}
-                                                        {(!item.projects || (Array.isArray(item.projects) && item.projects.length === 0)) && <span className="text-slate-300 text-xs">-</span>}
+                                                        {(item.projects || []).map((p,i)=><span key={i} className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">{p.name}</span>)}
+                                                        {(!item.projects || item.projects.length === 0) && <span className="text-slate-300 text-xs">-</span>}
                                                     </div>
                                                 }
                                             </td>
