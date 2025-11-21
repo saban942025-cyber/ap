@@ -15,16 +15,43 @@
     
     <style>
         body { font-family: 'Heebo', sans-serif; background-color: #f8fafc; color: #334155; overflow: hidden; }
-        .glass { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(12px); border: 1px solid rgba(226, 232, 240, 0.8); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
-        .input-light { background: #ffffff; border: 1px solid #e2e8f0; transition: all 0.2s; }
-        .input-light:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
+        
+        /* עיצוב יוקרתי בהיר */
+        .glass { 
+            background: rgba(255, 255, 255, 0.9); 
+            backdrop-filter: blur(12px); 
+            border: 1px solid rgba(226, 232, 240, 0.8); 
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .glass:hover {
+            background: #ffffff;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            transform: translateY(-2px);
+            transition: all 0.3s ease;
+        }
+        
+        .input-light { 
+            background: #ffffff; 
+            border: 1px solid #e2e8f0; 
+            color: #1e293b; 
+            transition: all 0.2s;
+        }
+        .input-light:focus { 
+            outline: none; 
+            border-color: #3b82f6; 
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); 
+        }
+        
         .fade-in { animation: fadeIn 0.4s ease-out forwards; }
         .slide-in { animation: slideIn 0.3s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes slideIn { from { transform: translateX(-20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        
+        /* Checkbox Style */
         input[type="checkbox"] { accent-color: #2563eb; width: 16px; height: 16px; cursor: pointer; }
     </style>
 </head>
@@ -52,7 +79,7 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        // --- Icons ---
+        // --- Icons (Safe) ---
         const Icon = ({ name, className, size=20 }) => {
             const icons = {
                 LayoutDashboard: <><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></>,
@@ -113,20 +140,47 @@
                 try {
                     if (editingProduct.id) {
                         await updateDoc(doc(db, "products", editingProduct.id), data);
+                        logAction("עדכון מוצר", `עודכן: ${data.name}`);
                     } else {
                         await addDoc(collection(db, "products"), { ...data, createdAt: serverTimestamp() });
+                        logAction("יצירת מוצר", `נוצר: ${data.name}`);
                     }
                     setEditingProduct(null);
                 } catch (err) { alert(err.message); }
             };
 
-            const deleteSelected = async () => {
-                if(confirm(`למחוק ${selected.length} מוצרים?`)) {
-                    const batch = writeBatch(db);
-                    selected.forEach(id => batch.delete(doc(db, "products", id)));
-                    await batch.commit();
-                    setSelected([]);
+            const handleDelete = async (id, name) => {
+                if (confirm("למחוק את המוצר?")) {
+                    await deleteDoc(doc(db, "products", id));
+                    logAction("מחיקת מוצר", `נמחק מוצר: ${name}`);
                 }
+            };
+
+            const handleFileUpload = (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    try {
+                        const json = JSON.parse(e.target.result);
+                        if (!Array.isArray(json)) throw new Error("הקובץ חייב להכיל מערך של מוצרים");
+                        
+                        if (confirm(`האם לייבא ${json.length} מוצרים?`)) {
+                            const batch = writeBatch(db);
+                            json.forEach(item => {
+                                const ref = doc(collection(db, "products"));
+                                batch.set(ref, { ...item, createdAt: serverTimestamp() });
+                            });
+                            await batch.commit();
+                            logAction("ייבוא קובץ", `יובאו ${json.length} מוצרים מקובץ`);
+                            alert("הייבוא הושלם בהצלחה!");
+                        }
+                    } catch (err) {
+                        alert("שגיאה בקריאת הקובץ: " + err.message);
+                    }
+                };
+                reader.readAsText(file);
             };
 
             const filtered = products.filter(p => p.name.includes(searchTerm));
@@ -137,15 +191,15 @@
                         <div className="flex justify-between items-center mb-4">
                             <h2 className="text-2xl font-bold">קטלוג</h2>
                             <div className="flex gap-2">
+                                <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept=".json" />
+                                <button onClick={() => fileInputRef.current.click()} className="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg flex items-center gap-2"><Icon name="Upload"/> ייבוא</button>
                                 <input className="p-2 rounded border input-light" placeholder="חיפוש..." value={searchTerm} onChange={e=>setSearchTerm(e.target.value)}/>
-                                {selected.length > 0 && <button onClick={deleteSelected} className="bg-red-600 text-white px-4 py-2 rounded-lg font-bold">מחק ({selected.length})</button>}
-                                <button onClick={()=>setEditingProduct({})} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2"><Icon name="Plus"/> חדש</button>
+                                <button onClick={() => setEditingProduct({})} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2"><Icon name="Plus"/> חדש</button>
                             </div>
                         </div>
                         <div className="flex-1 overflow-y-auto grid grid-cols-1 md:grid-cols-3 gap-4 content-start">
                             {filtered.map(p => (
                                 <div key={p.id} onClick={()=>setEditingProduct(p)} className={`glass p-4 rounded-xl cursor-pointer hover:border-blue-400 transition relative group ${editingProduct?.id === p.id ? 'border-blue-500 ring-2 ring-blue-100' : ''}`}>
-                                    <input type="checkbox" className="absolute top-3 right-3 z-10" checked={selected.includes(p.id)} onClick={e=>e.stopPropagation()} onChange={()=>setSelected(prev => prev.includes(p.id) ? prev.filter(x => x !== p.id) : [...prev, p.id])} />
                                     <div className="flex gap-3">
                                         <img src={p.image || 'https://via.placeholder.com/100'} className="w-16 h-16 rounded-lg object-cover bg-slate-100" />
                                         <div>
@@ -172,7 +226,12 @@
                                     <div><label className="text-xs text-slate-500 font-bold">מחיר</label><input name="price" defaultValue={editingProduct.price} className="input-light w-full p-3 rounded-lg" /></div>
                                 </div>
                                 <div><label className="text-xs text-slate-500 font-bold">תמונה</label><input name="image" defaultValue={editingProduct.image} className="input-light w-full p-3 rounded-lg" /></div>
-                                <button className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold shadow hover:bg-blue-700">שמור</button>
+                                <div><label className="text-xs text-slate-500 font-bold">תיאור</label><textarea name="description" defaultValue={editingProduct.description} rows="4" className="input-light w-full p-3 rounded-lg"></textarea></div>
+                                
+                                <div className="pt-4 flex gap-2">
+                                    <button type="submit" className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-bold shadow hover:bg-blue-700">שמור</button>
+                                    {editingProduct.id && <button type="button" onClick={()=>handleDelete(editingProduct.id, editingProduct.name)} className="bg-red-50 text-red-600 px-4 rounded-lg hover:bg-red-100"><Icon name="Trash2"/></button>}
+                                </div>
                             </form>
                         </div>
                     )}
@@ -205,17 +264,23 @@
                     if (modalType === 'edit') {
                          const col = tab === 'customers' ? 'customers' : 'users';
                          await updateDoc(doc(db, col, editingItem.id), data);
+                         logAction("עריכה", `${data.name} (${col})`);
                     } else if (modalType === 'user' || modalType === 'customer') {
                         const col = modalType === 'user' ? 'users' : 'customers';
                         if (!data.uid) return alert("חובה להזין UID");
                         await setDoc(doc(db, col, data.uid), { ...data, projects: [], createdAt: serverTimestamp() });
+                        logAction("יצירה", `${data.name} (${col})`);
                     } else if (modalType === 'project') {
                         const projects = editingItem.projects || [];
-                        await updateDoc(doc(db, "customers", editingItem.id), { projects: [...projects, { projectId: data.projectId, name: data.projectName, address: data.address }] });
+                        const newProj = { projectId: data.projectId, name: data.projectName, address: data.address };
+                        await updateDoc(doc(db, "customers", editingItem.id), { projects: [...projects, newProj] });
+                        logAction("פרויקט", `נוסף ל-${editingItem.name}`);
                     }
                     setEditingItem(null);
                 } catch (err) { alert(err.message); }
             };
+
+            const toggleSelect = (id) => setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
             const deleteSelected = async () => {
                 if(confirm(`למחוק ${selected.length} פריטים?`)) {
@@ -224,13 +289,16 @@
                     selected.forEach(id => batch.delete(doc(db, col, id)));
                     await batch.commit();
                     setSelected([]);
+                    logAction("מחיקה מרובה", `${selected.length} פריטים מ-${col}`);
                 }
             };
             
-            const handleDelete = async (id) => {
-                if(confirm("למחוק לצמיתות?")) {
+            const handleDelete = async (id, name) => {
+                if(confirm(`למחוק את ${name}?`)) {
                      const col = tab === 'customers' ? 'customers' : 'users';
                      await deleteDoc(doc(db, col, id));
+                     logAction("מחיקה", `${name} (${col})`);
+                     if (editingItem?.id === id) setEditingItem(null);
                 }
             };
 
@@ -264,7 +332,7 @@
                                 <tbody className="divide-y">
                                     {list.map(item => (
                                         <tr key={item.id} onClick={()=>{setEditingItem(item); setModalType('edit');}} className={`cursor-pointer hover:bg-blue-50 ${editingItem?.id === item.id ? 'bg-blue-50' : ''}`}>
-                                            <td className="p-4" onClick={e=>e.stopPropagation()}><input type="checkbox" checked={selected.includes(item.id)} onChange={()=>setSelected(prev => prev.includes(item.id) ? prev.filter(x => x !== item.id) : [...prev, item.id])}/></td>
+                                            <td className="p-4" onClick={e=>e.stopPropagation()}><input type="checkbox" checked={selected.includes(item.id)} onChange={()=>toggleSelect(item.id)}/></td>
                                             <td className="p-4 font-bold">{item.name}</td>
                                             <td className="p-4 text-slate-500">{item.email}<br/><span className="text-xs bg-slate-100 px-1 rounded">{item.id.substring(0,6)}...</span></td>
                                             <td className="p-4">
@@ -321,7 +389,7 @@
                                     {modalType === 'edit' && tab === 'customers' && (
                                         <button type="button" onClick={()=>setModalType('project')} className="w-full bg-white border border-blue-200 text-blue-600 py-3 rounded-lg font-bold hover:bg-blue-50 flex items-center justify-center gap-2"><Icon name="Briefcase"/> הוסף פרויקט</button>
                                     )}
-                                    {modalType === 'edit' && <button type="button" onClick={()=>handleDelete(editingItem.id)} className="w-full bg-red-50 text-red-600 py-3 rounded-lg font-bold hover:bg-red-100 flex items-center justify-center gap-2"><Icon name="Trash2"/> מחיקה</button>}
+                                    {modalType === 'edit' && <button type="button" onClick={()=>handleDelete(editingItem.id, editingItem.name)} className="w-full bg-red-50 text-red-600 py-3 rounded-lg font-bold hover:bg-red-100 flex items-center justify-center gap-2"><Icon name="Trash2"/> מחיקה</button>}
 
                                     {modalType === 'project' && (
                                         <>
@@ -356,6 +424,7 @@
                     selected.forEach(id => batch.delete(doc(db, "orders", id)));
                     await batch.commit();
                     setSelected([]);
+                    logAction("מחיקת הזמנות", `${selected.length} הזמנות`);
                 }
             };
 
