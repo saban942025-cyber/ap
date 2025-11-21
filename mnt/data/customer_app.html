@@ -20,7 +20,6 @@
     <style>
         body { font-family: system-ui, -apple-system, sans-serif; background-color: #f0f2f5; overscroll-behavior: none; }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
-        .glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
         
         /* אנימציות */
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -132,14 +131,29 @@
                             <input type="email" placeholder="אימייל" value={email} onChange={e=>setEmail(e.target.value)} className="w-full p-3 border rounded-xl" required />
                             <input type="password" placeholder="סיסמה" value={password} onChange={e=>setPassword(e.target.value)} className="w-full p-3 border rounded-xl" required />
                             {error && <p className="text-red-500 text-sm">{error}</p>}
-                            <button disabled={loading} className="w-full p-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700">{loading ? "מתחבר..." : "כניסה"}</button>
+                            <button disabled={loading} className="w-full p-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700">{loading ? "מתחבר..." : "כניסה למערכת"}</button>
                         </form>
                     </div>
                 </div>
             );
         }
 
-        // --- Chat Room ---
+        // --- Components Defined Before Usage ---
+
+        function ChatList({ profile, onSelect }) {
+            const projects = (profile && Array.isArray(profile.projects)) ? profile.projects : [];
+            if (projects.length === 0) return <div className="text-center p-10 text-gray-500">אין פרויקטים משויכים.</div>;
+            return <div className="space-y-1">{projects.map(p => (
+                <div key={p.projectId} onClick={() => onSelect(p)} className="flex items-center p-3 bg-white cursor-pointer hover:bg-gray-50">
+                    <img src={p.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(p.name)}`} className="w-12 h-12 rounded-full object-cover ml-3" />
+                    <div className="flex-1 border-b border-gray-100 pb-3">
+                        <div className="flex justify-between"><h3 className="font-bold text-gray-900">{p.name}</h3><span className="text-xs text-gray-400">12:00</span></div>
+                        <p className="text-sm text-gray-500 truncate">{p.address}</p>
+                    </div>
+                </div>
+            ))}</div>;
+        }
+
         function ChatRoom({ project, user, onBack, showToast, initialMessage }) {
             const [messages, setMessages] = useState([]);
             const [text, setText] = useState(initialMessage || '');
@@ -169,7 +183,6 @@
                         body: JSON.stringify({ fileData: base64, fileName: file.name, mimeType: file.type, customerId: user.uid })
                     }).catch(console.error);
                     
-                    // אופטימיסטי:
                     const type = file.type.startsWith('image/') ? 'IMAGE' : 'FILE';
                     await sendMessage(type, { url: reader.result, name: file.name });
                     showToast("נשלח!");
@@ -237,7 +250,7 @@
                             </div>
                         )}
                         <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" />
-                        <button onClick={() => setShowMenu(!showMenu)} className="p-2 text-gray-500"><Icon name={showMenu ? "X" : "Plus"} /></button>
+                        <button onClick={() => setShowMenu(!showMenu)} className="p-2 text-gray-500"><Icon name="Plus" /></button>
                         <div className="flex-1 bg-white rounded-full flex items-center px-4 shadow-sm">
                             <input className="flex-1 py-3 bg-transparent border-none focus:ring-0 outline-none text-sm" placeholder="הודעה" value={text} onChange={e=>setText(e.target.value)} />
                         </div>
@@ -247,7 +260,6 @@
             );
         }
 
-        // --- Cart Page (New) ---
         function CartPage({ cart, onUpdateQty, onRemove, onSendOrder, onBack }) {
             const totalItems = cart.reduce((acc, item) => acc + item.qty, 0);
             const totalPrice = cart.reduce((acc, item) => acc + (parseFloat(item.price.replace('₪', '')) * item.qty), 0);
@@ -296,7 +308,6 @@
             );
         }
 
-        // --- Product Page (Details) ---
         function ProductPage({ product, onBack, onAddToCart, onAsk }) {
             const [qty, setQty] = useState(1);
             
@@ -340,7 +351,6 @@
             );
         }
 
-        // --- Main Catalog (Live) ---
         function CatalogPage({ showToast, onOpenProduct, cartCount, onOpenCart }) {
             const [term, setTerm] = useState('');
             const [products, setProducts] = useState([]);
@@ -375,11 +385,12 @@
             );
         }
 
-        // --- App Orchestrator ---
+        // --- Main App ---
         function App() {
             const [user, setUser] = useState(null);
             const [profile, setProfile] = useState(null);
-            const [page, setPage] = useState('chats');
+            const [loading, setLoading] = useState(true);
+            const [page, setPage] = useState('chats'); 
             const [activeProject, setActiveProject] = useState(null);
             const [selectedProduct, setSelectedProduct] = useState(null);
             const [cart, setCart] = useState([]);
@@ -394,6 +405,7 @@
                     const snap = await getDoc(doc(db, 'customers', u.uid));
                     if (snap.exists()) { setUser(u); setProfile({uid: u.uid, ...snap.data()}); } else signOut(auth);
                 } else { setUser(null); setProfile(null); }
+                setLoading(false);
             }), []);
 
             // Cart Logic
@@ -404,7 +416,7 @@
                     return [...prev, { ...product, qty }];
                 });
                 showToastMsg("נוסף לעגלה!");
-                setSelectedProduct(null); // Close product page
+                setSelectedProduct(null);
             };
 
             const updateCartQty = (id, delta) => {
@@ -414,8 +426,6 @@
             const sendOrder = async () => {
                 if (cart.length === 0) return;
                 if (!profile.projects || profile.projects.length === 0) { alert("אין פרויקט לשיוך ההזמנה"); return; }
-                
-                // אם אין פרויקט פעיל, נבחר את הראשון כברירת מחדל או נבקש (כאן נבחר ראשון לפשטות)
                 const targetProject = activeProject || profile.projects[0];
                 
                 const orderMsg = {
@@ -427,37 +437,34 @@
                 await addDoc(collection(db, 'messages'), orderMsg);
                 setCart([]);
                 setShowCart(false);
-                setActiveProject(targetProject); // Move to chat to see order
+                setActiveProject(targetProject);
                 showToastMsg("הזמנה נשלחה בהצלחה!");
             };
             
             const askAboutProduct = (product) => {
                 setSelectedProduct(null);
                 if (!profile.projects || profile.projects.length === 0) return;
-                setActiveProject(profile.projects[0]); // Go to first project chat
+                setActiveProject(profile.projects[0]);
                 setChatDraft(`היי, אשמח לפרטים נוספים על ${product.name} (${product.sku})`);
             };
 
+            if (loading) return <div className="flex h-screen items-center justify-center text-blue-600 font-bold">טוען...</div>;
             if (!user) return <AuthScreen />;
 
             return (
                 <div className="flex flex-col h-screen bg-gray-100 max-w-md mx-auto shadow-2xl overflow-hidden border-x border-gray-200 relative">
                     <Toast message={toast.message} visible={toast.visible} onHide={() => setToast({ ...toast, visible: false })} />
                     
-                    {/* Main Views */}
                     {activeProject ? (
                         <ChatRoom project={activeProject} user={user} onBack={() => setActiveProject(null)} showToast={showToastMsg} initialMessage={chatDraft} />
                     ) : (
                         <div className="flex-1 overflow-y-auto pb-20 scrollbar-hide">
                             {page === 'chats' && <div className="px-4 pt-6"><h2 className="text-2xl font-bold mb-4">פרויקטים</h2><ChatList profile={profile} onSelect={setActiveProject} /></div>}
-                            
                             {page === 'catalog' && <CatalogPage showToast={showToastMsg} onOpenProduct={setSelectedProduct} cartCount={cart.reduce((a,b)=>a+b.qty,0)} onOpenCart={()=>setShowCart(true)} />}
-                            
                             {page === 'profile' && <div className="p-6 text-center"><h2 className="font-bold text-xl">{profile.name}</h2><button onClick={()=>signOut(auth)} className="text-red-500 mt-4">התנתק</button></div>}
                         </div>
                     )}
 
-                    {/* Nav Bar */}
                     {!activeProject && (
                         <nav className="fixed bottom-0 left-0 right-0 bg-white border-t flex justify-around p-2 pb-5 text-gray-400 z-20 max-w-md mx-auto">
                             <button onClick={()=>setPage('chats')} className={page==='chats'?'text-blue-600':''}><Icon name="MessageSquare" className="mb-1 mx-auto"/><span className="text-[10px]">שיחות</span></button>
@@ -466,7 +473,6 @@
                         </nav>
                     )}
 
-                    {/* Overlays */}
                     {selectedProduct && <ProductPage product={selectedProduct} onBack={()=>setSelectedProduct(null)} onAddToCart={addToCart} onAsk={()=>askAboutProduct(selectedProduct)} />}
                     {showCart && <CartPage cart={cart} onUpdateQty={updateCartQty} onRemove={(id)=>updateCartQty(id, -100)} onSendOrder={sendOrder} onBack={()=>setShowCart(false)} />}
                 </div>
