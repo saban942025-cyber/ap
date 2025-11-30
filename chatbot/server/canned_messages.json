@@ -1,0 +1,68 @@
+[
+  {
+    "id": "msg_000",
+    "category": "general",
+    "body": "היי {{customer_name}}, רן כאן מצוות השירות. איך אני יכול לעזור לך היום?",
+    "suggestions": ["מצב הזמנה", "הזמנת מכולה", "שאלה טכנית"]
+  },
+  {
+    "id": "msg_001",
+    "category": "order_status",
+    "body": "אני בודק את סטטוס ההזמנה {{order_id}}... רק רגע.",
+    "suggestions": []
+  },
+  {
+    "id": "msg_002",
+    "category": "container",
+    "body": "לגבי מכולה - אתה צריך הצבה חדשה, החלפה או פינוי? (אנחנו עובדים חזק בקו נתניה-רחובות 🚛)",
+    "suggestions": ["הצבה חדשה", "פינוי מלאה", "החלפה"]
+  },
+  {
+    "id": "msg_003",
+    "category": "transport",
+    "body": "בטח. לאיזה כתובת? וחשוב לי לדעת - יש גישה למנוף 12 מטר או שצריך משאית קטנה?",
+    "suggestions": ["גישה רגילה", "רחוב צר", "צריך מנוף"]
+  },
+  {
+    "id": "msg_004",
+    "category": "concrete",
+    "body": "בטון זה אנחנו. כמה קוב אתה צריך? והאם דרושה משאבה?",
+    "suggestions": []
+  },
+  {
+    "id": "msg_005",
+    "category": "product_info",
+    "body": "מעולה. הנה המידע הטכני שמצאתי: {{product_link}}. שים לב לזמן הייבוש לפני שאתה ממשיך לשכבה הבאה.",
+    "suggestions": ["הוסף להזמנה", "תודה"]
+  },
+  {
+    "id": "msg_006",
+    "category": "handoff",
+    "body": "אין בעיה {{customer_name}}, אני מעביר את כל הפרטים לנציג אנושי שייכנס לשיחה מיד. סיכמתי לו שאתה צריך {{last_intent}}.",
+    "suggestions": []
+  },
+  {
+    "id": "msg_007",
+    "category": "container_size",
+    "body": "יש לנו מכולות 8 קוב סטנדרטיות. זה מתאים לפינוי שיפוץ דירה ממוצעת. לשריין לך אחת למחר בבוקר?",
+    "suggestions": ["כן, למחר", "לא, לעוד יומיים"]
+  },
+  {
+    "id": "msg_008",
+    "category": "branch_routing",
+    "body": "החומרים האלו זמינים במלאי בסניף {{branch}}. אני יכול להוציא לך משם משלוח דחוף.",
+    "suggestions": ["מאשר", "אני אבוא לאסוף"]
+  },
+  {
+    "id": "msg_009",
+    "category": "payment",
+    "body": "אפשר לשלם באשראי, מזומן לנהג או העברה. רוצה קישור לתשלום מאובטח?",
+    "suggestions": ["שלח קישור", "מזומן לנהג"]
+  },
+  {
+    "id": "msg_010",
+    "category": "add_to_order",
+    "body": "הוספתי את הפריטים להזמנה הקיימת. הנהג יקבל עדכון. יצא לך סה\"כ תוספת של {{amount}} ש\"ח.",
+    "suggestions": ["מעולה", "רגע, מה המחיר ליחידה?"]
+  }
+]
