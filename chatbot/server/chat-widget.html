@@ -1,0 +1,107 @@
+<div id="bot-interface" class="flex flex-col h-full">
+    <div id="bot-messages" class="flex-1 overflow-y-auto p-4 space-y-3"></div>
+    
+    <!-- Suggestions -->
+    <div id="bot-suggestions" class="flex gap-2 px-4 overflow-x-auto pb-2 hidden"></div>
+
+    <div class="p-3 bg-white border-t flex gap-2">
+        <input id="bot-input" type="text" class="flex-1 border rounded-full px-4 py-2 outline-none" placeholder="כתוב הודעה...">
+        <button onclick="chatBot.send()" class="bg-[#008069] text-white w-10 h-10 rounded-full"><i class="fas fa-paper-plane"></i></button>
+    </div>
+</div>
+
+<script>
+    const API_URL = 'http://localhost:3000/api/message'; // Change to your real server URL
+    let idleTimer = null;
+    let chatHistory = [];
+    
+    // User Context (Simulated from Login)
+    const userCtx = { 
+        name: "יוסי כהן", 
+        uid: "u_12345", 
+        branch: "תלמיד 6",
+        orderId: "ORD-9988"
+    };
+
+    const chatBot = {
+        init: () => {
+            chatBot.addMsg('agent', "היי יוסי, רן כאן מצוות השירות. איך אוכל לעזור?");
+            chatBot.resetTimer();
+        },
+
+        resetTimer: () => {
+            clearTimeout(idleTimer);
+            // 15 Seconds Rule
+            idleTimer = setTimeout(() => {
+                chatBot.triggerNudge();
+            }, 15000);
+        },
+
+        triggerNudge: () => {
+            // If user is silent, bot speaks
+            chatBot.addMsg('agent', "אני עדיין כאן 😊. אם אתה צריך עזרה עם מכולה או הובלה, רק תגיד.");
+        },
+
+        addMsg: (from, text) => {
+            const div = document.getElementById('bot-messages');
+            const isMe = from === 'me';
+            div.innerHTML += `
+                <div class="flex w-full ${isMe ? 'justify-start' : 'justify-end'}">
+                    <div class="max-w-[85%] p-3 rounded-xl text-sm ${isMe ? 'bg-white border' : 'bg-[#d9fdd3]'}">
+                        ${text}
+                    </div>
+                </div>`;
+            div.scrollTop = div.scrollHeight;
+            
+            chatHistory.push({ role: from, text: text });
+        },
+
+        send: async () => {
+            const input = document.getElementById('bot-input');
+            const text = input.value;
+            if (!text) return;
+
+            chatBot.addMsg('me', text);
+            input.value = '';
+            chatBot.resetTimer(); // User acted, reset timer
+
+            // Show typing...
+            const typingId = 'typing_' + Date.now();
+            document.getElementById('bot-messages').innerHTML += `<div id="${typingId}" class="text-xs text-gray-400 text-right pr-4">מקליד...</div>`;
+
+            try {
+                const res = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text, userContext: userCtx })
+                });
+                const data = await res.json();
+                
+                document.getElementById(typingId).remove();
+                chatBot.addMsg('agent', data.reply_text);
+                
+                // Show suggestions if any
+                if(data.suggestions && data.suggestions.length > 0) {
+                    chatBot.showSuggestions(data.suggestions);
+                } else {
+                    document.getElementById('bot-suggestions').classList.add('hidden');
+                }
+
+            } catch (e) {
+                console.error(e);
+                document.getElementById(typingId).remove();
+            }
+        },
+        
+        showSuggestions: (list) => {
+            const container = document.getElementById('bot-suggestions');
+            container.innerHTML = list.map(s => 
+                `<button onclick="document.getElementById('bot-input').value='${s}'; chatBot.send()" class="whitespace-nowrap bg-gray-100 border border-gray-300 px-3 py-1 rounded-full text-xs text-gray-600 hover:bg-[#008069] hover:text-white transition">${s}</button>`
+            ).join('');
+            container.classList.remove('hidden');
+        }
+    };
+
+    // Start
+    chatBot.init();
+</script>
