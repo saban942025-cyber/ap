@@ -1,0 +1,28 @@
+{
+  "name": "ח.סבן - ניהול הזמנות",
+  "short_name": "ח.סבן",
+  "start_url": "./dev-app.html",
+  "id": "/dev-app.html",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "minimal-ui"],
+  "background_color": "#e0e5ec",
+  "theme_color": "#008069",
+  "description": "מערכת לוגיסטיקה וניהול הזמנות מתקדמת",
+  "orientation": "portrait-primary",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "./icon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
