@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>ח.סבן - מערכת מומחה</title>
+    <link rel="manifest" href="manifest.json">
+    <!-- תיקון קישור לאייקון -->
+    <link rel="icon" type="image/png" href="./icon.png.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        window.deferredInstallPrompt = null;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            window.deferredInstallPrompt = e;
+            requestAnimationFrame(() => {
+                const headerBtn = document.getElementById('headerInstallBtn');
+                if(headerBtn) headerBtn.classList.remove('hidden');
+                const loginBtn = document.getElementById('loginInstallBtnContainer');
+                if(loginBtn) loginBtn.classList.remove('hidden');
+            });
+        });
+
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./service-worker.js')
+                .catch(err => console.log('SW Register Error:', err));
+            });
+        }
+    </script>
+
+    <!-- OneSignal SDK -->
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <script>
+      window.OneSignalDeferred = window.OneSignalDeferred || [];
+      OneSignalDeferred.push(async function(OneSignal) {
+        try {
+            await OneSignal.init({
+              appId: "de3834d3-1e11-40af-96d2-b25eda821c8f",
+              safari_web_id: "web.onesignal.auto.simulated",
+              notifyButton: { enable: false },
+              allowLocalhostAsSecureOrigin: true
+            });
+        } catch(e) {}
+      });
+    </script>
+
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #e0e5ec; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+        .chat-bg { background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); opacity: 0.9; }
+        
+        .msg { max-width: 80%; padding: 8px 12px; border-radius: 8px; margin-bottom: 8px; position: relative; font-size: 14.2px; box-shadow: 0 1px 0.5px rgba(0,0,0,0.13); cursor: pointer; transition: background-color 0.5s; }
+        .msg.sent { background-color: #d9fdd3; align-self: flex-start; border-top-right-radius: 0; margin-right: auto; margin-left: 0; }
+        .msg.received { background-color: #ffffff; align-self: flex-end; border-top-left-radius: 0; margin-left: auto; margin-right: 0; }
+        .msg.system { align-self: center; background-color: #e1f5fe; border: 1px solid #b3e5fc; color: #0277bd; font-size: 12px; text-align: center; border-radius: 12px; padding: 6px 12px; max-width: 90%; margin: 10px auto; box-shadow: none; }
+        .msg.bot { align-self: flex-end; background-color: #f0f4f8; border-left: 4px solid #008069; }
+        .msg.admin-note { align-self: center; background-color: #fff3cd; border: 1px dashed #ffc107; color: #856404; font-size: 13px; border-radius: 8px; padding: 10px; max-width: 95%; margin: 10px auto; text-align: right; }
+
+        /* Waze Card */
+        .waze-card { display: flex; align-items: center; gap: 10px; background: #f0fdf4; border: 1px solid #bbf7d0; padding: 8px; border-radius: 8px; margin-top: 4px; text-decoration: none; color: #166534; font-weight: bold; font-size: 13px; }
+        .waze-card:hover { background: #dcfce7; }
+        .waze-icon { font-size: 24px; color: #3b82f6; }
+
+        /* Order Card */
+        .order-card { background: #fff; border-radius: 8px; overflow: hidden; border: 1px solid #ddd; min-width: 250px; margin-top: 5px; }
+        .order-header { background: #008069; color: white; padding: 8px; font-weight: bold; font-size: 13px; display: flex; justify-content: space-between; }
+        .order-sub-header { background: #e0f2f1; color: #00695c; padding: 5px 10px; font-size: 12px; font-weight: bold; border-bottom: 1px solid #b2dfdb; display: none; }
+        .order-sub-header.visible { display: block; }
+        .order-body { padding: 10px; font-size: 14px; white-space: pre-wrap; }
+        .order-footer { background: #f9fafb; padding: 8px; border-top: 1px solid #eee; }
+        
+        .status-bar { display: flex; justify-content: space-between; margin-top: 5px; position: relative; padding: 0 5px; }
+        .status-step { width: 20px; height: 20px; border-radius: 50%; background: #ddd; z-index: 2; position: relative; display: flex; align-items: center; justify-content: center; font-size: 10px; color: white; transition: 0.3s; cursor: pointer; }
+        .status-step.active { background: #008069; transform: scale(1.1); }
+        .status-line { position: absolute; top: 10px; left: 0; right: 0; height: 2px; background: #ddd; z-index: 1; }
+        .status-line-fill { position: absolute; top: 10px; right: 0; height: 2px; background: #008069; z-index: 1; transition: width 0.3s; }
+        .status-labels { display: flex; justify-content: space-between; font-size: 10px; color: #666; margin-top: 4px; }
+
+        .bot-options { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
+        .bot-chip { font-size: 12px; background: white; border: 1px solid #008069; color: #008069; padding: 4px 10px; border-radius: 15px; cursor: pointer; transition: 0.2s; }
+        .bot-chip:hover { background: #008069; color: white; }
+
+        @keyframes flash-message { 0% { background-color: #fde047; transform: scale(1.02); } 100% { background-color: #ffffff; transform: scale(1); } }
+        .msg-new-flash { animation: flash-message 2s ease-out; }
+        @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+        .recording-pulse { animation: pulse-red 1.5s infinite; background-color: #ef4444 !important; color: white !important; }
+        @keyframes pulse-gold { 0% { box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(250, 204, 21, 0); } 100% { box-shadow: 0 0 0 0 rgba(250, 204, 21, 0); } }
+        .btn-install-header { animation: pulse-gold 2s infinite; background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%); color: white; border: 1px solid #d97706; }
+
+        .dept-card { transition: transform 0.2s; position: relative; } 
+        .dept-card:hover { transform: translateY(-2px); }
+        .dept-actions { position: absolute; top: 5px; left: 5px; display: none; gap: 5px; }
+        .dept-card:hover .dept-actions { display: flex; }
+
+        .client-item { transition: 0.2s; border-right: 4px solid transparent; }
+        .client-item:hover, .client-item.active { background-color: #f0f2f5; border-right: 4px solid #008069; }
+        .client-actions { display: none; }
+        .client-item:hover .client-actions { display: block; }
+
+        .tab-btn.active { border-bottom: 2px solid #008069; color: #008069; font-weight: bold; }
+        .admin-table th { @apply bg-gray-100 text-gray-600 font-bold p-2 text-xs border-b text-right; }
+        .admin-table td { @apply p-2 border-b text-sm text-gray-700; }
+        .admin-table tr:hover { @apply bg-gray-50; }
+
+        #uploadTarget { width: 0; height: 0; border: 0; position: absolute; visibility: hidden; }
+        .hidden { display: none !important; }
+        @media (max-width: 768px) { .sidebar { position: absolute; width: 100%; height: 100%; z-index: 20; transform: translateX(0); transition: transform 0.3s; background: white; } .sidebar.closed { transform: translateX(100%); } }
+    </style>
+</head>
+<body>
+
+    <audio id="notifSound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
+
+    <!-- Login Screen -->
+    <div id="loginScreen" class="fixed inset-0 z-50 bg-[#e0e5ec] flex flex-col items-center justify-center p-4">
+        <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md text-center animate-fade-in">
+            <!-- Logo Updated -->
+            <div class="w-24 h-24 bg-[#008069] rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg overflow-hidden">
+                <img src="./icon.png.png" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/40?text=Saban'">
+            </div>
+            <h1 class="text-2xl font-bold text-gray-800 mb-2">ח.סבן</h1>
+            <p class="text-gray-500 mb-8">מערכת הזמנות חכמה</p>
+            
+            <!-- Dynamic Install Button -->
+            <div id="loginInstallBtnContainer" class="hidden mb-6">
+                <button onclick="window.app.installPWA()" class="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 rounded-xl shadow-lg btn-install-header flex items-center justify-center gap-2">
+                    <i class="fas fa-download"></i> התקן אפליקציה למכשיר
+                </button>
+                <p class="text-xs text-gray-400 mt-2">מומלץ להתקין לחוויה מלאה</p>
+            </div>
+
+            <div class="flex gap-2 mb-4 border-b">
+                <button onclick="window.app.toggleLoginTab('client')" id="tabClient" class="flex-1 pb-2 border-b-2 border-[#008069] font-bold text-[#008069]">לקוח</button>
+                <button onclick="window.app.toggleLoginTab('staff')" id="tabStaff" class="flex-1 pb-2 text-gray-400">עובד</button>
+            </div>
+
+            <form id="formClient" onsubmit="event.preventDefault(); window.app.login('customer');" class="space-y-4">
+                <input type="text" id="loginName" class="w-full p-3 border rounded-lg bg-gray-50 focus:border-[#008069] outline-none" placeholder="שם מלא" required>
+                <input type="tel" id="loginPhone" class="w-full p-3 border rounded-lg bg-gray-50 focus:border-[#008069] outline-none" placeholder="מספר טלפון" required>
+                <button type="submit" class="w-full bg-[#008069] hover:bg-[#006d59] text-white font-bold py-3 rounded-xl transition">כניסה למערכת</button>
+            </form>
+            <form id="formStaff" onsubmit="event.preventDefault(); window.app.login('staff');" class="space-y-4 hidden">
+                <input type="password" id="loginCode" class="w-full p-3 border rounded-lg bg-gray-50 focus:border-blue-600 outline-none" placeholder="קוד גישה" required>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition">כניסה לצוות</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="app" class="flex flex-col h-full relative hidden">
+        <header class="bg-[#008069] text-white p-3 shadow-md flex items-center justify-between z-30">
+            <div class="flex items-center gap-3">
+                <button id="backBtn" class="md:hidden hidden" onclick="window.app.showSidebar()"><i class="fas fa-arrow-right"></i></button>
+                <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center overflow-hidden">
+                    <img src="./icon.png.png" class="w-full h-full object-cover" onerror="this.src='https://via.placeholder.com/40'">
+                </div>
+                <div>
+                    <h1 class="font-bold" id="headerTitle">ח.סבן</h1>
+                    <div id="statusLine" class="text-xs text-green-100 flex items-center gap-1">
+                        <span class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span> מחובר
+                    </div>
+                </div>
+            </div>
+            <div class="flex gap-2 items-center">
+                <!-- Header Install Button -->
+                <button id="headerInstallBtn" onclick="window.app.installPWA()" class="hidden btn-install-header text-xs font-bold px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1 transition-transform hover:scale-105">
+                    <i class="fas fa-download"></i> התקן
+                </button>
+                <button id="adminBtn" onclick="window.app.openAdminModal()" class="hidden p-2 hover:bg-white/10 rounded-full text-yellow-300 transition"><i class="fas fa-cog text-xl"></i></button>
+                <button onclick="window.app.refresh()" class="p-2 hover:bg-white/10 rounded-full"><i class="fas fa-sync-alt"></i></button>
+                <button onclick="window.app.logout()" class="p-2 hover:bg-red-500/50 rounded-full text-red-200"><i class="fas fa-power-off"></i></button>
+            </div>
+        </header>
+
+        <!-- Body -->
+        <div class="flex-1 flex overflow-hidden relative">
+            <aside id="sidebar" class="sidebar w-full md:w-1/3 border-l bg-white flex flex-col hidden">
+                <div class="p-3 bg-gray-50 border-b font-bold text-gray-700 flex justify-between items-center">
+                    <span><i class="fas fa-inbox ml-2"></i>דואר נכנס</span>
+                    <span class="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded-full" id="clientCount">0</span>
+                </div>
+                <div id="clientsList" class="flex-1 overflow-y-auto"><div class="text-center p-4 text-gray-500 mt-4"><i class="fas fa-circle-notch fa-spin"></i> טוען נתונים...</div></div>
+            </aside>
+            <main class="flex-1 flex flex-col bg-[#e5ddd5] relative w-full">
+                <div id="chatContextBar" class="bg-white p-2 border-b text-sm text-gray-600 flex justify-between items-center shadow-sm z-10">
+                    <div class="flex items-center gap-2"><span id="currentChatName" class="font-bold">ברוכים הבאים</span><span id="chatDeptBadge" class="hidden text-[10px] px-2 py-0.5 rounded-full bg-gray-200">כללי</span></div><span class="text-xs text-gray-400" id="currentChatId">--</span>
+                </div>
+                <div id="chatContainer" class="flex-1 overflow-y-auto p-4 chat-bg flex flex-col gap-2"></div>
+                <footer class="bg-[#f0f2f5] p-2 flex items-center gap-2 border-t z-20">
+                    <button onclick="window.app.toggleBotMenu()" class="p-2 text-[#008069] bg-green-100 rounded-full hover:bg-green-200 transition relative"><i class="fas fa-robot text-lg"></i></button>
+                    <button onclick="document.getElementById('realFileInput').click()" class="p-3 text-gray-500 hover:text-gray-700"><i class="fas fa-paperclip text-xl"></i></button>
+                    <input type="text" id="msgInput" class="flex-1 bg-white rounded-lg px-4 py-3 border-none focus:ring-0 outline-none dir-rtl shadow-sm" placeholder="הקלד הודעה..." onkeypress="if(event.key==='Enter') window.app.sendText()">
+                    <button id="btnRecord" onclick="window.voiceManager.toggleRecording()" class="p-3 text-gray-500 hover:text-red-500 rounded-full transition relative"><i class="fas fa-microphone text-xl"></i></button>
+                    <button id="btnLocation" onclick="window.app.sendLocation()" class="p-3 text-blue-500 hover:text-blue-700 rounded-full transition"><i class="fas fa-map-marker-alt text-xl"></i></button>
+                    <button onclick="window.app.sendText()" class="p-3 bg-[#008069] text-white rounded-full shadow-lg hover:bg-[#006d59] active:scale-95 transition"><i class="fas fa-paper-plane"></i></button>
+                </footer>
+                <div id="botMenu" class="absolute bottom-16 right-4 bg-white rounded-xl shadow-2xl p-3 w-64 border border-gray-200 hidden z-50 animate-slide-up">
+                    <div class="flex justify-between items-center mb-2 border-b pb-1"><span class="font-bold text-sm text-[#008069]">שאלות נפוצות</span><button onclick="window.app.toggleBotMenu()" class="text-gray-400"><i class="fas fa-times"></i></button></div>
+                    <div id="botQuestionsList" class="flex flex-col gap-2 max-h-60 overflow-y-auto"></div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Hidden Utils -->
+    <form id="uploadForm" method="post" enctype="multipart/form-data" target="uploadTarget" class="hidden">
+        <input type="text" name="uploader" id="formUploader"><input type="text" name="uid" id="formUid">
+    </form>
+    <iframe id="uploadTarget" name="uploadTarget"></iframe>
+    <input type="file" id="realFileInput" class="hidden" onchange="window.uploadManager.handleFileSelect(this)">
+
+    <!-- iOS Instructions -->
+    <div id="iosInstallModal" class="fixed inset-0 bg-black/90 z-[100] hidden flex flex-col items-center justify-center p-6 text-center text-white backdrop-blur-sm">
+        <div class="bg-white text-black p-6 rounded-xl w-full max-w-sm animate-bounce-in">
+            <div class="flex justify-between items-center mb-4"><h3 class="font-bold text-lg">התקנה באייפון</h3><button onclick="document.getElementById('iosInstallModal').classList.add('hidden')" class="text-gray-500"><i class="fas fa-times"></i></button></div>
+            <div class="space-y-4 text-sm"><p>1. לחץ על כפתור ה-<strong>שיתוף</strong> <i class="fas fa-share-square text-blue-500"></i> בתחתית הדפדפן.</p><p>2. גלול למטה ובחר <strong>"הוסף למסך הבית"</strong>.</p><p>3. לחץ על <strong>"הוסף"</strong>.</p></div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="previewModal" class="fixed inset-0 bg-black/80 z-50 hidden flex items-center justify-center p-4"><div class="bg-white rounded-lg w-full max-w-sm p-4 flex flex-col items-center"><h3 class="font-bold mb-3 w-full border-b pb-2">אישור שליחה</h3><div id="previewContent" class="w-full h-48 bg-gray-100 rounded mb-4 flex items-center justify-center overflow-hidden border"></div><div class="flex gap-3 w-full"><button onclick="window.uploadManager.cancel()" class="flex-1 border border-gray-300 py-2 rounded text-gray-700">ביטול</button><button onclick="window.uploadManager.confirmUpload()" class="flex-1 bg-[#008069] text-white py-2 rounded font-bold shadow">שלח</button></div></div></div>
+    <div id="modalAdmin" class="fixed inset-0 bg-black/90 z-50 hidden overflow-y-auto">
+        <div class="min-h-screen px-4 py-8 text-center"><div class="inline-block w-full max-w-5xl p-6 text-right align-middle bg-gray-100 rounded-2xl shadow-xl h-[80vh] flex flex-col"><div class="flex justify-between items-center mb-4"><h2 class="text-2xl font-bold text-gray-800">ניהול מערכת</h2><button onclick="window.app.closeModal('modalAdmin')" class="text-gray-500"><i class="fas fa-times text-2xl"></i></button></div><div class="flex gap-4 border-b mb-4 text-sm font-bold"><button class="tab-btn active px-4 py-2" onclick="window.app.switchTab('clients')">לקוחות</button><button class="tab-btn px-4 py-2" onclick="window.app.switchTab('depts')">מחלקות ובוט</button><button class="tab-btn px-4 py-2" onclick="window.app.switchTab('staff')">צוות</button></div><div id="tab-depts" class="tab-content hidden grid md:grid-cols-3 gap-6 flex-1 overflow-hidden"><div class="md:col-span-1 bg-white p-6 rounded-xl shadow-sm flex flex-col h-full"><h3 class="font-bold text-lg mb-4 border-b pb-2">הגדרת מחלקה</h3><div class="space-y-3 flex-1 overflow-y-auto"><input type="hidden" id="editDeptId"><input type="text" id="newDeptName" class="w-full p-2 border rounded" placeholder="שם"><input type="text" id="newDeptImg" class="w-full p-2 border rounded" placeholder="תמונה URL"><input type="text" id="newDeptDesc" class="w-full p-2 border rounded" placeholder="תיאור"><hr class="my-4"><h4 class="font-bold text-sm text-[#008069]">בוט שאלות</h4><div id="botQAList" class="space-y-2 mb-2"></div><button onclick="window.app.addQAField()" class="text-xs text-blue-600 underline">+ שאלה</button></div><div class="mt-4 flex gap-2"><button onclick="window.app.saveDepartment()" class="flex-1 bg-[#008069] text-white font-bold py-2 rounded">שמור</button><button onclick="window.app.resetDeptForm()" class="px-4 py-2 bg-gray-200 rounded">נקה</button></div></div><div class="md:col-span-2 overflow-y-auto bg-white p-4 rounded-xl shadow-sm"><div id="deptsList" class="grid grid-cols-1 md:grid-cols-2 gap-3 content-start"></div></div></div><div id="tab-staff" class="tab-content hidden grid md:grid-cols-3 gap-6 flex-1 overflow-hidden"><div class="md:col-span-1 bg-white p-6 rounded-xl shadow-sm flex flex-col h-full"><h3 class="font-bold text-lg mb-4 border-b pb-2">הוספת עובד</h3><div class="space-y-3 flex-1 overflow-y-auto"><input type="text" id="staffName" class="w-full p-2 border rounded" placeholder="שם מלא"><input type="tel" id="staffPhone" class="w-full p-2 border rounded" placeholder="טלפון"><select id="staffRole" class="w-full p-2 border rounded"><option value="staff">עובד</option><option value="admin">מנהל</option></select><label class="block text-xs font-bold text-gray-500 mt-2">מחלקות האזנה:</label><div id="staffDeptCheckboxes" class="space-y-1 h-32 overflow-y-auto border p-2 rounded bg-gray-50"></div></div><button onclick="window.app.createStaff()" class="w-full bg-[#008069] text-white font-bold py-3 rounded-lg mt-4">צור עובד</button></div><div class="md:col-span-2 overflow-y-auto bg-white p-4 rounded-xl shadow-sm"><h3 class="font-bold text-lg mb-4">רשימת עובדים</h3><div id="staffList" class="space-y-2"></div></div></div><div id="tab-clients" class="tab-content grid md:grid-cols-3 gap-6 flex-1 overflow-hidden"><div class="md:col-span-2 bg-white p-4 rounded-xl shadow-sm flex flex-col h-full"><h3 class="font-bold text-lg mb-4 border-b pb-2 flex justify-between items-center">רשימת לקוחות<button onclick="document.getElementById('inviteFormContainer').classList.toggle('hidden')" class="text-xs bg-[#008069] text-white px-2 py-1 rounded"><i class="fas fa-plus"></i> חדש</button></h3><div id="inviteFormContainer" class="hidden mb-4 bg-gray-50 p-3 rounded border border-gray-200"><div class="flex gap-2"><input type="text" id="inviteClientName" class="flex-1 p-2 text-sm border rounded" placeholder="שם הלקוח"><input type="tel" id="inviteClientPhone" class="flex-1 p-2 text-sm border rounded" placeholder="טלפון"><button onclick="window.app.createClientInvite()" class="bg-green-600 text-white px-3 rounded text-sm font-bold shadow">שלח הזמנה</button></div></div><div class="flex-1 overflow-y-auto"><table class="w-full text-right border-collapse admin-table"><thead class="sticky top-0 bg-white z-10 shadow-sm"><tr><th>שם</th><th>טלפון</th><th>פעולות</th></tr></thead><tbody id="adminClientsTableBody"></tbody></table></div></div><div class="md:col-span-1 bg-white p-6 rounded-xl shadow-sm flex flex-col h-full border-r-4 border-[#008069]"><h3 class="font-bold text-lg mb-4 text-[#008069] border-b pb-2">פעולות</h3><div id="selectedClientActions" class="hidden flex-col gap-4 h-full"><div class="bg-gray-50 p-3 rounded text-sm"><span class="font-bold block text-gray-500 text-xs">לקוח נבחר:</span><span id="selectedClientNameDisplay" class="text-lg font-bold">---</span></div><div><label class="text-xs font-bold text-gray-500 mb-1 block">ניתוב ומידע:</label><select id="adminDeptSelector" onchange="window.app.onDeptSelect(this.value)" class="w-full p-2 border rounded mb-2"><option value="">בחר מחלקה...</option></select><div id="adminDeptFAQs" class="h-32 overflow-y-auto border p-2 rounded bg-gray-50 text-xs space-y-1 mb-2"></div><button id="btnSendReferral" onclick="window.app.sendReferralToDept()" class="w-full bg-blue-600 text-white py-2 rounded text-sm font-bold shadow opacity-50 cursor-not-allowed" disabled>שלח פנייה</button></div></div><div id="noClientSelectedMsg" class="flex-1 flex items-center justify-center text-gray-400 text-sm text-center">בחר לקוח מהטבלה<br>כדי לצפות באפשרויות</div></div></div></div></div>
+    </div>
+    
+    <div id="modalClientProfile" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4"><div class="bg-white rounded-xl w-full max-w-sm p-6 shadow-2xl"><h3 class="font-bold text-xl mb-4 text-[#008069]">כרטיס לקוח</h3><input type="hidden" id="editClientId"><div class="space-y-4"><div><label class="text-xs text-gray-500 block">שם</label><input type="text" id="clientName" class="w-full border-b-2 p-2"></div><div><label class="text-xs text-gray-500 block">פרויקט</label><input type="text" id="clientProject" class="w-full border-b-2 p-2"></div><div><label class="text-xs text-gray-500 block">מספר</label><input type="text" id="clientNumber" class="w-full border-b-2 p-2"></div></div><div class="flex flex-col gap-2 mt-6"><button onclick="window.app.saveClientProfile()" class="w-full bg-[#008069] text-white py-2 rounded-lg font-bold">שמור שינויים</button><button onclick="window.app.sendClientLink()" class="w-full bg-green-500 text-white py-2 rounded-lg font-bold">שלח לינק</button><button onclick="window.app.closeModal('modalClientProfile')" class="w-full bg-gray-200 text-gray-700 py-2 rounded-lg">ביטול</button></div></div></div>
+    <div id="modalEditStaff" class="fixed inset-0 bg-black/50 z-[60] hidden flex items-center justify-center p-4"><div class="bg-white rounded-xl w-full max-w-sm p-6 shadow-2xl"><h3 class="font-bold text-xl mb-4 text-blue-600">כרטיס עובד</h3><input type="hidden" id="editStaffId"><div class="space-y-3"><input type="text" id="editStaffName" class="w-full p-2 border rounded"><input type="tel" id="editStaffPhone" class="w-full p-2 border rounded"><select id="editStaffRole" class="w-full p-2 border rounded"><option value="staff">עובד</option><option value="admin">מנהל</option></select><label class="block text-xs font-bold text-gray-500">מחלקות:</label><div id="editStaffDepts" class="space-y-1 h-32 overflow-y-auto border p-2 rounded bg-gray-50"></div></div><div class="flex flex-col gap-2 mt-4"><button onclick="window.app.saveStaff()" class="w-full bg-blue-600 text-white py-2 rounded-lg font-bold">שמור</button><button onclick="window.app.sendStaffLink()" class="w-full bg-green-500 text-white py-2 rounded-lg font-bold">שלח לינק</button><button onclick="window.app.closeModal('modalEditStaff')" class="w-full bg-gray-200 text-gray-700 py-2 rounded-lg">ביטול</button></div></div></div>
+    <div id="actionModal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-end md:items-center justify-center p-4"><div class="bg-white rounded-t-xl md:rounded-xl w-full max-w-sm p-5 animate-slide-up shadow-2xl"><h3 class="font-bold text-lg mb-2 text-gray-800 border-b pb-2">ניתוב פנייה</h3><div id="transferDeptList" class="grid grid-cols-2 gap-2 mb-4 max-h-40 overflow-y-auto"></div><textarea id="transferNote" class="w-full border p-2 rounded-lg text-sm mb-3 h-20 bg-gray-50" placeholder="הערה..."></textarea><button onclick="window.app.closeModal('actionModal')" class="w-full p-3 text-gray-500 font-bold bg-gray-100 rounded-lg">ביטול</button></div></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, where, updateDoc, doc, getDocs, setDoc, deleteDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const CONFIG = {
+            SCRIPT_URL: "https://script.google.com/macros/s/AKfycbwOnGHhW28f4-Xv-wttnCQHlCGD2E5_f52Tw7RGeaVawPQ14_pgmwnBIdUnlI6APbQarQ/exec", 
+            FIREBASE: { apiKey: "AIzaSyDq0oVwS6zbEfsgrYBRkeBq80dDUKMedzo", projectId: "saban94-78949", appId: "1:41553157903:web:cc33d252cff023be97a87a" }
+        };
+
+        const fbApp = initializeApp(CONFIG.FIREBASE);
+        const db = getFirestore(fbApp);
+        let user = JSON.parse(localStorage.getItem('saban_user_v2')) || null;
+
+        const state = { activeChatId: null, activeChatDeptId: null, selectedMsgId: null, departments: [], isChatInitialLoad: true, deferredPrompt: null, selectedAdminClientId: null };
+
+        // --- Service Worker Register ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./service-worker.js');
+            });
+        }
+
+        // --- Classes ---
+        class VoiceManager {
+            constructor() { this.mediaRecorder = null; this.audioChunks = []; this.isRecording = false; }
+            async toggleRecording() { if (this.isRecording) this.stopRecording(); else await this.startRecording(); }
+            async startRecording() {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    this.mediaRecorder = new MediaRecorder(stream);
+                    this.audioChunks = [];
+                    this.mediaRecorder.ondataavailable = e => this.audioChunks.push(e.data);
+                    this.mediaRecorder.onstop = () => {
+                        const audioBlob = new Blob(this.audioChunks, { type: 'audio/mp3' });
+                        const file = new File([audioBlob], "voice_" + Date.now() + ".mp3", { type: "audio/mp3" });
+                        window.uploadManager.handleFileSelect({ files: [file] }); 
+                    };
+                    this.mediaRecorder.start(); this.isRecording = true;
+                    const btn = document.getElementById('btnRecord'); btn.classList.add('recording-pulse'); btn.innerHTML = '<i class="fas fa-stop text-xl"></i>';
+                } catch(e) { alert("נדרש אישור מיקרופון"); }
+            }
+            stopRecording() { if(this.mediaRecorder) { this.mediaRecorder.stop(); this.isRecording = false; const btn = document.getElementById('btnRecord'); btn.classList.remove('recording-pulse'); btn.innerHTML = '<i class="fas fa-microphone text-xl"></i>'; } }
+        }
+
+        class UploadManager {
+            constructor() { this.setupListener(); }
+            setupListener() { window.addEventListener('message', e => { if(e.data?.status === 'success') this.onUploadSuccess(e.data); }); }
+            handleFileSelect(input) { const files = input.files || input; if(files?.[0]) { this.selectedFile = files[0]; this.showPreview(this.selectedFile); }}
+            showPreview(file) {
+                const content = document.getElementById('previewContent');
+                content.innerHTML = file.type.startsWith('image/') ? `<img src="${URL.createObjectURL(file)}" class="max-w-full max-h-full object-contain">` : (file.type.startsWith('audio/') ? '<i class="fas fa-microphone text-6xl text-red-500"></i>' : '<i class="fas fa-file-alt text-6xl"></i>');
+                document.getElementById('previewModal').classList.remove('hidden');
+            }
+            cancel() { document.getElementById('previewModal').classList.add('hidden'); }
+            confirmUpload() {
+                document.getElementById('previewModal').classList.add('hidden');
+                const form = document.getElementById('uploadForm'); form.action = CONFIG.SCRIPT_URL;
+                document.getElementById('formUploader').value = user.name; document.getElementById('formUid').value = user.uid;
+                const fileInput = document.getElementById('realFileInput');
+                const dt = new DataTransfer(); dt.items.add(this.selectedFile); fileInput.files = dt.files;
+                form.appendChild(fileInput); form.submit();
+                const newInput = document.createElement('input'); newInput.type = 'file'; newInput.id = 'realFileInput'; newInput.className = 'hidden'; newInput.onchange = (e) => this.handleFileSelect(e.target); document.body.appendChild(newInput);
+            }
+            onUploadSuccess(data) { window.app.sendMessage({ type: 'file', fileUrl: data.fileUrl, fileName: data.fileName, mimeType: data.mimeType, downloadUrl: data.downloadUrl }); }
+        }
+
+        window.app = {
+            init: async () => {
+                window.voiceManager = new VoiceManager();
+                window.uploadManager = new UploadManager();
+                
+                // --- INSTALLATION CHECK ---
+                if (window.deferredInstallPrompt) {
+                     const loginBtn = document.getElementById('loginInstallBtnContainer');
+                     if(loginBtn) loginBtn.classList.remove('hidden');
+                }
+
+                // --- Auto Install Prompt for iOS ---
+                const isIos = () => { return /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase()); }
+                if (isIos() && !window.matchMedia('(display-mode: standalone)').matches && !localStorage.getItem('saban_ios_dismissed')) {
+                    document.getElementById('iosInstallModal').classList.remove('hidden');
+                }
+
+                const urlParams = new URLSearchParams(window.location.search);
+                const inviteRole = urlParams.get('invite');
+                
+                if (inviteRole && !user) {
+                    // Allow user to register (don't show login form, just fields)
+                    document.getElementById('loginScreen').classList.remove('hidden');
+                    if(inviteRole === 'staff') window.app.toggleLoginTab('staff');
+                    return;
+                }
+
+                if (user) {
+                    window.app.showApp();
+                } else {
+                    document.getElementById('loginScreen').classList.remove('hidden');
+                }
+            },
+
+            toggleLoginTab: (type) => {
+                if(type === 'client') {
+                    document.getElementById('formClient').classList.remove('hidden'); document.getElementById('formStaff').classList.add('hidden');
+                    document.getElementById('tabClient').classList.add('border-[#008069]', 'text-[#008069]'); document.getElementById('tabStaff').classList.remove('border-[#008069]', 'text-[#008069]');
+                } else {
+                    document.getElementById('formStaff').classList.remove('hidden'); document.getElementById('formClient').classList.add('hidden');
+                    document.getElementById('tabStaff').classList.add('border-[#008069]', 'text-[#008069]'); document.getElementById('tabClient').classList.remove('border-[#008069]', 'text-[#008069]');
+                }
+            },
+
+            login: async (type) => {
+                if (type === 'customer') {
+                    const name = document.getElementById('loginName').value;
+                    const phone = document.getElementById('loginPhone').value;
+                    if(!name || !phone) return;
+
+                    // --- FIXED: CHECK EXISTING USER BY PHONE ---
+                    const usersRef = collection(db, "users");
+                    const q = query(usersRef, where("phone", "==", phone));
+                    const querySnapshot = await getDocs(q);
+
+                    if (!querySnapshot.empty) {
+                        // Found existing user - Restore identity
+                        user = querySnapshot.docs[0].data();
+                        console.log("Identity restored:", user);
+                    } else {
+                        // New user - Create
+                        const urlParams = new URLSearchParams(window.location.search);
+                        const uid = urlParams.get('id') || 'client_' + Date.now();
+                        user = { name, phone, uid, role: 'customer', myDepts: [] };
+                        await setDoc(doc(db, "users", uid), user);
+                    }
+                } else {
+                    const code = document.getElementById('loginCode').value;
+                    if(code !== '1234') return alert('קוד שגוי');
+                    const uid = 'staff_' + Date.now(); // Admin usually fixed or managed differently
+                    user = { name: 'איש צוות', uid, role: 'admin', myDepts: [] };
+                }
+                
+                localStorage.setItem('saban_user_v2', JSON.stringify(user));
+                window.app.showApp();
+            },
+
+            showApp: async () => {
+                document.getElementById('loginScreen').classList.add('hidden');
+                document.getElementById('app').classList.remove('hidden');
+                
+                if (window.deferredInstallPrompt) document.getElementById('headerInstallBtn').classList.remove('hidden');
+
+                window.OneSignalDeferred.push(function(OneSignal) { if (user.uid) OneSignal.login(user.uid); });
+                await window.app.fetchDepartments();
+
+                if (user.role === 'admin' || user.role === 'staff') {
+                    document.getElementById('sidebar').classList.remove('hidden');
+                    document.getElementById('adminBtn').classList.remove('hidden');
+                    window.app.loadClientsList();
+                    if(window.innerWidth < 768) document.getElementById('sidebar').classList.remove('closed');
+                } else {
+                    state.activeChatId = user.uid;
+                    document.getElementById('currentChatId').innerText = "#" + user.uid.substr(-4);
+                    document.getElementById('currentChatName').innerText = "שירות לקוחות";
+                    window.app.loadChat(user.uid);
+                    if (window.deferredInstallPrompt) document.getElementById('headerInstallBtn').classList.remove('hidden');
+                }
+            },
+            
+            // --- WAZE ---
+            sendLocation: () => {
+                if (!navigator.geolocation) return alert("דרוש אישור מיקום");
+                const btn = document.getElementById('btnLocation');
+                const original = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i>';
+                navigator.geolocation.getCurrentPosition(p => {
+                   const {latitude, longitude} = p.coords;
+                   const wazeUrl = `https://waze.com/ul?ll=${latitude},${longitude}&navigate=yes`;
+                   const card = `<a href="${wazeUrl}" target="_blank" class="waze-card"><i class="fab fa-waze waze-icon"></i><div><div>מיקום לקוח</div><div class="text-xs font-normal">לחץ לניווט</div></div></a>`;
+                   window.app.sendMessage({type:'text', text:card});
+                   btn.innerHTML = original;
+                }, e => { alert("שגיאה: " + e.message); btn.innerHTML = original; }, {enableHighAccuracy:true});
+            },
+
+            // --- ORDER SYSTEM ---
+            openOrderModal: () => {
+                window.app.openModal('modalNewOrder');
+            },
+            
+            submitOrder: async () => {
+                const content = document.getElementById('orderContent').value;
+                const priority = document.getElementById('orderPriority').value;
+                
+                if (!content.trim()) return alert("יש למלא את תוכן ההזמנה");
+                
+                window.app.closeModal('modalNewOrder');
+                
+                const steps = ['נקלט', 'בטיפול', 'נשלח', 'סופק'];
+                
+                await addDoc(collection(db, "messages"), {
+                    type: 'order',
+                    items: content,
+                    priority: priority,
+                    currentStatus: 0,
+                    steps: steps,
+                    sender: user.name,
+                    uid: user.uid,
+                    role: user.role,
+                    chatId: state.activeChatId,
+                    timestamp: serverTimestamp()
+                });
+                
+                document.getElementById('orderContent').value = '';
+            },
+            
+            updateOrderStatus: async (docId, newIndex) => {
+                if (user.role !== 'admin' && user.role !== 'staff') return;
+                const msgRef = doc(db, "messages", docId);
+                await updateDoc(msgRef, { currentStatus: newIndex });
+                
+                // Optionally notify client
+                // await addDoc(...) 
+            },
+
+            refresh: () => location.reload(),
+            logout: () => { window.OneSignalDeferred.push(function(OneSignal) { OneSignal.logout(); }); localStorage.removeItem('saban_user_v2'); location.reload(); },
+            
+            installPWA: async () => { 
+                if (window.deferredInstallPrompt) { 
+                    window.deferredInstallPrompt.prompt(); 
+                    const { outcome } = await window.deferredInstallPrompt.userChoice; 
+                    if (outcome === 'accepted') { 
+                        document.getElementById('headerInstallBtn').classList.add('hidden');
+                        document.getElementById('loginInstallBtnContainer').classList.add('hidden');
+                    } 
+                    window.deferredInstallPrompt = null; 
+                } 
+            },
+
+            triggerNotification: (msg) => { const audio = document.getElementById('notifSound'); if(audio) { audio.currentTime = 0; audio.play().catch(e => {}); } if ("Notification" in window && Notification.permission === "granted" && document.hidden) new Notification("הודעה חדשה", { body: msg.sender }); },
+            openAdminModal: () => { window.app.renderDeptsList(); window.app.renderStaffDeptsCheckboxes('staffDeptCheckboxes'); window.app.fetchStaffList(); window.app.fetchClientsForManagement(); window.app.openModal('modalAdmin'); },
+            openModal: (id) => document.getElementById(id).classList.remove('hidden'),
+            closeModal: (id) => document.getElementById(id).classList.add('hidden'),
+            switchTab: (tabName) => { document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden')); document.getElementById('tab-' + tabName).classList.remove('hidden'); document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active')); event.target.classList.add('active'); },
+            fetchClientsForManagement: async () => { const q = query(collection(db, "users"), where("role", "==", "customer")); const snapshot = await getDocs(q); const tableBody = document.getElementById('adminClientsTableBody'); tableBody.innerHTML = ''; snapshot.forEach(doc => { const client = doc.data(); window.app.renderClientRow(client, tableBody); }); },
+            renderClientRow: (client, container) => { container.innerHTML += `<tr class="cursor-pointer hover:bg-gray-50" onclick="window.app.selectClientForManage('${client.uid}', '${client.name}')"><td>${client.name}</td><td>${client.phone || '-'}</td><td class="flex gap-2"><button onclick="event.stopPropagation(); window.app.editClientProfile('${client.uid}')" class="text-blue-500 hover:text-blue-700 p-1"><i class="fas fa-edit"></i></button><button onclick="event.stopPropagation(); window.app.deleteUser('${client.uid}')" class="text-red-500 hover:text-red-700 p-1"><i class="fas fa-trash"></i></button></td></tr>`; },
+            selectClientForManage: (uid, name) => { state.selectedAdminClientId = uid; document.getElementById('selectedClientNameDisplay').innerText = name; document.getElementById('noClientSelectedMsg').classList.add('hidden'); document.getElementById('selectedClientActions').classList.remove('hidden'); document.getElementById('selectedClientActions').classList.add('flex'); const select = document.getElementById('adminDeptSelector'); select.innerHTML = '<option value="">בחר מחלקה...</option>'; state.departments.forEach(dept => { select.innerHTML += `<option value="${dept.id}">${dept.name}</option>`; }); },
+            onDeptSelect: (deptId) => { if(!deptId) { document.getElementById('adminDeptFAQs').innerHTML = ''; document.getElementById('btnSendReferral').disabled = true; document.getElementById('btnSendReferral').classList.add('opacity-50'); return; } const dept = state.departments.find(d => d.id === deptId); const container = document.getElementById('adminDeptFAQs'); container.innerHTML = `<div class="font-bold border-b pb-1 mb-1 text-gray-500">שאלות נפוצות ב${dept.name}:</div>`; if (dept.qa && dept.qa.length > 0) { dept.qa.forEach(qa => { container.innerHTML += `<div class="p-1 bg-white border rounded mb-1 cursor-pointer hover:bg-green-50" title="${qa.a}">${qa.q}</div>`; }); } else { container.innerHTML += `<div class="text-gray-400 italic">אין שאלות מוגדרות</div>`; } const btn = document.getElementById('btnSendReferral'); btn.disabled = false; btn.classList.remove('opacity-50', 'cursor-not-allowed'); btn.innerHTML = `<i class="fas fa-share"></i> שלח פנייה למחלקת ${dept.name}`; btn.onclick = () => window.app.sendReferralToDept(dept); },
+            sendReferralToDept: async (dept) => { if(!state.selectedAdminClientId) return; await addDoc(collection(db, "messages"), { text: `👋 שלום, נציג שירות העביר את התיק שלך לטיפול במחלקת *${dept.name}*. נציג המחלקה יצור קשר בהקדם.`, sender: "מערכת ח.סבן", uid: "system", role: "system", chatId: state.selectedAdminClientId, timestamp: serverTimestamp(), type: "system", assignedDeptId: dept.id, assignedDeptName: dept.name, assignedColor: dept.color || 'blue' }); alert(`הפנייה נשלחה למחלקת ${dept.name} בהצלחה!`); },
+            deleteUser: async (uid) => { if(!confirm("למחוק משתמש זה לצמיתות?")) return; await deleteDoc(doc(db, "users", uid)); window.app.fetchClientsForManagement(); },
+            fetchDepartments: async () => { const q = query(collection(db, "departments")); const snapshot = await getDocs(q); state.departments = []; snapshot.forEach(doc => state.departments.push({ id: doc.id, ...doc.data() })); },
+            renderDeptsList: () => { const list = document.getElementById('deptsList'); list.innerHTML = ''; state.departments.forEach(dept => { list.innerHTML += `<div class="dept-card bg-white p-3 rounded-lg border flex items-center gap-3 shadow-sm relative"><div class="dept-actions"><button onclick="window.app.editDepartment('${dept.id}')" class="bg-blue-500 text-white p-1 rounded-full text-[10px] w-6 h-6"><i class="fas fa-edit"></i></button><button onclick="window.app.deleteDepartment('${dept.id}')" class="bg-red-500 text-white p-1 rounded-full text-[10px] w-6 h-6"><i class="fas fa-trash"></i></button></div><div class="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-lg overflow-hidden bg-${dept.color || 'gray'}-500">${dept.img ? `<img src="${dept.img}" class="w-full h-full object-cover">` : dept.name[0]}</div><div class="flex-1"><div class="font-bold text-sm">${dept.name}</div><div class="text-[10px] text-gray-500">${dept.desc || ''} | ${dept.qa?.length||0} תשובות</div></div></div>`; }); },
+            addQAField: (qVal = '', aVal = '') => { const container = document.getElementById('botQAList'); const div = document.createElement('div'); div.className = "flex gap-1 mb-1 items-center qa-pair"; div.innerHTML = `<input type="text" placeholder="שאלה" class="w-1/3 p-1 text-xs border rounded qa-q" value="${qVal}"><input type="text" placeholder="תשובה" class="w-2/3 p-1 text-xs border rounded qa-a" value="${aVal}"><button onclick="this.parentElement.remove()" class="text-red-500 text-xs"><i class="fas fa-times"></i></button>`; container.appendChild(div); },
+            saveDepartment: async () => { const id = document.getElementById('editDeptId').value; const name = document.getElementById('newDeptName').value; if (!name) return alert("חובה שם"); const data = { name, img: document.getElementById('newDeptImg').value, desc: document.getElementById('newDeptDesc').value, qa: Array.from(document.querySelectorAll('.qa-pair')).map(d => ({q: d.querySelector('.qa-q').value, a: d.querySelector('.qa-a').value})).filter(x => x.q && x.a), lastUpdated: serverTimestamp() }; try { if (id) await updateDoc(doc(db, "departments", id), data); else await addDoc(collection(db, "departments"), { ...data, createdAt: serverTimestamp() }); alert("נשמר!"); window.app.resetDeptForm(); await window.app.fetchDepartments(); window.app.renderDeptsList(); } catch(e) { console.error(e); } },
+            editDepartment: (id) => { const dept = state.departments.find(d => d.id === id); if(!dept) return; document.getElementById('editDeptId').value = id; document.getElementById('newDeptName').value = dept.name; document.getElementById('newDeptImg').value = dept.img || ''; document.getElementById('newDeptDesc').value = dept.desc || ''; const qaList = document.getElementById('botQAList'); qaList.innerHTML = ''; if(dept.qa) dept.qa.forEach(qa => window.app.addQAField(qa.q, qa.a)); },
+            deleteDepartment: async (id) => { if(!confirm("למחוק?")) return; await deleteDoc(doc(db, "departments", id)); await window.app.fetchDepartments(); window.app.renderDeptsList(); },
+            resetDeptForm: () => { document.getElementById('editDeptId').value = ''; document.getElementById('newDeptName').value = ''; document.getElementById('newDeptImg').value = ''; document.getElementById('newDeptDesc').value = ''; document.getElementById('botQAList').innerHTML = ''; },
+            renderStaffDeptsCheckboxes: (containerId, selectedDepts = []) => { const container = document.getElementById(containerId); container.innerHTML = ''; state.departments.forEach(dept => { const checked = selectedDepts.includes(dept.id) ? 'checked' : ''; container.innerHTML += `<label class="flex items-center gap-2 p-1 text-sm"><input type="checkbox" value="${dept.id}" class="staff-dept-check" ${checked}> ${dept.name}</label>`; }); },
+            createStaff: async () => { const name = document.getElementById('staffName').value; const role = document.getElementById('staffRole').value; const depts = Array.from(document.querySelectorAll('#staffDeptCheckboxes .staff-dept-check:checked')).map(cb => cb.value); if(!name) return alert("חובה שם"); const newUid = 'staff_' + Date.now(); await setDoc(doc(db, "users", newUid), { name, role, myDepts: depts, phone: document.getElementById('staffPhone').value }); const link = `${window.location.origin}${window.location.pathname}?invite=${role}&id=${newUid}`; window.open(`https://wa.me/?text=היי ${name}, הנה הקישור להתחברות למערכת ח.סבן: ${encodeURIComponent(link)}`, '_blank'); window.app.fetchStaffList(); alert("משתמש נוצר!"); },
+            fetchStaffList: async () => { const q = query(collection(db, "users"), where("role", "in", ["admin", "staff"])); const snapshot = await getDocs(q); const list = document.getElementById('staffList'); list.innerHTML = ''; snapshot.forEach(d => { const u = d.data(); list.innerHTML += `<div class="p-2 border rounded bg-gray-50 flex justify-between items-center cursor-pointer hover:bg-gray-100" onclick="window.app.editStaff('${d.id}')"><div><div class="font-bold">${u.name}</div><div class="text-xs text-gray-500">${u.role} | ${u.myDepts?.length || 0} מחלקות</div></div><i class="fas fa-edit text-gray-400"></i></div>`; }); },
+            editStaff: async (uid) => { const docRef = doc(db, "users", uid); const docSnap = await getDoc(docRef); if (!docSnap.exists()) return; const data = docSnap.data(); document.getElementById('editStaffId').value = uid; document.getElementById('editStaffName').value = data.name; document.getElementById('editStaffPhone').value = data.phone || ''; document.getElementById('editStaffRole').value = data.role; window.app.renderStaffDeptsCheckboxes('editStaffDepts', data.myDepts || []); window.app.openModal('modalEditStaff'); },
+            saveStaff: async () => { const uid = document.getElementById('editStaffId').value; const depts = Array.from(document.querySelectorAll('#editStaffDepts .staff-dept-check:checked')).map(cb => cb.value); const data = { name: document.getElementById('editStaffName').value, phone: document.getElementById('editStaffPhone').value, role: document.getElementById('editStaffRole').value, myDepts: depts }; await setDoc(doc(db, "users", uid), data, { merge: true }); alert("עובד עודכן בהצלחה"); window.app.closeModal('modalEditStaff'); window.app.fetchStaffList(); },
+            sendStaffLink: () => { const uid = document.getElementById('editStaffId').value; const name = document.getElementById('editStaffName').value; const role = document.getElementById('editStaffRole').value; const phone = document.getElementById('editStaffPhone').value; const link = `${window.location.origin}${window.location.pathname}?invite=${role}&id=${uid}`; window.open(`https://wa.me/${phone}?text=היי ${name}, הנה הקישור להתחברות למערכת ח.סבן: ${encodeURIComponent(link)}`, '_blank'); },
+            createClientInvite: async () => { const name = document.getElementById('inviteClientName').value; const phone = document.getElementById('inviteClientPhone').value; if(!name || !phone) return alert("חובה למלא שם וטלפון"); const newUid = 'client_' + Date.now(); await setDoc(doc(db, "users", newUid), { name, phone, role: 'customer', createdAt: serverTimestamp() }); const link = `${window.location.origin}${window.location.pathname}?invite=customer&id=${newUid}`; const msg = `שלום ${name}, הוזמנת להצטרף לאפליקציית ח.סבן! להורדה והתחברות לחץ כאן: ${link}`; window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank'); alert("הזמנה נוצרה ונשלחה!"); window.app.fetchClientsForManagement(); },
+            editClientProfile: async (uid) => { const docRef = doc(db, "users", uid); const docSnap = await getDoc(docRef); const data = docSnap.exists() ? docSnap.data() : { name: 'לקוח' }; document.getElementById('editClientId').value = uid; document.getElementById('clientName').value = data.name || ''; document.getElementById('clientProject').value = data.projectName || ''; document.getElementById('clientNumber').value = data.customerNumber || ''; window.app.openModal('modalClientProfile'); },
+            saveClientProfile: async () => { const uid = document.getElementById('editClientId').value; const data = { name: document.getElementById('clientName').value, projectName: document.getElementById('clientProject').value, customerNumber: document.getElementById('clientNumber').value }; await setDoc(doc(db, "users", uid), data, { merge: true }); alert("פרטי לקוח עודכנו"); window.app.closeModal('modalClientProfile'); window.app.loadClientsList(); if(document.getElementById('tab-clients').classList.contains('hidden') === false) window.app.fetchClientsForManagement(); },
+            sendClientLink: () => { const uid = document.getElementById('editClientId').value; const name = document.getElementById('clientName').value; const link = `${window.location.origin}${window.location.pathname}?invite=customer&id=${uid}`; window.open(`https://wa.me/?text=היי ${name}, להורדת האפליקציה והתחברות לחץ כאן: ${encodeURIComponent(link)}`, '_blank'); },
+            toggleBotMenu: () => { document.getElementById('botMenu').classList.toggle('hidden'); window.app.renderBotQuestions(); },
+            renderBotQuestions: () => { const list = document.getElementById('botQuestionsList'); list.innerHTML = ''; const contextDept = state.departments.find(d => d.id === state.activeChatDeptId) || { qa: [] }; let questions = [...(contextDept.qa || [])]; if (questions.length === 0) questions = [{q: "שעות פעילות?", a: "א-ה: 07:00-17:00"}, {q: "איך מזמינים?", a: "פשוט הקלד..."}]; questions.forEach(qa => { const btn = document.createElement('button'); btn.className = "text-right text-xs p-2 bg-gray-50 hover:bg-gray-100 rounded border border-gray-100 transition"; btn.innerText = qa.q; btn.onclick = () => { window.app.toggleBotMenu(); window.app.sendMessage({ type: 'text', text: qa.q }); setTimeout(() => { addDoc(collection(db, "messages"), { text: qa.a, sender: "SabanBot", uid: "system", role: "system", chatId: state.activeChatId || user.uid, timestamp: serverTimestamp(), type: "system", mimeType: "bot" }); }, 500); }; list.appendChild(btn); }); },
+            checkAutoReply: (text) => { let bestMatch = null; let maxMatchedWords = 0; let matchedDept = null; const userWords = text.trim().split(/\s+/); state.departments.forEach(dept => { if (dept.qa && Array.isArray(dept.qa)) { dept.qa.forEach(qa => { const qWords = qa.q.trim().split(/\s+/); let matches = 0; qWords.forEach(qw => { if (text.includes(qw)) matches++; }); if (matches > 0 && matches >= (qWords.length * 0.5)) { if (matches > maxMatchedWords) { maxMatchedWords = matches; bestMatch = qa.a; matchedDept = dept; } } }); } }); if (bestMatch && matchedDept) { window.app.transferMessage(matchedDept.id, matchedDept.name, matchedDept.color, 'זוהתה שאלה מתאימה אוטומטית'); setTimeout(() => { addDoc(collection(db, "messages"), { text: bestMatch, sender: "SabanBot", uid: "system", role: "system", chatId: state.activeChatId || user.uid, timestamp: serverTimestamp(), type: "admin_note", deptName: matchedDept.name }); }, 500); } },
+            approveProposal: async (msgId, text) => { await window.app.sendMessage({ type: 'text', text: text }); alert("נשלח ללקוח!"); },
+            openActionModal: (msgId) => { state.selectedMsgId = msgId; const container = document.getElementById('transferDeptList'); container.innerHTML = ''; state.departments.forEach(dept => container.innerHTML += `<button onclick="window.app.transferMessage('${dept.id}','${dept.name}','${dept.color}')" class="p-3 border rounded hover:bg-gray-50 font-bold text-xs">${dept.name}</button>`); window.app.openModal('actionModal'); },
+            transferMessage: async (deptId, deptName, color, noteText = null) => { let note = noteText; if (note === null) note = document.getElementById('transferNote').value; if(!state.selectedMsgId && noteText === null) return; if (state.selectedMsgId) await updateDoc(doc(db, "messages", state.selectedMsgId), { status: 'transferred', assignedDeptId: deptId, assignedDeptName: deptName, assignedColor: color, transferNote: note, transferredBy: user.name, transferredAt: serverTimestamp() }); const replyText = `👋 שלום ${document.getElementById('currentChatName').innerText.split(' ')[0]},\nהפנייה שלך הועברה למחלקת *${deptName}* לטיפול מקצועי.\n📝 הערה: "${note || 'טיפול'}"`; await addDoc(collection(db, "messages"), { text: replyText, sender: "מערכת ח.סבן", uid: "system", role: "system", chatId: state.activeChatId, timestamp: serverTimestamp(), type: "system" }); if (noteText === null) { document.getElementById('transferNote').value = ''; window.app.closeModal('actionModal'); } },
+            loadClientsList: () => {
+                const q = query(collection(db, "messages"), orderBy("timestamp", "desc"));
+                onSnapshot(q, async (snapshot) => {
+                    const clientsMap = new Map();
+                    for (const docChange of snapshot.docChanges()) { if (docChange.type === 'added') { const data = docChange.doc.data(); const isRelevant = user.role === 'admin' || (user.myDepts && user.myDepts.includes(data.assignedDeptId)) || !data.assignedDeptId; if (!state.isChatInitialLoad && data.uid !== user.uid && isRelevant && (Date.now() - (data.timestamp?.toMillis() || 0) < 10000)) { window.app.triggerNotification(data); } } }
+                    const uniqueUids = new Set(); snapshot.docs.forEach(doc => { const d = doc.data(); if (d.role !== 'admin' && d.role !== 'system') uniqueUids.add(d.uid); });
+                    const list = document.getElementById('clientsList'); list.innerHTML = '';
+                    const clients = [];
+                    snapshot.docs.forEach(doc => { const d = doc.data(); if(d.role !== 'admin' && d.role !== 'system' && !clients.some(c => c.uid === d.uid)) { const isMyDept = user.role === 'admin' || !d.assignedDeptId || (user.myDepts && user.myDepts.includes(d.assignedDeptId)); if (isMyDept) { clients.push({ uid: d.uid, name: d.sender, lastMsg: d.text || (d.type==='file'?'קובץ':'...'), time: d.timestamp, badge: d.assignedDeptName, deptId: d.assignedDeptId }); } } });
+                    for (const client of clients) {
+                        let extraInfo = ""; try { const uSnap = await getDoc(doc(db, "users", client.uid)); if (uSnap.exists()) { const uData = uSnap.data(); if (uData.projectName) extraInfo += `<div class="text-[10px] text-blue-600 bg-blue-50 px-1 rounded inline-block">${uData.projectName}</div>`; if (uData.customerNumber) extraInfo += `<div class="text-[9px] text-gray-400">#${uData.customerNumber}</div>`; if (uData.name) client.name = uData.name; } } catch(e) {}
+                        const badgeHtml = client.badge ? `<span class="text-[10px] bg-yellow-100 text-yellow-800 px-1 rounded ml-1">${client.badge}</span>` : '';
+                        const div = document.createElement('div'); div.className = `client-item p-4 border-b cursor-pointer relative ${state.activeChatId===client.uid?'bg-green-50':''}`;
+                        div.onclick = (e) => { if (!e.target.closest('.client-actions')) window.app.selectClient(client); };
+                        div.innerHTML = `<div class="flex justify-between"><div><div class="font-bold text-gray-800 flex items-center">${client.name} ${badgeHtml}</div>${extraInfo}<div class="text-xs text-gray-500 truncate w-32">${client.lastMsg}</div></div><div class="text-right"><div class="text-[10px] text-gray-400">${client.time ? new Date(client.time.toDate()).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'}) : ''}</div><button class="client-actions text-gray-400 hover:text-blue-500 mt-2" onclick="window.app.editClientProfile('${client.uid}')"><i class="fas fa-edit"></i></button></div></div>`;
+                        list.appendChild(div);
+                    }
+                    document.getElementById('clientCount').innerText = clients.length;
+                });
+            },
+            selectClient: (c) => { state.activeChatId = c.uid; state.activeChatDeptId = c.deptId; state.isChatInitialLoad = true; document.getElementById('currentChatName').innerText = c.name; if(window.innerWidth<768){document.getElementById('sidebar').classList.add('closed');document.getElementById('backBtn').classList.remove('hidden');} window.app.loadChat(c.uid); },
+            showSidebar: () => { document.getElementById('sidebar').classList.remove('closed'); document.getElementById('backBtn').classList.add('hidden'); },
+            loadChat: (chatId) => {
+                onSnapshot(query(collection(db, "messages"), where("chatId", "==", chatId), orderBy("timestamp", "asc")), (snapshot) => {
+                    const div = document.getElementById('chatContainer');
+                    snapshot.docChanges().forEach(c => { if(c.type==='added' && !state.isChatInitialLoad && c.doc.data().uid !== user.uid) window.app.triggerNotification(c.doc.data()); });
+                    div.innerHTML = '';
+                    snapshot.forEach(doc => {
+                        const d = doc.data(); const isMe = d.uid === user.uid;
+                        if (d.type === 'system') { div.innerHTML += `<div class="msg system ${d.mimeType === 'bot' ? 'bot' : ''}">${d.text.replace(/\n/g, '<br>')}</div>`; return; }
+                        if (d.type === 'admin_note') { if (user.role === 'admin' || user.role === 'staff') { div.innerHTML += `<div class="msg admin-note"><div class="font-bold mb-1"><i class="fas fa-robot"></i> הבוט מצא תשובה במחלקת ${d.deptName}:</div><div class="italic mb-2">"${d.text}"</div><button onclick="window.app.approveProposal('${doc.id}', '${d.text}')" class="bg-green-600 text-white px-3 py-1 rounded text-xs font-bold shadow hover:bg-green-700"><i class="fas fa-check"></i> אשר ושלח ללקוח</button></div>`; } return; }
+                        let content = d.type === 'text' ? d.text : (d.type === 'file' ? (d.mimeType?.includes('image') ? `<img src="${d.fileUrl}" class="max-w-[200px]">` : (d.mimeType?.includes('audio') ? `<audio controls src="${d.fileUrl}"></audio>` : `<a href="${d.downloadUrl}" target="_blank">קובץ</a>`)) : '');
+                        let badge = d.assignedDeptName ? `<div class="text-[10px] bg-gray-100 p-1 rounded mt-1">הועבר ל${d.assignedDeptName}</div>` : '';
+                        div.innerHTML += `<div class="msg ${isMe?'sent':'received'}" onclick="${user.role==='admin'||user.role==='staff'?`window.app.openActionModal('${doc.id}')`:''}"><div class="text-[10px] font-bold text-green-700">${d.sender}</div>${content}${badge}<div class="text-[9px] opacity-50 text-left">${d.timestamp?.toDate().toLocaleTimeString()||''}</div></div>`;
+                    });
+                    div.scrollTop = div.scrollHeight; state.isChatInitialLoad = false;
+                });
+            },
+            sendText: () => { const i = document.getElementById('msgInput'); const txt = i.value.trim(); if(txt) { window.app.sendMessage({type:'text', text:txt}); window.app.checkAutoReply(txt); i.value=''; } },
+            sendMessage: async (data) => { if(state.activeChatId) await addDoc(collection(db, "messages"), {...data, sender:user.name, uid:user.uid, role:user.role, chatId:state.activeChatId, timestamp:serverTimestamp()}); },
+            openModal: (id) => document.getElementById(id).classList.remove('hidden'),
+            closeModal: (id) => document.getElementById(id).classList.add('hidden')
+        };
+
+        window.app.init();
+    </script>
+</body>
+</html>
