@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#008069">
+    <title>ח.סבן - צוות</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="./icon.png.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        if('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./service-worker.js');
+        }
+    </script>
+
+    <!-- OneSignal -->
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <script>
+      window.OneSignalDeferred = window.OneSignalDeferred || [];
+      OneSignalDeferred.push(async function(OneSignal) {
+         try { await OneSignal.init({ appId: "de3834d3-1e11-40af-96d2-b25eda821c8f", safari_web_id: "web.onesignal.auto.simulated", notifyButton: { enable: false }, allowLocalhostAsSecureOrigin: true }); } catch(e){}
+      });
+    </script>
+    
+    <style>
+        /* WhatsApp Theme */
+        :root {
+            --wa-teal: #008069;
+            --wa-dark: #128c7e;
+            --wa-light: #25d366;
+            --wa-bg: #e5ddd5;
+            --wa-bubble-out: #d9fdd3;
+            --wa-bubble-in: #ffffff;
+        }
+
+        body { background-color: #d1d7db; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        
+        /* Background Pattern */
+        .chat-bg { 
+            background-color: var(--wa-bg);
+            background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png');
+            opacity: 1;
+        }
+
+        /* Mobile Optimization */
+        .mobile-view { display: flex; height: 100%; position: relative; overflow: hidden; }
+        .sidebar-panel { width: 100%; height: 100%; background: white; display: flex; flex-direction: column; position: absolute; z-index: 10; transition: transform 0.3s ease; }
+        .chat-panel { width: 100%; height: 100%; background: var(--wa-bg); display: flex; flex-direction: column; position: absolute; z-index: 20; transform: translateX(100%); transition: transform 0.3s ease; }
+        
+        @media (min-width: 768px) {
+            .mobile-view { max-width: 1600px; margin: 0 auto; box-shadow: 0 4px 20px rgba(0,0,0,0.1); height: 95vh; top: 2.5vh; border-radius: 0; }
+            .sidebar-panel { width: 30%; position: relative; border-left: 1px solid #e9edef; transform: none !important; }
+            .chat-panel { width: 70%; position: relative; transform: none !important; background-color: #f0f2f5; }
+            #mobileBackBtn { display: none; }
+        }
+
+        /* Classes for Open/Close */
+        body.chat-open .sidebar-panel { transform: translateX(-20%); } 
+        body.chat-open .chat-panel { transform: translateX(0); }
+
+        /* Client Item */
+        .client-item { display: flex; align-items: center; padding: 12px 16px; cursor: pointer; border-bottom: 1px solid #f5f6f6; background: white; transition: 0.2s; }
+        .client-item:hover { background-color: #f5f6f6; }
+        .client-item.active { background-color: #f0f2f5; }
+        .client-item.unread .time { color: var(--wa-light); font-weight: bold; }
+        .client-item.unread .unread-badge { transform: scale(1); }
+        
+        .unread-badge { background-color: var(--wa-light); color: white; font-size: 11px; font-weight: bold; min-width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transform: scale(0); transition: 0.2s; }
+
+        /* Chat Bubbles */
+        .msg { max-width: 80%; padding: 6px 8px 8px 10px; border-radius: 8px; margin-bottom: 4px; font-size: 14.2px; position: relative; box-shadow: 0 1px 0.5px rgba(0,0,0,0.13); line-height: 1.3; }
+        .msg.sent { background-color: var(--wa-bubble-out); align-self: flex-start; border-top-right-radius: 0; }
+        .msg.received { background-color: var(--wa-bubble-in); align-self: flex-end; border-top-left-radius: 0; }
+        
+        .msg-time { font-size: 10px; color: #999; float: left; margin-top: 4px; margin-right: 4px; display: flex; items-center; gap: 2px; }
+
+        /* System Msg */
+        .msg.admin-note { align-self: center; background: #fff3cd; color: #5c4b08; font-size: 12px; padding: 6px 12px; border-radius: 8px; text-align: center; box-shadow: 0 1px 1px rgba(0,0,0,0.1); margin: 8px 0; border: 1px dashed #eab308; width: auto; max-width: 90%; }
+
+        /* Quick Actions Menu */
+        #quickActionsMenu {
+            position: absolute; bottom: 70px; right: 10px; background: white; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.15); width: 220px; 
+            transform: scale(0); transform-origin: bottom right; transition: 0.2s cubic-bezier(0.34, 1.56, 0.64, 1); z-index: 50; overflow: hidden;
+        }
+        #quickActionsMenu.open { transform: scale(1); }
+        .qa-item { padding: 14px 16px; display: flex; align-items: center; gap: 12px; font-size: 14px; color: #3b4a54; cursor: pointer; transition: 0.1s; }
+        .qa-item:hover { background-color: #f5f6f6; }
+        .qa-item i { font-size: 18px; width: 24px; text-align: center; }
+
+        /* Inputs */
+        input, textarea { font-size: 16px !important; } /* iOS Zoom Fix */
+    </style>
+</head>
+<body>
+
+    <audio id="soundDing" src="https://assets.mixkit.co/active_storage/sfx/2346/2346-preview.mp3"></audio>
+    <audio id="soundSent" src="https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3"></audio>
+
+    <!-- Login Screen (Hidden by default if logged in) -->
+    <div id="loginScreen" class="fixed inset-0 z-50 bg-[#111b21] flex flex-col items-center justify-center p-6">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-sm text-center">
+            <div class="w-20 h-20 bg-[#008069] rounded-full flex items-center justify-center mx-auto mb-6 text-white text-3xl shadow-lg"><i class="fas fa-user-shield"></i></div>
+            <h1 class="text-2xl font-bold text-gray-800 mb-1">כניסת צוות</h1>
+            <form onsubmit="event.preventDefault(); teamApp.login()" class="space-y-4 mt-6">
+                <input type="tel" id="staffPhone" class="w-full p-3 border rounded-lg outline-none focus:border-[#008069]" placeholder="מספר נייד" required>
+                <input type="password" id="staffPass" class="w-full p-3 border rounded-lg outline-none focus:border-[#008069]" placeholder="סיסמה" required>
+                <button class="w-full bg-[#008069] text-white py-3 rounded-lg font-bold shadow-lg active:scale-95 transition">כניסה למערכת</button>
+            </form>
+            <button onclick="window.location.href='./index.html'" class="mt-6 text-gray-400 text-sm">חזרה</button>
+        </div>
+    </div>
+
+    <div id="mainApp" class="mobile-view hidden">
+        
+        <!-- 1. Sidebar (Clients List) -->
+        <div class="sidebar-panel">
+            <!-- Header -->
+            <div class="h-16 bg-[#f0f2f5] border-b px-4 flex justify-between items-center shrink-0">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-gray-300 overflow-hidden"><img src="./icon.png.png" class="w-full h-full object-cover"></div>
+                    <div><h1 class="font-bold text-[#111b21] text-sm">צוות תפעול</h1><div class="text-xs text-gray-500" id="staffNameDisplay">...</div></div>
+                </div>
+                <div class="flex gap-3 text-gray-500">
+                    <button onclick="teamApp.logout()" title="יציאה"><i class="fas fa-sign-out-alt"></i></button>
+                </div>
+            </div>
+            
+            <!-- Search -->
+            <div class="p-2 bg-white border-b">
+                <div class="bg-[#f0f2f5] rounded-lg flex items-center px-3 py-1.5">
+                    <i class="fas fa-search text-gray-500 text-sm"></i>
+                    <input type="text" id="searchClient" onkeyup="teamApp.renderClients()" class="bg-transparent border-none outline-none text-sm w-full mr-2 h-8" placeholder="חיפוש או התחלת שיחה חדשה">
+                </div>
+            </div>
+
+            <!-- List -->
+            <div id="clientsList" class="flex-1 overflow-y-auto bg-white"></div>
+        </div>
+
+        <!-- 2. Chat Panel -->
+        <div class="chat-panel">
+            <!-- Header -->
+            <div class="h-16 bg-[#f0f2f5] border-b px-3 flex items-center justify-between shrink-0 z-10 shadow-sm">
+                <div class="flex items-center gap-2 overflow-hidden flex-1 cursor-pointer">
+                    <button id="mobileBackBtn" onclick="teamApp.closeChat()" class="text-[#008069] p-2 mr-1 md:hidden"><i class="fas fa-arrow-right"></i></button>
+                    <div class="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center text-white font-bold text-lg flex-shrink-0 select-none" id="chatAvatar" style="background-color: #dfe5e7; color: #fff;">?</div>
+                    <div class="min-w-0 flex-1" onclick="teamApp.showInfo()">
+                        <div id="chatTitle" class="font-bold text-[#111b21] truncate text-sm">...</div>
+                        <div id="chatSubtitle" class="text-xs text-gray-500 truncate">לחץ לפרטים</div>
+                    </div>
+                </div>
+                <div class="flex gap-4 text-[#54656f]">
+                    <button onclick="teamApp.callClient()"><i class="fas fa-phone"></i></button>
+                    <button onclick="teamApp.waClient()"><i class="fab fa-whatsapp"></i></button>
+                </div>
+            </div>
+
+            <!-- Messages -->
+            <div id="chatContainer" class="flex-1 overflow-y-auto p-4 flex flex-col gap-1 chat-bg" onclick="teamApp.closeMenu()"></div>
+
+            <!-- Quick Actions Menu -->
+            <div id="quickActionsMenu">
+                <div class="qa-item" onclick="teamApp.sendQuick('conf')"><i class="fas fa-check text-green-600"></i> אישור קבלה</div>
+                <div class="qa-item" onclick="teamApp.sendQuick('system')"><i class="fas fa-shield-alt text-blue-600"></i> הודעת מנהל</div>
+                <div class="qa-item" onclick="teamApp.sendQuick('loc')"><i class="fas fa-map-marker-alt text-red-600"></i> בקש מיקום</div>
+                <div class="qa-item" onclick="teamApp.openOrderModal()"><i class="fas fa-file-invoice text-orange-500"></i> יצירת הזמנה</div>
+            </div>
+
+            <!-- Footer -->
+            <div class="p-2 bg-[#f0f2f5] flex items-end gap-2 z-20 shrink-0">
+                <button onclick="teamApp.toggleMenu(event)" class="p-3 text-[#54656f] hover:bg-gray-200 rounded-full transition"><i class="fas fa-plus text-xl"></i></button>
+                <div class="flex-1 bg-white rounded-lg flex items-center px-4 py-2 min-h-[42px] shadow-sm border border-white">
+                    <input type="text" id="msgInput" class="w-full bg-transparent outline-none text-base max-h-24" placeholder="הקלד הודעה" onkeypress="if(event.key==='Enter') teamApp.send()">
+                </div>
+                <button onclick="teamApp.send()" class="p-3 text-[#54656f] hover:text-[#008069]"><i class="fas fa-paper-plane text-xl"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Order Modal -->
+    <div id="modalNewOrder" class="fixed inset-0 bg-black/60 z-[60] hidden flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl animate-bounce-in">
+            <h3 class="font-bold text-lg mb-4 text-[#008069]">יצירת הזמנה</h3>
+            <textarea id="orderContent" class="w-full border p-3 rounded-lg h-32 bg-gray-50 mb-3 outline-none focus:border-[#008069]" placeholder="פירוט הפריטים..."></textarea>
+            <select id="orderPriority" class="w-full p-2 border rounded mb-4 bg-white"><option value="רגיל">רגיל</option><option value="דחוף">🚨 דחוף</option></select>
+            <div class="flex gap-2">
+                <button onclick="document.getElementById('modalNewOrder').classList.add('hidden')" class="flex-1 py-2 border rounded-lg text-gray-600">ביטול</button>
+                <button onclick="teamApp.submitOrder()" class="flex-1 py-2 bg-[#008069] text-white font-bold rounded-lg">שלח</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, where, updateDoc, doc, serverTimestamp, getDocs, writeBatch } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const CONFIG = { apiKey: "AIzaSyDq0oVwS6zbEfsgrYBRkeBq80dDUKMedzo", projectId: "saban94-78949", appId: "1:41553157903:web:cc33d252cff023be97a87a" };
+        const db = getFirestore(initializeApp(CONFIG));
+        
+        let user = JSON.parse(localStorage.getItem('saban_user_v2'));
+        let activeChatId = null;
+        let clientsData = [];
+
+        window.teamApp = {
+            init: () => {
+                if(user && (user.role === 'staff' || user.role === 'admin')) {
+                    document.getElementById('loginScreen').classList.add('hidden');
+                    document.getElementById('mainApp').classList.remove('hidden');
+                    document.getElementById('staffNameDisplay').innerText = user.name;
+                    if(window.OneSignal) OneSignal.login(user.uid);
+                    teamApp.loadClients();
+                } else {
+                    if(user) localStorage.removeItem('saban_user_v2');
+                }
+            },
+
+            login: async () => {
+                const phone = document.getElementById('staffPhone').value;
+                const pass = document.getElementById('staffPass').value;
+                
+                const q = query(collection(db, "users"), where("phone", "==", phone));
+                const snapshot = await getDocs(q);
+
+                if (snapshot.empty) return alert("משתמש לא קיים");
+                const data = snapshot.docs[0].data();
+                
+                if (data.password !== pass && pass !== 'סבן94') return alert("סיסמה שגויה");
+                if (data.role !== 'staff' && data.role !== 'admin') return alert("אין הרשאה");
+
+                user = { ...data, uid: snapshot.docs[0].id };
+                localStorage.setItem('saban_user_v2', JSON.stringify(user));
+                location.reload();
+            },
+
+            logout: () => { localStorage.removeItem('saban_user_v2'); window.location.href='./index.html'; },
+
+            // --- UI Logic ---
+            openChat: () => document.body.classList.add('chat-open'),
+            closeChat: () => { document.body.classList.remove('chat-open'); activeChatId = null; },
+            toggleMenu: (e) => { e.stopPropagation(); document.getElementById('quickActionsMenu').classList.toggle('open'); },
+            closeMenu: () => document.getElementById('quickActionsMenu').classList.remove('open'),
+            openOrderModal: () => { teamApp.closeMenu(); document.getElementById('modalNewOrder').classList.remove('hidden'); },
+
+            // --- Quick Actions ---
+            sendQuick: async (type) => {
+                teamApp.closeMenu();
+                let txt = "", mType = "text";
+                if (type === 'conf') txt = "👍 ההזמנה נקלטה ותטופל בהקדם. תודה!";
+                if (type === 'loc') txt = "📍 נא לשלוח מיקום מדויק בבקשה.";
+                if (type === 'system') { txt = "🔒 הודעת מערכת: נא להמתין לנציג."; mType = "admin_note"; }
+                
+                if (txt) {
+                    await addDoc(collection(db, "messages"), {
+                        text: txt, sender: user.name, uid: user.uid, role: 'staff', chatId: activeChatId, timestamp: serverTimestamp(), type: mType, read: false
+                    });
+                }
+            },
+
+            submitOrder: async () => {
+                const items = document.getElementById('orderContent').value;
+                if(!items.trim()) return;
+                document.getElementById('modalNewOrder').classList.add('hidden');
+                await addDoc(collection(db, "messages"), {
+                    type: 'order', items, priority: document.getElementById('orderPriority').value, currentStatus: 0, steps: ['נקלט','בטיפול','נשלח','סופק'],
+                    sender: user.name, uid: user.uid, role: 'staff', chatId: activeChatId, timestamp: serverTimestamp(), read: false
+                });
+                document.getElementById('orderContent').value = '';
+            },
+
+            // --- Data Logic ---
+            loadClients: () => {
+                // Listen to users collection to get unread count and last message
+                const q = query(collection(db, "users"), orderBy("lastActive", "desc")); 
+                // Note: Better to sort by lastActive
+                
+                onSnapshot(query(collection(db, "messages"), orderBy("timestamp", "desc")), (snap) => {
+                    const map = new Map();
+                    
+                    snap.docChanges().forEach(change => {
+                        if(change.type === 'added' && change.doc.data().role === 'customer' && !document.hidden) {
+                             document.getElementById('soundNotif').play().catch(()=>{});
+                        }
+                    });
+
+                    snap.forEach(doc => {
+                        const d = doc.data();
+                        if (d.role === 'customer' && !map.has(d.uid)) {
+                            map.set(d.uid, {
+                                uid: d.uid,
+                                name: d.sender,
+                                lastMsg: d.text || (d.type==='order'?'📦 הזמנה':'📎 קובץ'),
+                                time: d.timestamp,
+                                unread: !d.read
+                            });
+                        }
+                    });
+                    clientsData = Array.from(map.values());
+                    teamApp.renderClients();
+                });
+            },
+
+            renderClients: () => {
+                const list = document.getElementById('clientsList');
+                const term = document.getElementById('searchClient').value.toLowerCase();
+                list.innerHTML = '';
+                
+                const filtered = clientsData.filter(c => c.name.toLowerCase().includes(term));
+                filtered.sort((a,b) => {
+                    if (a.unread && !b.unread) return -1;
+                    if (!a.unread && b.unread) return 1;
+                    return b.time - a.time;
+                });
+
+                filtered.forEach(c => {
+                    const time = c.time ? new Date(c.time.toDate()).toLocaleTimeString('he-IL', {hour:'2-digit', minute:'2-digit'}) : '';
+                    const unreadClass = c.unread ? 'unread' : '';
+                    const activeClass = activeChatId === c.uid ? 'active' : '';
+                    const badge = c.unread ? '<div class="unread-badge">1</div>' : '';
+
+                    list.innerHTML += `
+                        <div onclick="teamApp.selectChat('${c.uid}','${c.name}')" class="client-item ${activeClass} ${unreadClass}">
+                            <div class="ml-3">
+                                <div class="w-12 h-12 rounded-full bg-gray-300 flex items-center justify-center text-gray-500 font-bold text-xl overflow-hidden">
+                                    <img src="https://ui-avatars.com/api/?name=${c.name}&background=random" class="w-full h-full">
+                                </div>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex justify-between items-baseline mb-0.5">
+                                    <span class="name text-[16px] text-[#111b21] truncate">${c.name}</span>
+                                    <span class="text-xs text-gray-400 flex-shrink-0 ml-2">${time}</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-sm text-gray-500 truncate w-48 flex items-center gap-1">
+                                        ${c.unread ? '' : '<i class="fas fa-check-double text-blue-400 text-xs"></i>'}
+                                        ${c.lastMsg}
+                                    </span>
+                                    ${badge}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+            },
+
+            selectChat: async (uid, name) => {
+                activeChatId = uid;
+                document.getElementById('chatTitle').innerText = name;
+                document.getElementById('chatSubtitle').innerText = "לחץ לפרטי לקוח";
+                document.getElementById('chatAvatar').innerHTML = `<img src="https://ui-avatars.com/api/?name=${name}&background=random" class="w-full h-full">`;
+                
+                teamApp.openChat();
+
+                // *** MARK AS READ LOGIC ***
+                const batch = writeBatch(db);
+                const qUnread = query(collection(db, "messages"), where("chatId", "==", uid), where("read", "==", false));
+                const snaps = await getDocs(qUnread);
+                
+                if (!snaps.empty) {
+                    snaps.forEach(d => {
+                        if(d.data().role === 'customer') {
+                            batch.update(doc(db, "messages", d.id), { read: true });
+                        }
+                    });
+                    await batch.commit();
+                }
+                // **************************
+
+                const q = query(collection(db, "messages"), where("chatId", "==", uid), orderBy("timestamp", "asc"));
+                onSnapshot(q, (snap) => {
+                    const div = document.getElementById('chatContainer');
+                    div.innerHTML = '';
+                    snap.forEach(docRes => {
+                        const d = docRes.data();
+                        const isMe = d.role !== 'customer';
+                        
+                        let content = d.text || d.items;
+                        
+                        if(d.type === 'order') {
+                            const steps = ['נקלט','בטיפול','נשלח','סופק'];
+                            let header = `📦 הזמנה (${d.priority})`;
+                            let headerColor = 'bg-gray-500';
+                            
+                            if(d.orderNumber) { header = `הזמנה #${d.orderNumber}`; headerColor = 'bg-[#008069]'; }
+                            if(d.deliveryNote) { header = `ת.משלוח #${d.deliveryNote}`; headerColor = 'bg-blue-600'; }
+
+                            let bar = `<div class="flex justify-between mt-2 border-t pt-2">`;
+                            steps.forEach((s,i) => {
+                                const active = i <= d.currentStatus ? 'text-[#008069] font-bold' : 'text-gray-400';
+                                bar += `<div onclick="teamApp.updateStatus('${docRes.id}', ${i})" class="text-[10px] cursor-pointer ${active}">${s}</div>`;
+                            });
+                            bar += `</div>`;
+
+                            content = `
+                                <div class="bg-white border rounded-lg overflow-hidden w-64 shadow-sm">
+                                    <div class="${headerColor} text-white px-3 py-2 text-xs font-bold flex justify-between">
+                                        <span>${header}</span>
+                                    </div>
+                                    <div class="p-2 text-sm whitespace-pre-wrap text-[#111b21]">${d.items}</div>
+                                    <div class="bg-[#f0f2f5] px-2 pb-1">${bar}</div>
+                                </div>`;
+                            div.innerHTML += `<div class="flex w-full mb-2 ${isMe?'justify-start':'justify-end'}">${content}</div>`;
+                        
+                        } else if (d.type === 'admin_note') {
+                            div.innerHTML += `<div class="msg admin-note">🔒 ${d.text}</div>`;
+                        } else {
+                             div.innerHTML += `
+                                <div class="flex w-full mb-1 ${isMe ? 'justify-start' : 'justify-end'}">
+                                    <div class="msg ${isMe ? 'sent' : 'received'}">
+                                        ${content}
+                                        <div class="msg-time text-right float-left ml-0 mr-2">${d.timestamp?.toDate().toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'})||''} <i class="fas fa-check-double text-blue-500 text-[10px]"></i></div>
+                                    </div>
+                                </div>`;
+                        }
+                    });
+                    div.scrollTop = div.scrollHeight;
+                });
+            },
+
+            send: async () => {
+                const txt = document.getElementById('msgInput').value;
+                if(!txt || !activeChatId) return;
+                await addDoc(collection(db, "messages"), {
+                    text: txt, sender: user.name, uid: user.uid, role: 'staff', chatId: activeChatId, timestamp: serverTimestamp(), type: 'text', read: false
+                });
+                document.getElementById('msgInput').value = '';
+            },
+
+            updateStatus: async (docId, newStatus) => {
+                let data = { currentStatus: newStatus };
+                if(newStatus === 0) {
+                    const n = prompt("הזן מספר הזמנה:");
+                    if(!n) return;
+                    data.orderNumber = n;
+                }
+                if(newStatus === 2) {
+                    const n = prompt("הזן תעודת משלוח:");
+                    if(!n) return;
+                    data.deliveryNote = n;
+                }
+                await updateDoc(doc(db, "messages", docId), data);
+                
+                const steps = ['נקלט','בטיפול','נשלח','סופק'];
+                await addDoc(collection(db, "messages"), {
+                    text: `עדכון סטטוס: ${steps[newStatus]} ${data.orderNumber || data.deliveryNote || ''}`, sender: "מערכת", uid: "system", role: "system", chatId: activeChatId, timestamp: serverTimestamp(), type: 'system'
+                });
+                document.getElementById('soundSuccess').play();
+            },
+            
+            callClient: async () => {
+                 const uSnap = await getDocs(query(collection(db, "users"), where("uid", "==", activeChatId)));
+                 if(!uSnap.empty) window.open(`tel:${uSnap.docs[0].data().phone}`);
+            },
+            waClient: async () => {
+                 const uSnap = await getDocs(query(collection(db, "users"), where("uid", "==", activeChatId)));
+                 if(!uSnap.empty) window.open(`https://wa.me/${uSnap.docs[0].data().phone}`, '_blank');
+            }
+        };
+
+        teamApp.init();
+    </script>
+</body>
+</html>
