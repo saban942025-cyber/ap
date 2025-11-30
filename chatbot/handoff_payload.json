@@ -1,0 +1,20 @@
+{
+  "event": "handoff_required",
+  "timestamp": "2025-11-29T14:30:00Z",
+  "user_data": {
+    "uid": "u_555666",
+    "name": "אבי לוי",
+    "phone": "050-1234567",
+    "current_order": "ORD-112233"
+  },
+  "conversation_summary": {
+    "intent": "transport_coordination",
+    "last_user_text": "יש לי בעיה עם המנוף, החוטים של החשמל מפריעים",
+    "bot_confidence": 0.45,
+    "extracted_entities": {
+      "service": "מנוף",
+      "problem": "גישה/חשמל"
+    }
+  },
+  "action_required": "נא ליצור קשר טלפוני עם הלקוח לתיאום הובלה מורכבת."
+}
